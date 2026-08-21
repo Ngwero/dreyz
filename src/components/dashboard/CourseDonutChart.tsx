@@ -9,31 +9,45 @@ interface CourseDonutChartProps {
 
 export function CourseDonutChart({ data, total }: CourseDonutChartProps) {
   return (
-    <div className="relative">
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={65}
-            outerRadius={90}
-            paddingAngle={3}
-            dataKey="value"
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-          Total
-        </p>
-        <p className="text-2xl font-semibold tabular-nums text-foreground">{total}</p>
-        <p className="text-xs text-muted">Units</p>
+    <div className="relative w-full">
+      <div className="relative mx-auto h-[220px] w-full">
+        <ResponsiveContainer width="100%" height={220} minWidth={0}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={65}
+              outerRadius={90}
+              paddingAngle={3}
+              dataKey="value"
+              nameKey="name"
+              isAnimationActive
+              animationBegin={40}
+              animationDuration={480}
+              animationEasing="ease-out"
+            >
+              {data.map((entry) => (
+                <Cell
+                  key={entry.name}
+                  fill={entry.color}
+                  stroke="var(--card)"
+                  strokeWidth={2}
+                />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+            Total
+          </p>
+          <p className="text-2xl font-semibold tabular-nums text-foreground">{total}</p>
+          <p className="text-xs text-muted">Units</p>
+        </div>
       </div>
+
       <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-2">
         {data.map((item) => (
           <div key={item.name} className="flex items-center gap-1.5">

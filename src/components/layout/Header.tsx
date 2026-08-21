@@ -91,7 +91,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const notices = noticesStore.getAll().slice(0, 4);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-card/90 px-3 backdrop-blur-md sm:h-[60px] sm:gap-3 sm:px-5 lg:px-7">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border/70 bg-card/75 px-3 backdrop-blur-xl sm:h-[60px] sm:gap-3 sm:px-5 lg:px-7">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <button
           type="button"

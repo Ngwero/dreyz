@@ -20,7 +20,6 @@ import {
   getEmailOutbox,
   resendLoginEmail,
   resetUserPassword,
-  upsertUser,
   updateAccount,
   updateUserStatus,
 } from "@/lib/auth";
@@ -56,6 +55,9 @@ export default function AccountsPage() {
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [tick, setTick] = useState(0);
+  const [remoteUsers, setRemoteUsers] = useState<PortalUser[] | null>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState("");
   const [open, setOpen] = useState<"create" | "edit" | null>(null);
   const [editing, setEditing] = useState<PortalUser | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm("student"));
@@ -63,7 +65,32 @@ export default function AccountsPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const loadUsers = async () => {
+    setListError("");
+    try {
+      const res = await fetch("/api/accounts/list", { cache: "no-store" });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        users?: PortalUser[];
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.users) {
+        setListError(data.error ?? "Could not load accounts from the server.");
+        setRemoteUsers(null);
+        return;
+      }
+      setRemoteUsers(data.users);
+    } catch {
+      setListError("Network error while loading accounts.");
+      setRemoteUsers(null);
+    } finally {
+      setListLoading(false);
+      setTick((t) => t + 1);
+    }
+  };
+
   useEffect(() => {
+    void loadUsers();
     const onStore = () => setTick((t) => t + 1);
     window.addEventListener("dreyz-store", onStore);
     return () => window.removeEventListener("dreyz-store", onStore);
@@ -71,8 +98,9 @@ export default function AccountsPage() {
 
   const users = useMemo(() => {
     void tick;
-    return getAllUsers().sort((a, b) => a.name.localeCompare(b.name));
-  }, [tick]);
+    const list = remoteUsers ?? getAllUsers();
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  }, [tick, remoteUsers]);
 
   if (user && user.role !== "super_admin" && user.role !== "accountant") {
     return (
@@ -108,7 +136,10 @@ export default function AccountsPage() {
     student: users.filter((u) => u.role === "student").length,
   };
 
-  const bump = () => setTick((t) => t + 1);
+  const bump = () => {
+    setTick((t) => t + 1);
+    void loadUsers();
+  };
 
   const openCreate = (role: UserRole = "student") => {
     setEditing(null);
@@ -164,19 +195,12 @@ export default function AccountsPage() {
         return;
       }
 
-      if (data.user) {
-        upsertUser({
-          ...data.user,
-          password: data.password ?? "dreyz2026",
-          phone: data.user.phone ?? undefined,
-        });
-      }
-
       setNotice(
         `Welcome to Dreyz Interior — confirmation emailed to ${form.email}. Temporary password: ${data.password ?? "—"}`
       );
       setOpen(null);
-      bump();
+      await loadUsers();
+      refresh();
     } catch {
       // Offline / API unreachable — keep local create as fallback
       try {
@@ -285,6 +309,17 @@ export default function AccountsPage() {
         }
         action={
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setListLoading(true);
+                void loadUsers();
+              }}
+              disabled={listLoading}
+            >
+              {listLoading ? "Loading…" : "Refresh"}
+            </Button>
             <Button variant="outline" size="sm" onClick={onExport}>
               Export
             </Button>
@@ -295,6 +330,14 @@ export default function AccountsPage() {
         }
       />
 
+      {listError && (
+        <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
+          {listError} Showing cached accounts if available.
+        </p>
+      )}
+      {listLoading && !remoteUsers && (
+        <p className="mb-4 text-sm text-muted">Loading accounts from the school database…</p>
+      )}
       {isAdmin && (
         <div className="mb-5 flex flex-wrap gap-2">
           {creatableRoles.map((role) => (

@@ -251,12 +251,12 @@ export const enrollments: Enrollment[] = [
 ];
 
 export const courseStats = [
-  { name: "Foundations", value: 18, color: "#082878" },
-  { name: "Design & Décor", value: 14, color: "#1b7eef" },
-  { name: "Materials", value: 16, color: "#b4c436" },
-  { name: "Practice Areas", value: 20, color: "#8c2a2a" },
-  { name: "Technical", value: 18, color: "#ffc319" },
-  { name: "Professional", value: 14, color: "#ef4242" },
+  { name: "Foundations", value: 18, color: "#061a4a" },
+  { name: "Design & Décor", value: 14, color: "#082878" },
+  { name: "Materials", value: 16, color: "#1F429A" },
+  { name: "Practice Areas", value: 20, color: "#1b7eef" },
+  { name: "Technical", value: 18, color: "#d8ff59" },
+  { name: "Professional", value: 14, color: "#ff8c00" },
 ];
 
 export const performanceByLevel = [

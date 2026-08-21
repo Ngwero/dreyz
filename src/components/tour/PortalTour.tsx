@@ -4,7 +4,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { GuidedTour, type TourStep } from "./GuidedTour";
 import type { UserRole } from "@/lib/types";
 
-export const portalTourKey = (role: UserRole) => `dreyz_portal_tour_${role}_v1`;
+/** Per-user key so the tour auto-starts only on that account’s first portal visit. */
+export const portalTourKey = (userId: string) => `dreyz_portal_tour_user_${userId}_v1`;
 
 const shared: TourStep[] = [
   {
@@ -54,16 +55,17 @@ const roleFinale: Record<UserRole, TourStep> = {
   },
 };
 
-export function PortalTour() {
+export function PortalTour({ onStart }: { onStart?: () => void }) {
   const { user, loading } = useAuth();
   if (loading || !user) return null;
 
   return (
     <GuidedTour
-      storageKey={portalTourKey(user.role)}
+      storageKey={portalTourKey(user.id)}
       steps={[...shared, roleFinale[user.role]]}
       variant="portal"
-      startDelay={600}
+      startDelay={700}
+      onStart={onStart}
     />
   );
 }

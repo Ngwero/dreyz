@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,15 +57,20 @@ export function GuidedTour({
   steps,
   startDelay = 800,
   variant = "portal",
+  onStart,
 }: {
   storageKey: string;
   steps: TourStep[];
   startDelay?: number;
   variant?: "landing" | "portal";
+  /** Called when the tour opens (auto first-visit or manual replay). */
+  onStart?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
+  const onStartRef = useRef(onStart);
+  onStartRef.current = onStart;
 
   const step = steps[index];
   const landing = variant === "landing";
@@ -100,8 +105,14 @@ export function GuidedTour({
 
   useEffect(() => {
     const begin = () => {
-      setIndex(0);
-      setOpen(true);
+      onStartRef.current?.();
+      window.setTimeout(
+        () => {
+          setIndex(0);
+          setOpen(true);
+        },
+        onStartRef.current ? 280 : 0
+      );
     };
 
     const onCustom = (e: Event) => {
@@ -111,6 +122,7 @@ export function GuidedTour({
 
     window.addEventListener("dreyz-tour-start", onCustom);
 
+    // Auto-start only for first visit (storage key not marked yet)
     if (hasSeen(storageKey)) {
       return () => window.removeEventListener("dreyz-tour-start", onCustom);
     }

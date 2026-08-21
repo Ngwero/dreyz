@@ -429,10 +429,10 @@ export function Sidebar({
         )}
         <button
           type="button"
-          onClick={() => user && startTour(portalTourKey(user.role))}
+          onClick={() => user && startTour(portalTourKey(user.id))}
           className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground sm:py-2"
         >
-          Quick tour
+          Replay tour
         </button>
         <button
           type="button"

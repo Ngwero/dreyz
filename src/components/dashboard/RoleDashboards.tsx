@@ -1,7 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { Download, ArrowUpRight, BookOpen, MapPin, Wallet, ClipboardCheck } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  Download,
+  ArrowUpRight,
+  BookOpen,
+  MapPin,
+  Wallet,
+  ClipboardCheck,
+  Users,
+  GraduationCap,
+  UserRound,
+  Banknote,
+  CalendarDays,
+  FolderKanban,
+  Bell,
+  Sparkles,
+} from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -33,6 +49,89 @@ import {
   useLiveTick,
 } from "@/lib/store";
 
+function DashHero({
+  eyebrow,
+  title,
+  description,
+  actions,
+}: {
+  eyebrow: string;
+  title: ReactNode;
+  description: string;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="portal-hero portal-fade-up mb-6 p-5 sm:mb-8 sm:p-7">
+      <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 max-w-2xl">
+          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#d8ff59]">
+            <Sparkles size={12} />
+            {eyebrow}
+          </p>
+          <h1 className="mt-3 font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-white sm:text-[1.9rem]">
+            {title}
+          </h1>
+          <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-white/65">
+            {description}
+          </p>
+        </div>
+        {actions && (
+          <div className="flex flex-wrap gap-2 sm:justify-end">{actions}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ListRow({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 rounded-xl bg-surface/80 px-3.5 py-3 transition hover:bg-surface-hover ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CourseMixSection({
+  subtitle = "How the professional programme is structured across units.",
+}: {
+  subtitle?: string;
+}) {
+  return (
+    <section className="mb-6">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+            Programme
+          </p>
+          <h2 className="mt-1 text-base font-semibold tracking-tight text-foreground sm:text-lg">
+            Course mix
+          </h2>
+          <p className="mt-1 max-w-xl text-sm text-muted">{subtitle}</p>
+        </div>
+        <p className="text-xs font-medium text-muted">
+          {programme.courseworkUnits} units · {programme.internshipMonths}-mo internship
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <Card title="Unit breakdown">
+          <CourseDonutChart data={courseStats} total={programme.courseworkUnits} />
+        </Card>
+        <Card title="Performance by level">
+          <PerformanceChart data={performanceByLevel} />
+        </Card>
+      </div>
+    </section>
+  );
+}
+
 function SuperAdminDashboard() {
   const tick = useLiveTick();
   void tick;
@@ -50,82 +149,98 @@ function SuperAdminDashboard() {
 
   return (
     <div>
-      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
-            Administration
-          </p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-foreground">
+      <DashHero
+        eyebrow="Administration"
+        title={
+          <>
             Welcome back to{" "}
-            <span className="text-accent">Dreyz Interior</span>
-          </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted">
-            Full school control — programme, people, payments, and accounts.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/portal/payments">
-            <Button size="sm" variant="outline">
+            <span className="text-[#d8ff59]">Dreyz Interior</span>
+          </>
+        }
+        description="Full school control — programme, people, payments, and accounts in one place."
+        actions={
+          <>
+            <Link
+              href="/portal/payments"
+              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/15"
+            >
               Payments
-            </Button>
-          </Link>
-          <Link href="/portal/accounts">
-            <Button size="sm">Accounts</Button>
-          </Link>
-        </div>
-      </div>
+            </Link>
+            <Link
+              href="/portal/accounts"
+              className="inline-flex items-center justify-center rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+            >
+              Accounts
+            </Link>
+          </>
+        }
+      />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Active Learners"
-          value={formatNumber(learners.filter((l) => l.status === "active").length)}
-          hint="Currently enrolled"
-        />
-        <StatCard
-          label="Instructors"
-          value={String(instructors.length)}
-          hint="Teaching faculty"
-        />
-        <StatCard
-          label="Portal accounts"
-          value={String(users.length)}
-          hint="All roles"
-        />
-        <StatCard
-          label="Confirmed fees"
-          value={formatUGX(revenue)}
-          hint={`${payments.length} payments`}
-        />
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="portal-fade-up portal-delay-1">
+          <StatCard
+            label="Active Learners"
+            value={formatNumber(learners.filter((l) => l.status === "active").length)}
+            hint="Currently enrolled"
+            icon={GraduationCap}
+            tone="accent"
+          />
+        </div>
+        <div className="portal-fade-up portal-delay-2">
+          <StatCard
+            label="Instructors"
+            value={String(instructors.length)}
+            hint="Teaching faculty"
+            icon={Users}
+            tone="lime"
+          />
+        </div>
+        <div className="portal-fade-up portal-delay-3">
+          <StatCard
+            label="Portal accounts"
+            value={String(users.length)}
+            hint="All roles"
+            icon={UserRound}
+          />
+        </div>
+        <div className="portal-fade-up portal-delay-4">
+          <StatCard
+            label="Confirmed fees"
+            value={formatUGX(revenue)}
+            hint={`${payments.length} payments`}
+            icon={Banknote}
+            tone="warm"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="space-y-5 lg:col-span-4">
           <Card title="Accounts by role">
-            <ul className="space-y-2.5">
+            <ul className="space-y-2">
               {(["super_admin", "accountant", "tutor", "student"] as const).map((role) => (
-                <li
-                  key={role}
-                  className="flex items-center justify-between rounded-lg border border-border bg-surface px-3.5 py-3"
-                >
-                  <span className="text-sm font-medium">{ROLE_LABELS[role]}</span>
-                  <span className="text-sm font-bold">
-                    {users.filter((u) => u.role === role).length}
-                  </span>
+                <li key={role}>
+                  <ListRow>
+                    <span className="text-sm font-medium">{ROLE_LABELS[role]}</span>
+                    <span className="rounded-lg bg-card px-2.5 py-1 text-sm font-bold tabular-nums">
+                      {users.filter((u) => u.role === role).length}
+                    </span>
+                  </ListRow>
                 </li>
               ))}
             </ul>
-            <Link href="/portal/accounts" className="mt-3 inline-flex text-sm font-medium text-accent">
+            <Link
+              href="/portal/accounts"
+              className="mt-4 inline-flex items-center text-sm font-semibold text-accent"
+            >
               Manage accounts <ArrowUpRight size={14} className="ml-1" />
             </Link>
           </Card>
 
-          <Card title="Class Schedules">
-            <div className="space-y-2.5">
+          <Card title="Class schedules">
+            <div className="space-y-2">
               {scheduleDownloads.map((item) => (
-                <div
-                  key={item.month}
-                  className="flex items-center justify-between rounded-lg border border-border bg-surface px-3.5 py-3"
-                >
+                <ListRow key={item.month}>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{item.month}</p>
                     <p className="text-xs text-muted">{item.sessions} sessions</p>
@@ -133,42 +248,45 @@ function SuperAdminDashboard() {
                   <Button variant="outline" size="sm">
                     <Download size={13} />
                   </Button>
-                </div>
+                </ListRow>
               ))}
             </div>
           </Card>
 
           <Card title="School">
-            <div className="space-y-2 text-sm text-muted">
-              <p className="flex items-start gap-2">
-                <MapPin size={14} className="mt-0.5 shrink-0" />
+            <div className="space-y-3 text-sm text-muted">
+              <p className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface text-accent">
+                  <MapPin size={14} />
+                </span>
                 {schoolInfo.location}
               </p>
-              <p className="flex items-start gap-2">
-                <BookOpen size={14} className="mt-0.5 shrink-0" />
+              <p className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface text-accent">
+                  <BookOpen size={14} />
+                </span>
                 {programme.courseworkUnits} units · {programme.internshipMonths}-mo internship
+              </p>
+              <p className="rounded-xl bg-[#082878]/5 px-3 py-2 text-xs font-medium text-foreground dark:bg-white/5">
+                Now registering · {schoolInfo.intake} intake
               </p>
             </div>
           </Card>
         </div>
 
         <div className="space-y-5 lg:col-span-8">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Card title="Course mix">
-              <CourseDonutChart data={courseStats} total={programme.courseworkUnits} />
-            </Card>
-            <Card title="Performance">
-              <PerformanceChart data={performanceByLevel} />
-            </Card>
-          </div>
+          <CourseMixSection subtitle="Live snapshot of how coursework units are distributed across the school." />
 
           <Card title="Featured projects">
             <div className="grid gap-3 sm:grid-cols-3">
               {featuredProjects.map((p) => (
-                <div key={p.id} className="rounded-lg border border-border bg-surface p-3">
+                <div
+                  key={p.id}
+                  className="rounded-xl bg-gradient-to-br from-surface to-transparent p-4 ring-1 ring-border/70 transition hover:ring-accent/30"
+                >
                   <p className="text-sm font-semibold text-foreground">{p.title}</p>
                   <p className="mt-1 text-xs text-muted">{p.learnerName}</p>
-                  <Badge variant="success" className="mt-2">
+                  <Badge variant="success" className="mt-3">
                     {p.score}%
                   </Badge>
                 </div>
@@ -176,17 +294,26 @@ function SuperAdminDashboard() {
             </div>
           </Card>
 
-          <Card title="Notices">
-            <ul className="space-y-3">
+          <Card
+            title="Notices"
+            action={
+              <Link href="/portal/notices" className="text-xs font-semibold text-accent">
+                View all
+              </Link>
+            }
+          >
+            <ul className="space-y-2">
               {recentNotices.map((n) => (
-                <li key={n.id} className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{n.title}</p>
-                    <p className="text-xs text-muted">{n.date}</p>
-                  </div>
-                  <Badge variant={n.priority === "high" ? "danger" : "default"}>
-                    {n.priority}
-                  </Badge>
+                <li key={n.id}>
+                  <ListRow>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{n.title}</p>
+                      <p className="text-xs text-muted">{n.date}</p>
+                    </div>
+                    <Badge variant={n.priority === "high" ? "danger" : "default"}>
+                      {n.priority}
+                    </Badge>
+                  </ListRow>
                 </li>
               ))}
             </ul>
@@ -210,50 +337,66 @@ function AccountantDashboard() {
 
   return (
     <div>
-      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
-            Finance
-          </p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-foreground">
-            Fees, payments &amp; enrollments
-          </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted">
-            Confirm payments and student logins are emailed automatically when payment clears.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/portal/accounts">
-            <Button size="sm" variant="outline">Student accounts</Button>
-          </Link>
-          <Link href="/portal/payments">
-            <Button size="sm">
+      <DashHero
+        eyebrow="Finance"
+        title="Fees, payments & enrollments"
+        description="Confirm payments and student logins are emailed automatically when payment clears."
+        actions={
+          <>
+            <Link
+              href="/portal/accounts"
+              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/15"
+            >
+              Student accounts
+            </Link>
+            <Link
+              href="/portal/payments"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+            >
               <Wallet size={14} />
               Record payment
-            </Button>
-          </Link>
-        </div>
-      </div>
+            </Link>
+          </>
+        }
+      />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Confirmed revenue" value={formatUGX(revenue)} hint="Paid fees" />
-        <StatCard label="Pending invoices" value={String(pending)} hint="Awaiting payment" />
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Confirmed revenue"
+          value={formatUGX(revenue)}
+          hint="Paid fees"
+          icon={Banknote}
+          tone="warm"
+        />
+        <StatCard
+          label="Pending invoices"
+          value={String(pending)}
+          hint="Awaiting payment"
+          icon={Bell}
+        />
         <StatCard
           label="Credentials emailed"
           value={String(confirmed.filter((p) => p.credentialsSent).length)}
           hint="Student accounts provisioned"
+          icon={GraduationCap}
+          tone="lime"
         />
-        <StatCard label="Student logins" value={String(users.length)} hint="Portal accounts" />
+        <StatCard
+          label="Student logins"
+          value={String(users.length)}
+          hint="Portal accounts"
+          icon={Users}
+          tone="accent"
+        />
       </div>
+
+      <CourseMixSection subtitle="Programme structure tied to fee tracks and enrollment." />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Fee tracks">
-          <div className="space-y-3">
+          <div className="space-y-2">
             {feeTracks.map((t) => (
-              <div
-                key={t.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface px-3.5 py-3"
-              >
+              <ListRow key={t.id}>
                 <div>
                   <p className="text-sm font-semibold">{t.name}</p>
                   <p className="text-xs text-muted">
@@ -262,7 +405,7 @@ function AccountantDashboard() {
                   </p>
                 </div>
                 <p className="text-sm font-bold text-accent">{formatUGX(t.total)}</p>
-              </div>
+              </ListRow>
             ))}
           </div>
         </Card>
@@ -271,26 +414,28 @@ function AccountantDashboard() {
           {payments.length === 0 ? (
             <p className="text-sm text-muted">
               No payments recorded yet.{" "}
-              <Link href="/portal/payments" className="font-medium text-accent">
+              <Link href="/portal/payments" className="font-semibold text-accent">
                 Record the first payment
               </Link>
             </p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {payments.slice(0, 6).map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
-                  <div>
-                    <p className="font-medium">{p.learnerName}</p>
-                    <p className="text-xs text-muted">
-                      {p.date} · {p.reference}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{formatUGX(p.amount)}</p>
-                    <Badge variant={p.credentialsSent ? "success" : "warning"}>
-                      {p.credentialsSent ? "Login emailed" : "Pending email"}
-                    </Badge>
-                  </div>
+                <li key={p.id}>
+                  <ListRow>
+                    <div>
+                      <p className="text-sm font-medium">{p.learnerName}</p>
+                      <p className="text-xs text-muted">
+                        {p.date} · {p.reference}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">{formatUGX(p.amount)}</p>
+                      <Badge variant={p.credentialsSent ? "success" : "warning"}>
+                        {p.credentialsSent ? "Login emailed" : "Pending email"}
+                      </Badge>
+                    </div>
+                  </ListRow>
                 </li>
               ))}
             </ul>
@@ -313,66 +458,81 @@ function TutorDashboard({ name }: { name: string }) {
 
   return (
     <div>
-      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
-            Teaching
-          </p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-foreground">
-            Hello, {name.split(" ")[0]}
-          </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted">
-            Your classes, attendance, and learner submissions.
-          </p>
-        </div>
-        <Link href="/portal/attendance">
-          <Button size="sm">
+      <DashHero
+        eyebrow="Teaching"
+        title={`Hello, ${name.split(" ")[0]}`}
+        description="Your classes, attendance, and learner submissions — ready for studio time."
+        actions={
+          <Link
+            href="/portal/attendance"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+          >
             <ClipboardCheck size={14} />
             Mark attendance
-          </Button>
-        </Link>
+          </Link>
+        }
+      />
+
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          label="Learners"
+          value={String(learners.length)}
+          hint="Active roster"
+          icon={Users}
+          tone="accent"
+        />
+        <StatCard
+          label="Sessions ahead"
+          value={String(upcoming.length)}
+          hint="This period"
+          icon={CalendarDays}
+          tone="lime"
+        />
+        <StatCard
+          label="Present marks"
+          value={String(present)}
+          hint="Recent attendance"
+          icon={ClipboardCheck}
+        />
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Learners" value={String(learners.length)} hint="Active roster" />
-        <StatCard label="Sessions ahead" value={String(upcoming.length)} hint="This period" />
-        <StatCard label="Present marks" value={String(present)} hint="Recent attendance" />
-      </div>
+      <CourseMixSection subtitle="What learners cover across foundations, studio, and technical units." />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Upcoming sessions">
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {upcoming.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface px-3.5 py-3"
-              >
-                <div>
-                  <p className="text-sm font-semibold">{s.title}</p>
-                  <p className="text-xs text-muted">
-                    {s.date} · {s.time}
-                  </p>
-                </div>
-                <Badge variant="accent">{s.type}</Badge>
+              <li key={s.id}>
+                <ListRow>
+                  <div>
+                    <p className="text-sm font-semibold">{s.title}</p>
+                    <p className="text-xs text-muted">
+                      {s.date} · {s.time}
+                    </p>
+                  </div>
+                  <Badge variant="accent">{s.type}</Badge>
+                </ListRow>
               </li>
             ))}
           </ul>
         </Card>
         <Card title="Assessments due">
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {assessments.slice(0, 4).map((a) => (
-              <li key={a.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium">{a.title}</p>
-                  <p className="text-xs text-muted">{a.course}</p>
-                </div>
-                <span className="text-xs text-muted">{a.submissions} submitted</span>
+              <li key={a.id}>
+                <ListRow>
+                  <div>
+                    <p className="text-sm font-medium">{a.title}</p>
+                    <p className="text-xs text-muted">{a.course}</p>
+                  </div>
+                  <span className="text-xs text-muted">{a.submissions} submitted</span>
+                </ListRow>
               </li>
             ))}
           </ul>
           <Link
             href="/portal/assessments"
-            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent"
+            className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-accent"
           >
             View all <ArrowUpRight size={14} />
           </Link>
@@ -409,72 +569,92 @@ function StudentDashboard({
 
   return (
     <div>
-      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
-            My Learning
-          </p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-foreground">
-            Welcome, {name.split(" ")[0]}
-          </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted">
-            Your progress, schedule, and studio work at {schoolInfo.name}.
-          </p>
-        </div>
-        <Link href="/portal/projects">
-          <Button size="sm">My projects</Button>
-        </Link>
-      </div>
+      <DashHero
+        eyebrow="My Learning"
+        title={`Welcome, ${name.split(" ")[0]}`}
+        description={`Your progress, schedule, and studio work at ${schoolInfo.name}.`}
+        actions={
+          <Link
+            href="/portal/projects"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+          >
+            <FolderKanban size={14} />
+            My projects
+          </Link>
+        }
+      />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Course progress"
           value={`${learner?.progress ?? 0}%`}
           hint={learner?.course ?? "Programme"}
+          icon={GraduationCap}
+          tone="accent"
         />
         <StatCard
           label="Attendance records"
           value={String(myAttendance.length)}
           hint="Your marks"
+          icon={ClipboardCheck}
         />
         <StatCard
           label="Projects"
           value={String(myProjects.length)}
           hint="Submitted / reviewed"
+          icon={FolderKanban}
+          tone="lime"
         />
         <StatCard
           label="Payments"
           value={String(myPayments.length)}
           hint="Linked to your email"
+          icon={Wallet}
+          tone="warm"
         />
       </div>
 
+      <CourseMixSection subtitle="Your programme units — foundations through professional practice." />
+
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Next classes">
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {schedule.slice(0, 3).map((s) => (
-              <li key={s.id} className="rounded-lg border border-border bg-surface px-3.5 py-3">
-                <p className="text-sm font-semibold">{s.title}</p>
-                <p className="text-xs text-muted">
-                  {s.date} · {s.time} · {s.instructor}
-                </p>
+              <li key={s.id}>
+                <ListRow>
+                  <div>
+                    <p className="text-sm font-semibold">{s.title}</p>
+                    <p className="text-xs text-muted">
+                      {s.date} · {s.time} · {s.instructor}
+                    </p>
+                  </div>
+                  <CalendarDays size={16} className="shrink-0 text-muted" />
+                </ListRow>
               </li>
             ))}
           </ul>
-          <Link href="/portal/schedule" className="mt-3 inline-flex text-sm font-medium text-accent">
+          <Link
+            href="/portal/schedule"
+            className="mt-4 inline-flex items-center text-sm font-semibold text-accent"
+          >
             Full schedule <ArrowUpRight size={14} className="ml-1" />
           </Link>
         </Card>
         <Card title="Resources for you">
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {resources.slice(0, 4).map((r) => (
-              <li key={r.id} className="flex items-center justify-between text-sm">
-                <span className="font-medium">{r.title}</span>
-                <Badge>{r.type}</Badge>
+              <li key={r.id}>
+                <ListRow>
+                  <span className="text-sm font-medium">{r.title}</span>
+                  <Badge>{r.type}</Badge>
+                </ListRow>
               </li>
             ))}
           </ul>
-          <Link href="/portal/resources" className="mt-3 inline-flex text-sm font-medium text-accent">
+          <Link
+            href="/portal/resources"
+            className="mt-4 inline-flex items-center text-sm font-semibold text-accent"
+          >
             Browse resources <ArrowUpRight size={14} className="ml-1" />
           </Link>
         </Card>
