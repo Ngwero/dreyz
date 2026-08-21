@@ -1,0 +1,71 @@
+"use client";
+
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  wide,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+        aria-label="Close"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          "relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-xl sm:p-6",
+          wide ? "max-w-2xl" : "max-w-lg"
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted transition hover:bg-surface hover:text-foreground"
+            aria-label="Close dialog"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+      {label}
+      <div className="mt-1.5">{children}</div>
+    </label>
+  );
+}
+
+export const fieldClass =
+  "w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-accent/40 focus:ring-2 focus:ring-accent/15";
