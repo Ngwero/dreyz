@@ -23,6 +23,7 @@ import {
   UserCog,
   Wallet,
   UserRound,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/theme/BrandLogo";
@@ -191,7 +192,13 @@ function navForRole(role: UserRole): NavSection[] {
   ];
 }
 
-export function Sidebar() {
+export function Sidebar({
+  open = false,
+  onClose,
+}: {
+  open?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -219,27 +226,51 @@ export function Sidebar() {
   };
 
   const onLogout = () => {
-    void logout();
-    router.push("/login");
+    void (async () => {
+      await logout();
+      router.replace("/login");
+    })();
   };
 
+  const closeIfMobile = () => onClose?.();
+
   return (
-    <aside
-      data-tour="nav-sidebar"
-      className="fixed left-0 top-0 z-40 flex h-screen w-[260px] flex-col border-r border-border bg-sidebar"
-    >
-      <div className="flex items-center justify-center border-b border-border px-5 py-4">
-        <Link href={P} className="block w-full">
+    <>
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 transition-opacity lg:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={onClose}
+        aria-hidden={!open}
+      />
+      <aside
+        data-tour="nav-sidebar"
+        className={cn(
+          "fixed left-0 top-0 z-50 flex h-[100dvh] w-[min(280px,88vw)] flex-col border-r border-border bg-sidebar transition-transform duration-300 ease-out lg:w-[260px] lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
+        <Link href={P} className="block min-w-0 flex-1" onClick={closeIfMobile}>
           <BrandLogo
-            width={180}
-            height={170}
-            className="mx-auto h-auto w-full max-w-[132px]"
+            width={220}
+            height={208}
+            className="mx-auto h-auto w-full max-w-[168px] sm:max-w-[180px]"
             priority
           />
         </Link>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 rounded-lg p-2 text-muted transition hover:bg-surface-hover hover:text-foreground lg:hidden"
+          aria-label="Close menu"
+        >
+          <X size={20} />
+        </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto overscroll-contain px-3 py-4">
         {navSections.map((section) => (
           <div key={section.title} className="mb-5">
             <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted/80">
@@ -259,7 +290,7 @@ export function Sidebar() {
                       <button
                         onClick={() => toggle(item.label)}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors sm:py-2",
                           active
                             ? "bg-navy text-white"
                             : "text-muted hover:bg-surface-hover hover:text-foreground"
@@ -284,8 +315,9 @@ export function Sidebar() {
                               <Link
                                 href={child.href}
                                 data-tour={tourFor(child.href)}
+                                onClick={closeIfMobile}
                                 className={cn(
-                                  "block rounded-lg px-3 py-1.5 text-[13px] transition-colors",
+                                  "block rounded-lg px-3 py-2 text-[13px] transition-colors sm:py-1.5",
                                   isActive(child.href)
                                     ? "font-semibold text-accent"
                                     : "text-muted hover:text-foreground"
@@ -306,8 +338,9 @@ export function Sidebar() {
                     <Link
                       href={item.href!}
                       data-tour={tourFor(item.href)}
+                      onClick={closeIfMobile}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                        "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors sm:py-2",
                         active
                           ? "bg-navy text-white"
                           : "text-muted hover:bg-surface-hover hover:text-foreground"
@@ -324,7 +357,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {(user?.role === "super_admin" || user?.role === "accountant") && (
           <div className="rounded-xl bg-navy p-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-yellow">
@@ -335,7 +368,8 @@ export function Sidebar() {
             </p>
             <Link
               href={`${P}/payments`}
-              className="mt-3 flex w-full items-center justify-center rounded-lg bg-accent py-2 text-xs font-semibold text-white transition hover:opacity-90"
+              onClick={closeIfMobile}
+              className="mt-3 flex w-full items-center justify-center rounded-lg bg-accent py-2.5 text-xs font-semibold text-white transition hover:opacity-90"
             >
               Open payments
             </Link>
@@ -351,7 +385,8 @@ export function Sidebar() {
             </p>
             <Link
               href={`${P}/account`}
-              className="mt-3 flex w-full items-center justify-center rounded-lg bg-accent py-2 text-xs font-semibold text-white transition hover:opacity-90"
+              onClick={closeIfMobile}
+              className="mt-3 flex w-full items-center justify-center rounded-lg bg-accent py-2.5 text-xs font-semibold text-white transition hover:opacity-90"
             >
               My profile
             </Link>
@@ -367,7 +402,8 @@ export function Sidebar() {
             </p>
             <Link
               href={`${P}/attendance`}
-              className="mt-3 flex w-full items-center justify-center rounded-lg bg-accent py-2 text-xs font-semibold text-white transition hover:opacity-90"
+              onClick={closeIfMobile}
+              className="mt-3 flex w-full items-center justify-center rounded-lg bg-accent py-2.5 text-xs font-semibold text-white transition hover:opacity-90"
             >
               Attendance
             </Link>
@@ -375,7 +411,8 @@ export function Sidebar() {
         )}
         <Link
           href={`${P}/account`}
-          className="mt-2 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground"
+          onClick={closeIfMobile}
+          className="mt-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground sm:py-2"
         >
           <UserRound size={17} />
           My profile
@@ -383,7 +420,8 @@ export function Sidebar() {
         {(user?.role === "super_admin" || user?.role === "accountant") && (
           <Link
             href={`${P}/settings`}
-            className="mt-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground"
+            onClick={closeIfMobile}
+            className="mt-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground sm:py-2"
           >
             <Settings size={17} />
             Settings
@@ -392,19 +430,20 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => user && startTour(portalTourKey(user.role))}
-          className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground"
+          className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground sm:py-2"
         >
           Quick tour
         </button>
         <button
           type="button"
           onClick={onLogout}
-          className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground"
+          className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-muted transition hover:bg-surface-hover hover:text-foreground sm:py-2"
         >
           <LogOut size={17} />
           Sign out
         </button>
       </div>
     </aside>
+    </>
   );
 }

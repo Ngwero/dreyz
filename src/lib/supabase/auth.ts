@@ -61,12 +61,16 @@ export async function supabaseSignIn(email: string, password: string) {
   return loadSessionForUser(data.user.id);
 }
 
-export async function supabaseVerifyOtp(email: string, token: string) {
+export async function supabaseVerifyOtp(
+  email: string,
+  token: string,
+  type: "email" | "recovery" = "email"
+) {
   const supabase = createClient();
   const { data, error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
     token: token.trim(),
-    type: "email",
+    type,
   });
   if (error || !data.user) {
     return {
@@ -75,6 +79,18 @@ export async function supabaseVerifyOtp(email: string, token: string) {
     };
   }
   return loadSessionForUser(data.user.id);
+}
+
+export async function supabaseUpdatePassword(password: string) {
+  const supabase = createClient();
+  if (password.length < 6) {
+    return { ok: false as const, error: "Password must be at least 6 characters." };
+  }
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return { ok: false as const, error: error.message };
+  }
+  return { ok: true as const };
 }
 
 async function loadSessionForUser(userId: string) {
@@ -108,7 +124,11 @@ async function loadSessionForUser(userId: string) {
 
 export async function supabaseSignOut() {
   const supabase = createClient();
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: "global" });
+  if (error) {
+    // Still clear local auth storage even if the network call fails
+    await supabase.auth.signOut({ scope: "local" });
+  }
 }
 
 export async function supabaseGetSessionUser(): Promise<SessionUser | null> {

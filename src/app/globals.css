@@ -631,6 +631,17 @@ body {
   box-shadow: 0 10px 32px rgba(27, 126, 239, 0.45);
 }
 
+.landing-btn-orange {
+  background: linear-gradient(135deg, #ffb347 0%, #ff8c1a 40%, #f97316 100%);
+  box-shadow: 0 8px 28px rgba(249, 115, 22, 0.4);
+  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.landing-btn-orange:hover {
+  background: linear-gradient(135deg, #ffc56a 0%, #ff9f3a 45%, #ff8c1a 100%);
+  box-shadow: 0 10px 32px rgba(249, 115, 22, 0.5);
+}
+
 .btn-grad-primary {
   background: linear-gradient(135deg, #1b7eef 0%, #1f429a 55%, #082878 100%);
   color: #fff;

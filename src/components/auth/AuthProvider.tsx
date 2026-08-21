@@ -6,19 +6,23 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { SessionUser } from "@/lib/types";
 import {
   authenticate,
+  changePasswordByEmail,
   clearSession,
   getSession,
   setSession,
 } from "@/lib/auth";
+import { requestLoginOtp, requestPasswordResetOtp } from "@/lib/auth-client";
 import {
   supabaseGetSessionUser,
   supabaseSignIn,
   supabaseSignOut,
+  supabaseUpdatePassword,
   supabaseVerifyOtp,
 } from "@/lib/supabase/auth";
 
@@ -31,6 +35,12 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<LoginResult>;
   sendOtp: (email: string) => Promise<OtpSendResult>;
   loginWithOtp: (email: string, code: string) => Promise<LoginResult>;
+  sendPasswordResetOtp: (email: string) => Promise<OtpSendResult>;
+  verifyPasswordResetOtp: (email: string, code: string) => Promise<LoginResult>;
+  completePasswordReset: (
+    email: string,
+    newPassword: string
+  ) => Promise<LoginResult>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   usingSupabase: boolean;
@@ -42,10 +52,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [usingSupabase, setUsingSupabase] = useState(false);
+  const loggingOutRef = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (loggingOutRef.current) {
+      setUser(null);
+      setUsingSupabase(false);
+      return;
+    }
     try {
       const remote = await supabaseGetSessionUser();
+      if (loggingOutRef.current) {
+        setUser(null);
+        setUsingSupabase(false);
+        return;
+      }
       if (remote) {
         setSession(remote);
         setUser(remote);
@@ -54,6 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // Fall back to local session
+    }
+    if (loggingOutRef.current) {
+      setUser(null);
+      setUsingSupabase(false);
+      return;
     }
     setUser(getSession());
     setUsingSupabase(false);
@@ -64,11 +90,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const onStore = () => {
       void refresh();
     };
+    const onAuth = (e: Event) => {
+      const type = (e as CustomEvent<{ type?: string }>).detail?.type;
+      if (type === "logout") {
+        setUser(null);
+        setUsingSupabase(false);
+        return;
+      }
+      void refresh();
+    };
     window.addEventListener("dreyz-store", onStore);
-    return () => window.removeEventListener("dreyz-store", onStore);
+    window.addEventListener("dreyz-auth", onAuth);
+    return () => {
+      window.removeEventListener("dreyz-store", onStore);
+      window.removeEventListener("dreyz-auth", onAuth);
+    };
   }, [refresh]);
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    loggingOutRef.current = false;
     try {
       const remote = await supabaseSignIn(email, password);
       if (remote.ok) {
@@ -98,29 +138,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendOtp = useCallback(async (email: string): Promise<OtpSendResult> => {
-    try {
-      const res = await fetch("/api/auth/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        message?: string;
-        error?: string;
-      };
-      if (!res.ok || !data.ok) {
-        return { ok: false, error: data.error ?? "Could not send code." };
-      }
-      return { ok: true, message: data.message ?? "Code sent." };
-    } catch {
-      return { ok: false, error: "Network error while sending code." };
-    }
+    const result = await requestLoginOtp(email);
+    if (!result.ok) return result;
+    return { ok: true, message: result.message ?? "Code sent." };
   }, []);
 
   const loginWithOtp = useCallback(async (email: string, code: string): Promise<LoginResult> => {
     try {
-      const remote = await supabaseVerifyOtp(email, code);
+      const remote = await supabaseVerifyOtp(email, code, "email");
       if (!remote.ok) {
         return { ok: false, error: remote.error };
       }
@@ -133,15 +158,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const sendPasswordResetOtp = useCallback(async (email: string): Promise<OtpSendResult> => {
+    const result = await requestPasswordResetOtp(email);
+    if (!result.ok) return result;
+    return { ok: true, message: result.message ?? "Reset code sent." };
+  }, []);
+
+  const verifyPasswordResetOtp = useCallback(
+    async (email: string, code: string): Promise<LoginResult> => {
+      try {
+        const remote = await supabaseVerifyOtp(email, code, "recovery");
+        if (!remote.ok) {
+          return { ok: false, error: remote.error };
+        }
+        setSession(remote.session);
+        setUser(remote.session);
+        setUsingSupabase(true);
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "Could not verify reset code." };
+      }
+    },
+    []
+  );
+
+  const completePasswordReset = useCallback(
+    async (email: string, newPassword: string): Promise<LoginResult> => {
+      try {
+        const remote = await supabaseUpdatePassword(newPassword);
+        if (!remote.ok) {
+          return { ok: false, error: remote.error };
+        }
+        changePasswordByEmail(email, newPassword);
+        await supabaseSignOut();
+        clearSession();
+        setUser(null);
+        setUsingSupabase(false);
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "Could not update password." };
+      }
+    },
+    []
+  );
+
   const logout = useCallback(async () => {
+    loggingOutRef.current = true;
+    setUser(null);
+    setUsingSupabase(false);
+    clearSession();
     try {
       await supabaseSignOut();
     } catch {
-      // ignore
+      // ignore — local session already cleared
     }
-    clearSession();
-    setUser(null);
-    setUsingSupabase(false);
   }, []);
 
   const value = useMemo(
@@ -151,11 +221,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       sendOtp,
       loginWithOtp,
+      sendPasswordResetOtp,
+      verifyPasswordResetOtp,
+      completePasswordReset,
       logout,
       refresh,
       usingSupabase,
     }),
-    [user, loading, login, sendOtp, loginWithOtp, logout, refresh, usingSupabase]
+    [
+      user,
+      loading,
+      login,
+      sendOtp,
+      loginWithOtp,
+      sendPasswordResetOtp,
+      verifyPasswordResetOtp,
+      completePasswordReset,
+      logout,
+      refresh,
+      usingSupabase,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

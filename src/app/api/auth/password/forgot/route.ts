@@ -47,36 +47,36 @@ export async function POST(request: Request) {
     }
 
     const otp = createSixDigitOtp();
-    saveOtp("login", email, otp);
+    saveOtp("reset", email, otp);
 
     const name = profile.name?.split(" ")[0] || "there";
     await sendMail({
       to: email,
-      subject: "Your Dreyz login code",
+      subject: "Reset your Dreyz password",
       text: [
         `Hi ${name},`,
         ``,
-        `Your 6-digit login code is: ${otp}`,
+        `Your 6-digit password reset code is: ${otp}`,
         ``,
-        `This code expires in 10 minutes. If you didn't request it, ignore this email.`,
+        `This code expires in 10 minutes. If you didn't request a reset, ignore this email.`,
         ``,
         `— Dreyz Interior Design School`,
       ].join("\n"),
       html: authEmailHtml({
         name,
-        intro: "Your 6-digit login code is:",
+        intro: "Your 6-digit password reset code is:",
         code: otp,
-        note: "This code expires in 10 minutes. If you didn't request it, you can ignore this email.",
+        note: "This code expires in 10 minutes. If you didn't request a reset, you can ignore this email.",
       }),
     });
 
     return NextResponse.json({
       ok: true,
-      message: `Code sent to ${email}`,
+      message: `Reset code sent to ${email}`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[OTP send]", message);
+    console.error("[password forgot]", message);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

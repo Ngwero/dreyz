@@ -8,9 +8,9 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
-    <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-[22px] font-semibold tracking-tight text-foreground">
+    <div className="mb-5 flex flex-col gap-3 sm:mb-7 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-[22px]">
           {title}
         </h1>
         {description && (
@@ -19,7 +19,7 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
           </p>
         )}
       </div>
-      {action}
+      {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
     </div>
   );
 }
@@ -39,7 +39,7 @@ export function DataTable({ columns, children }: DataTableProps) {
               <th
                 key={col.key}
                 className={cn(
-                  "px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted",
+                  "whitespace-nowrap px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted sm:px-5",
                   col.className
                 )}
               >
@@ -75,7 +75,7 @@ export function TableCell({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <td className={cn("px-5 py-3.5 text-foreground", className)}>{children}</td>;
+  return <td className={cn("px-3 py-3 text-foreground sm:px-5 sm:py-3.5", className)}>{children}</td>;
 }
 
 export function SearchInput({

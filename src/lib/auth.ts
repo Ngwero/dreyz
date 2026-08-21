@@ -194,12 +194,16 @@ export function setSession(user: SessionUser) {
   const payload = JSON.stringify(user);
   document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(payload)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
   localStorage.setItem(SESSION_COOKIE, payload);
+  window.dispatchEvent(new CustomEvent("dreyz-auth", { detail: { type: "login" } }));
 }
 
 export function clearSession() {
   if (!isBrowser()) return;
-  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0`;
+  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  document.cookie = `${SESSION_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
   localStorage.removeItem(SESSION_COOKIE);
+  sessionStorage.removeItem(SESSION_COOKIE);
+  window.dispatchEvent(new CustomEvent("dreyz-auth", { detail: { type: "logout" } }));
 }
 
 export function getSession(): SessionUser | null {
@@ -389,6 +393,19 @@ export function changePassword(userId: string, nextPassword: string): PortalUser
     throw new Error("Password must be at least 6 characters.");
   }
   return upsertUser({ ...current, password: nextPassword });
+}
+
+export function changePasswordByEmail(
+  email: string,
+  nextPassword: string
+): boolean {
+  if (nextPassword.length < 6) return false;
+  const current = getAllUsers().find(
+    (u) => u.email.toLowerCase() === email.trim().toLowerCase()
+  );
+  if (!current) return false;
+  upsertUser({ ...current, password: nextPassword });
+  return true;
 }
 
 export function resendLoginEmail(userId: string): CredentialEmail {

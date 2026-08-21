@@ -75,7 +75,7 @@ function SuperAdminDashboard() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Active Learners"
           value={formatNumber(learners.filter((l) => l.status === "active").length)}
@@ -235,7 +235,7 @@ function AccountantDashboard() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Confirmed revenue" value={formatUGX(revenue)} hint="Paid fees" />
         <StatCard label="Pending invoices" value={String(pending)} hint="Awaiting payment" />
         <StatCard
@@ -333,7 +333,7 @@ function TutorDashboard({ name }: { name: string }) {
         </Link>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Learners" value={String(learners.length)} hint="Active roster" />
         <StatCard label="Sessions ahead" value={String(upcoming.length)} hint="This period" />
         <StatCard label="Present marks" value={String(present)} hint="Recent attendance" />
@@ -426,7 +426,7 @@ function StudentDashboard({
         </Link>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Course progress"
           value={`${learner?.progress ?? 0}%`}
