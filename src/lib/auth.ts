@@ -6,6 +6,7 @@ import type {
   UserRole,
 } from "./types";
 import { feeTracks, classOptions, schoolInfo } from "./data";
+import { portalLoginUrl } from "./portal-url";
 import { upsertInstructorFromAccount, upsertLearnerFromPayment } from "./store";
 
 export const SESSION_COOKIE = "dreyz_session";
@@ -267,7 +268,7 @@ export function queueLoginEmail(opts: {
     ...extra,
     ``,
     `Login details`,
-    `Portal: ${typeof window !== "undefined" ? window.location.origin : "https://www.dreyzschool.com"}/login`,
+    `Portal: ${portalLoginUrl()}`,
     `Email: ${opts.email}`,
     `Temporary password: ${opts.password}`,
     ``,
@@ -499,7 +500,7 @@ export function buildCredentialEmail(opts: {
     `Class: ${klass?.name ?? "—"} (${klass?.days ?? ""} · ${klass?.time ?? ""})`,
     ``,
     `Login details`,
-    `Portal: ${typeof window !== "undefined" ? window.location.origin : "https://www.dreyzschool.com"}/login`,
+    `Portal: ${portalLoginUrl()}`,
     `Email: ${opts.email}`,
     `Temporary password: ${opts.password}`,
     ``,

@@ -440,7 +440,7 @@ function LoginForm() {
 
       <div className="relative z-10 flex w-full flex-col lg:flex-row">
         {/* Brand panel */}
-        <aside className="relative flex min-h-[34svh] flex-col justify-between overflow-hidden px-6 py-8 sm:px-10 sm:py-10 lg:min-h-[100svh] lg:w-[48%] lg:px-12 lg:py-14 xl:w-[52%] xl:px-16">
+        <aside className="relative flex min-h-[38svh] flex-col justify-between overflow-hidden px-5 py-7 sm:min-h-[42svh] sm:px-10 sm:py-10 lg:min-h-[100svh] lg:w-[48%] lg:px-12 lg:py-14 xl:w-[52%] xl:px-16">
           <Image
             src="/gallery/campus-01.jpg"
             alt=""
@@ -453,20 +453,20 @@ function LoginForm() {
           <div className="absolute inset-0 bg-gradient-to-br from-[#061a4a]/75 via-[#082878]/70 to-[#082878]/85" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#061a4a] via-transparent to-[#061a4a]/40 lg:bg-gradient-to-r lg:from-transparent lg:via-[#082878]/25 lg:to-[#061a4a]/90" />
 
-          <div className="relative landing-fade-up">
-            <Link href="/" className="inline-flex items-center gap-3">
+          <div className="relative flex justify-center landing-fade-up lg:justify-start">
+            <Link href="/" className="inline-flex max-w-full items-center gap-3">
               <Image
                 src="/logo-dark.png"
                 alt="Dreyz Interior Design School"
-                width={160}
-                height={152}
-                className="h-16 w-auto object-contain drop-shadow-lg sm:h-20 lg:h-24"
+                width={280}
+                height={266}
+                className="h-28 w-auto max-w-[min(100%,12rem)] object-contain drop-shadow-lg sm:h-32 sm:max-w-[14rem] md:h-36 lg:h-40 lg:max-w-[16rem] xl:h-44"
                 priority
               />
             </Link>
           </div>
 
-          <div className="relative mt-8 max-w-md landing-fade-up landing-delay-1 lg:mt-0 lg:mb-8">
+          <div className="relative mt-6 max-w-md text-center landing-fade-up landing-delay-1 sm:mt-8 lg:mt-0 lg:mb-8 lg:text-left">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#d8ff59]">
               School portal
             </p>
@@ -488,15 +488,6 @@ function LoginForm() {
         <main className="relative flex flex-1 items-center justify-center px-4 py-8 sm:px-8 sm:py-12 lg:px-12 lg:py-16">
           <div className="w-full max-w-[420px] landing-fade-up landing-delay-2">
             <div className="mb-6 lg:mb-8">
-              <div className="mb-5 flex justify-center lg:hidden">
-                <Image
-                  src="/logo-dark.png"
-                  alt=""
-                  width={120}
-                  height={114}
-                  className="h-14 w-auto object-contain opacity-90"
-                />
-              </div>
               <h1 className="font-display text-2xl font-semibold tracking-tight text-white sm:text-[1.75rem]">
                 {heading}
               </h1>

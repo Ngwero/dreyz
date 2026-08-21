@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail, welcomeAccountHtml } from "@/lib/mail";
+import { portalLoginUrl } from "@/lib/portal-url";
 import { classOptions, feeTracks, schoolInfo } from "@/lib/data";
 
 function generatePassword(length = 10) {
@@ -10,12 +11,6 @@ function generatePassword(length = 10) {
     out += chars[Math.floor(Math.random() * chars.length)];
   }
   return out;
-}
-
-function portalBase(request: Request) {
-  const env = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
-  if (env) return env.startsWith("http") ? env.replace(/\/$/, "") : `https://${env}`;
-  return new URL(request.url).origin;
 }
 
 /** Public student signup — always creates role=student and emails welcome. */
@@ -119,7 +114,7 @@ export async function POST(request: Request) {
       { onConflict: "id" }
     );
 
-    const loginUrl = `${portalBase(request)}/login`;
+    const loginUrl = portalLoginUrl();
     const extras = [
       `Programme: ${track?.name ?? "Interior Design"}`,
       `Class: ${klass?.name ?? "—"} (${klass?.days ?? ""} · ${klass?.time ?? ""})`,

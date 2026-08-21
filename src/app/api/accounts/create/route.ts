@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail, welcomeAccountHtml } from "@/lib/mail";
+import { portalLoginUrl } from "@/lib/portal-url";
 import { classOptions, feeTracks, schoolInfo } from "@/lib/data";
 
 const ROLES = ["super_admin", "accountant", "tutor", "student"] as const;
@@ -20,12 +21,6 @@ function generatePassword(length = 10) {
     out += chars[Math.floor(Math.random() * chars.length)];
   }
   return out;
-}
-
-function portalBase(request: Request) {
-  const env = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
-  if (env) return env.startsWith("http") ? env.replace(/\/$/, "") : `https://${env}`;
-  return new URL(request.url).origin;
 }
 
 export async function POST(request: Request) {
@@ -142,7 +137,7 @@ export async function POST(request: Request) {
     }
 
     const label = roleLabel(role);
-    const loginUrl = `${portalBase(request)}/login`;
+    const loginUrl = portalLoginUrl();
     const track = feeTracks.find((t) => t.id === (feeTrackId || ""));
     const klass = classOptions.find((c) => c.id === (classOptionId || ""));
     const extras =
