@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const checked = verifyStoredOtp("reset", email, code);
+    const checked = await verifyStoredOtp("reset", email, code);
     if (!checked.ok) {
       return NextResponse.json(checked, { status: 400 });
     }

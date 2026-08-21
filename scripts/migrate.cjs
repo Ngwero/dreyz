@@ -32,14 +32,11 @@ async function main() {
     process.exit(1);
   }
 
-  const sqlPath = path.join(
-    __dirname,
-    "..",
-    "supabase",
-    "migrations",
-    "001_initial.sql"
-  );
-  const sql = fs.readFileSync(sqlPath, "utf8");
+  const migrationsDir = path.join(__dirname, "..", "supabase", "migrations");
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
 
   const client = new Client({
     connectionString: url,
@@ -48,9 +45,13 @@ async function main() {
 
   console.log("Connecting to Supabase Postgres…");
   await client.connect();
-  console.log("Applying 001_initial.sql…");
-  await client.query(sql);
-  console.log("Migration applied successfully.");
+  for (const file of files) {
+    const sqlPath = path.join(migrationsDir, file);
+    const sql = fs.readFileSync(sqlPath, "utf8");
+    console.log(`Applying ${file}…`);
+    await client.query(sql);
+  }
+  console.log("Migrations applied successfully.");
   await client.end();
 }
 

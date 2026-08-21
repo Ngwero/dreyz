@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = verifyStoredOtp("login", email, code);
+    const result = await verifyStoredOtp("login", email, code);
     if (!result.ok) {
       return NextResponse.json(result, { status: 400 });
     }

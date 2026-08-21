@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     const otp = createSixDigitOtp();
-    saveOtp("login", email, otp);
+    await saveOtp("login", email, otp);
 
     const name = profile.name?.split(" ")[0] || "there";
     await sendMail({

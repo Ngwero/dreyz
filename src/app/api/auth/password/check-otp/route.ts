@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = checkStoredOtp("reset", email, code);
+    const result = await checkStoredOtp("reset", email, code);
     if (!result.ok) {
       return NextResponse.json(result, { status: 400 });
     }

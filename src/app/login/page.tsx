@@ -159,17 +159,18 @@ function LoginForm() {
     setNotice("");
     setLoading(true);
     setOtpStatus("idle");
+    let succeeded = false;
     try {
       if (isForgotOtp) {
         const checked = await checkPasswordResetOtp(email, code);
         if (!checked.ok) {
           setOtpStatus("bad");
           setError(checked.error);
-          verifyingRef.current = false;
           return;
         }
         setResetCode(code);
         setOtpStatus("ok");
+        succeeded = true;
         window.setTimeout(() => {
           setStep("forgot-new");
           resetOtp();
@@ -184,7 +185,6 @@ function LoginForm() {
       if (!checked.ok) {
         setOtpStatus("bad");
         setError(checked.error);
-        verifyingRef.current = false;
         return;
       }
 
@@ -192,14 +192,17 @@ function LoginForm() {
       if (!signedIn.ok) {
         setOtpStatus("bad");
         setError(signedIn.error);
-        verifyingRef.current = false;
         return;
       }
 
       setOtpStatus("ok");
+      succeeded = true;
       window.setTimeout(() => goPortal(), 650);
     } finally {
       setLoading(false);
+      if (!succeeded) {
+        verifyingRef.current = false;
+      }
     }
   };
 

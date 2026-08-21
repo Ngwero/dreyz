@@ -1,4 +1,5 @@
 import { createHash, randomInt } from "crypto";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const OTP_LENGTH = 6;
 const TTL_MS = 10 * 60 * 1000;
@@ -6,25 +7,14 @@ const MAX_ATTEMPTS = 5;
 
 export type OtpPurpose = "login" | "reset";
 
-type Entry = {
-  hash: string;
-  expiresAt: number;
-  attempts: number;
-};
+type OtpResult = { ok: true } | { ok: false; error: string };
 
-const globalStore = globalThis as typeof globalThis & {
-  __dreyzOtpStore?: Map<string, Entry>;
-};
-
-function store() {
-  if (!globalStore.__dreyzOtpStore) {
-    globalStore.__dreyzOtpStore = new Map();
-  }
-  return globalStore.__dreyzOtpStore;
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
 }
 
-function key(purpose: OtpPurpose, email: string) {
-  return `${purpose}:${email.trim().toLowerCase()}`;
+function hashCode(code: string) {
+  return createHash("sha256").update(code).digest("hex");
 }
 
 /** Always returns a 6-digit numeric string (000000–999999). */
@@ -32,30 +22,86 @@ export function createSixDigitOtp(): string {
   return String(randomInt(0, 1_000_000)).padStart(OTP_LENGTH, "0");
 }
 
-export function saveOtp(purpose: OtpPurpose, email: string, code: string) {
+/**
+ * Persist OTP in Supabase so verify works across serverless instances.
+ * (In-memory Maps are lost between Vercel function invocations.)
+ */
+export async function saveOtp(purpose: OtpPurpose, email: string, code: string) {
   const normalized = code.replace(/\D/g, "");
   if (normalized.length !== OTP_LENGTH) {
     throw new Error(`OTP must be ${OTP_LENGTH} digits.`);
   }
-  store().set(key(purpose, email), {
-    hash: createHash("sha256").update(normalized).digest("hex"),
-    expiresAt: Date.now() + TTL_MS,
-    attempts: 0,
-  });
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("otp_codes").upsert(
+    {
+      purpose,
+      email: normalizeEmail(email),
+      code_hash: hashCode(normalized),
+      expires_at: new Date(Date.now() + TTL_MS).toISOString(),
+      attempts: 0,
+    },
+    { onConflict: "purpose,email" }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
-export function checkStoredOtp(
+async function loadEntry(purpose: OtpPurpose, email: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("otp_codes")
+    .select("code_hash, expires_at, attempts")
+    .eq("purpose", purpose)
+    .eq("email", normalizeEmail(email))
+    .maybeSingle();
+
+  if (error) {
+    return { error: error.message as string };
+  }
+  return { data };
+}
+
+async function deleteEntry(purpose: OtpPurpose, email: string) {
+  const admin = createAdminClient();
+  await admin
+    .from("otp_codes")
+    .delete()
+    .eq("purpose", purpose)
+    .eq("email", normalizeEmail(email));
+}
+
+async function bumpAttempts(
+  purpose: OtpPurpose,
+  email: string,
+  attempts: number
+) {
+  const admin = createAdminClient();
+  await admin
+    .from("otp_codes")
+    .update({ attempts })
+    .eq("purpose", purpose)
+    .eq("email", normalizeEmail(email));
+}
+
+/** Soft-check (does not consume) — for password-reset step before choosing a new password. */
+export async function checkStoredOtp(
   purpose: OtpPurpose,
   email: string,
   code: string
-): { ok: true } | { ok: false; error: string } {
-  const k = key(purpose, email);
-  const entry = store().get(k);
+): Promise<OtpResult> {
+  const loaded = await loadEntry(purpose, email);
+  if ("error" in loaded && loaded.error) {
+    return { ok: false, error: loaded.error };
+  }
+  const entry = loaded.data;
   if (!entry) {
     return { ok: false, error: "No code found. Request a new one." };
   }
-  if (Date.now() > entry.expiresAt) {
-    store().delete(k);
+  if (Date.now() > new Date(entry.expires_at).getTime()) {
+    await deleteEntry(purpose, email);
     return { ok: false, error: "Code expired. Request a new one." };
   }
 
@@ -64,45 +110,48 @@ export function checkStoredOtp(
     return { ok: false, error: `Enter the ${OTP_LENGTH}-digit code.` };
   }
 
-  const hash = createHash("sha256").update(normalized).digest("hex");
-  if (hash !== entry.hash) {
+  if (hashCode(normalized) !== entry.code_hash) {
     return { ok: false, error: "Invalid code. Try again." };
   }
 
   return { ok: true };
 }
 
-export function verifyStoredOtp(
+/** Verify and consume OTP (login / final password reset). */
+export async function verifyStoredOtp(
   purpose: OtpPurpose,
   email: string,
   code: string
-): { ok: true } | { ok: false; error: string } {
-  const k = key(purpose, email);
-  const entry = store().get(k);
+): Promise<OtpResult> {
+  const loaded = await loadEntry(purpose, email);
+  if ("error" in loaded && loaded.error) {
+    return { ok: false, error: loaded.error };
+  }
+  const entry = loaded.data;
   if (!entry) {
     return { ok: false, error: "No code found. Request a new one." };
   }
-  if (Date.now() > entry.expiresAt) {
-    store().delete(k);
+  if (Date.now() > new Date(entry.expires_at).getTime()) {
+    await deleteEntry(purpose, email);
     return { ok: false, error: "Code expired. Request a new one." };
   }
   if (entry.attempts >= MAX_ATTEMPTS) {
-    store().delete(k);
+    await deleteEntry(purpose, email);
     return { ok: false, error: "Too many attempts. Request a new code." };
   }
 
-  entry.attempts += 1;
+  const nextAttempts = entry.attempts + 1;
+  await bumpAttempts(purpose, email, nextAttempts);
 
   const normalized = code.replace(/\D/g, "");
   if (normalized.length !== OTP_LENGTH) {
     return { ok: false, error: `Enter the ${OTP_LENGTH}-digit code.` };
   }
 
-  const hash = createHash("sha256").update(normalized).digest("hex");
-  if (hash !== entry.hash) {
+  if (hashCode(normalized) !== entry.code_hash) {
     return { ok: false, error: "Invalid code. Try again." };
   }
 
-  store().delete(k);
+  await deleteEntry(purpose, email);
   return { ok: true };
 }
