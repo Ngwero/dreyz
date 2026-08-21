@@ -19,8 +19,8 @@ export const DEMO_PASSWORD = "dreyz2026";
 export const SEED_USERS: PortalUser[] = [
   {
     id: "USR-SA-001",
-    name: "Dreyz Super Admin",
-    email: "admin@dreyzinteriorug.com",
+    name: "Ngwero Emmanuel",
+    email: "engwero@gmail.com",
     password: DEMO_PASSWORD,
     role: "super_admin",
     phone: schoolInfo.phones[0],
@@ -88,7 +88,7 @@ export const SEED_USERS: PortalUser[] = [
 ];
 
 export const DEMO_LOGINS: { role: UserRole; email: string; label: string }[] = [
-  { role: "super_admin", email: "admin@dreyzinteriorug.com", label: "Super Admin" },
+  { role: "super_admin", email: "engwero@gmail.com", label: "Super Admin" },
   { role: "accountant", email: "accounts@dreyzinteriorug.com", label: "Accountant" },
   { role: "tutor", email: "elena@dreyzinteriorug.com", label: "Tutor" },
   { role: "student", email: "grace.n@email.com", label: "Student" },

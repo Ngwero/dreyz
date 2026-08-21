@@ -31,8 +31,8 @@ const DEMO_PASSWORD = "dreyz2026";
 
 const SEED = [
   {
-    email: "admin@dreyzinteriorug.com",
-    name: "Dreyz Super Admin",
+    email: "engwero@gmail.com",
+    name: "Ngwero Emmanuel",
     role: "super_admin",
     phone: "+256 700 000 001",
   },

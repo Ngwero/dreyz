@@ -58,10 +58,31 @@ export async function supabaseSignIn(email: string, password: string) {
     return { ok: false as const, error: error?.message ?? "Invalid email or password." };
   }
 
+  return loadSessionForUser(data.user.id);
+}
+
+export async function supabaseVerifyOtp(email: string, token: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: token.trim(),
+    type: "email",
+  });
+  if (error || !data.user) {
+    return {
+      ok: false as const,
+      error: error?.message ?? "Invalid or expired code.",
+    };
+  }
+  return loadSessionForUser(data.user.id);
+}
+
+async function loadSessionForUser(userId: string) {
+  const supabase = createClient();
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
-    .eq("id", data.user.id)
+    .eq("id", userId)
     .single();
 
   if (profileError || !profile) {
@@ -77,12 +98,11 @@ export async function supabaseSignIn(email: string, password: string) {
   await supabase
     .from("profiles")
     .update({ last_login_at: new Date().toISOString() })
-    .eq("id", data.user.id);
+    .eq("id", userId);
 
   return {
     ok: true as const,
     session: profileToSession(profile as ProfileRow),
-    accessToken: data.session?.access_token,
   };
 }
 
