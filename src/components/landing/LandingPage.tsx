@@ -4,14 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { schoolInfo, feeTracks, classOptions, programme, stats } from "@/lib/data";
+import { schoolInfo, feeTracks, classOptions, programme, stats, admissionRequirements } from "@/lib/data";
 import { formatUGX, formatNumber } from "@/lib/utils";
 import { Reveal, RevealWords, useScrollProgress } from "./scroll";
 import { NeutraHeader, brand } from "./NeutraHeader";
 import { NeutraHero } from "./NeutraHero";
 import { ArchDrawingBackdrop } from "./ArchDrawingBackdrop";
-import { LandingTour, LANDING_TOUR_KEY } from "@/components/tour/LandingTour";
-import { startTour } from "@/components/tour/GuidedTour";
 
 const gallery = [
   "/gallery/studio/design-team.png",
@@ -23,8 +21,8 @@ const gallery = [
 ];
 
 const classTaglines: Record<string, string> = {
-  weekday: "Learn mid-week — ideal if you want steady progress without giving up your routine.",
-  saturday: "Power through Saturdays — one focused day that fits a busy life.",
+  weekday: "Morning weekday block — steady progress without giving up your routine.",
+  "weekday-pm": "Midday weekday block — the same Mon–Wed schedule, later start.",
 };
 
 const feeTaglines: Record<string, string> = {
@@ -70,7 +68,6 @@ export function LandingPage() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#082878] text-white">
-      <LandingTour />
       <ArchDrawingBackdrop />
 
       {/* Scroll progress */}
@@ -90,7 +87,7 @@ export function LandingPage() {
       {/* About */}
       <section
         id="about"
-        data-tour="about"
+       
         className="relative z-10 border-t border-white/8 px-5 py-24 sm:px-8 sm:py-32 lg:px-12"
       >
         <div className="mx-auto max-w-[1600px]">
@@ -244,7 +241,7 @@ export function LandingPage() {
       {/* Programme */}
       <section
         id="programme"
-        data-tour="programme"
+       
         className="relative z-10 border-t border-white/8 px-5 py-24 sm:px-8 sm:py-32 lg:px-12"
       >
         <div className="mx-auto max-w-[1600px]">
@@ -263,7 +260,8 @@ export function LandingPage() {
                   {programme.courseworkUnits} practical units take you from
                   beginner to professional — then {programme.internshipMonths}{" "}
                   months on the job put your skills to work where it matters
-                  most. Weekday or Saturday — learn on your schedule.
+                  most. Choose a morning or midday weekday class — physical
+                  studio learning only.
                 </p>
               </Reveal>
             </div>
@@ -300,7 +298,7 @@ export function LandingPage() {
       </section>
 
       {/* Studio gallery */}
-      <section id="studio" data-tour="studio" className="relative z-10 overflow-hidden py-20 sm:py-28">
+      <section id="studio" className="relative z-10 overflow-hidden py-20 sm:py-28">
         <div className="mx-auto mb-12 flex max-w-[1600px] flex-col gap-4 px-5 sm:flex-row sm:items-end sm:justify-between sm:px-8 lg:px-12">
           <Reveal>
             <SectionBadge color={brand.sage}>Life at Dreyz</SectionBadge>
@@ -344,18 +342,25 @@ export function LandingPage() {
       {/* Admissions */}
       <section
         id="admissions"
-        data-tour="admissions"
+       
         className="relative z-10 px-5 py-24 sm:px-8 sm:py-28 lg:px-12"
       >
         <div className="mx-auto max-w-[1600px]">
           <div className="landing-glass-strong overflow-hidden rounded-[2rem] p-8 sm:p-12 lg:p-16">
             <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
               <div>
-                <SectionBadge color={brand.orange}>Admissions</SectionBadge>
+                <SectionBadge color={brand.orange}>
+                  Admissions · {schoolInfo.intake} intake
+                </SectionBadge>
                 <RevealWords
                   text="Invest in your future. Pay your way."
                   className="mt-6 text-[clamp(1.75rem,3vw,2.75rem)] font-semibold tracking-tight"
                 />
+                <Reveal delay={0.1}>
+                  <p className="mt-3 text-sm font-medium text-[#d8ff59]">
+                    {schoolInfo.intakeNote}
+                  </p>
+                </Reveal>
                 <Reveal delay={0.15}>
                   <p className="mt-5 max-w-md text-base leading-relaxed text-white/50">
                     Quality design education shouldn&apos;t be out of reach.
@@ -364,6 +369,22 @@ export function LandingPage() {
                     doors. In-studio learning only, because great designers
                     are made hands-on.
                   </p>
+                </Reveal>
+                <Reveal delay={0.2}>
+                  <ul className="mt-5 max-w-md space-y-2">
+                    {admissionRequirements.map((req) => (
+                      <li
+                        key={req}
+                        className="flex items-start gap-2 text-sm text-white/55"
+                      >
+                        <span
+                          className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ background: brand.sage }}
+                        />
+                        {req}
+                      </li>
+                    ))}
+                  </ul>
                 </Reveal>
                 <Reveal delay={0.25}>
                   <Link
@@ -413,7 +434,7 @@ export function LandingPage() {
       {/* Contact */}
       <section
         id="contact"
-        data-tour="contact"
+       
         className="relative z-10 border-t border-white/8 px-5 py-24 sm:px-8 sm:py-32 lg:px-12"
       >
         <div className="mx-auto max-w-[1600px]">
@@ -428,15 +449,16 @@ export function LandingPage() {
 
           <Reveal delay={0.2}>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg">
-              Visit us in Kyaliwajjala, talk to our team, or apply today. Your
-              design career starts with one decision — make it at Dreyz.
+              Visit us on Kira Road, opposite Total Kyaliwajjala. Talk to our
+              team or apply for the {schoolInfo.intake} intake — your design
+              career starts with one decision.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 href="/login"
                 className="landing-btn-blue inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[13px] font-semibold text-white transition hover:scale-[1.02]"
               >
-                Apply now — limited intake
+                Apply now — {schoolInfo.intake} intake
                 <ArrowUpRight size={14} />
               </Link>
               <a
@@ -514,13 +536,6 @@ export function LandingPage() {
               <span className="mx-2">·</span>
               <span className="text-white/50">Inspire — your design career starts here</span>
             </p>
-            <button
-              type="button"
-              onClick={() => startTour(LANDING_TOUR_KEY)}
-              className="text-xs font-semibold uppercase tracking-[0.14em] text-white/35 transition hover:text-white/70"
-            >
-              Replay quick tour
-            </button>
           </div>
         </div>
       </footer>

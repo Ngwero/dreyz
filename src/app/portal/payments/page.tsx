@@ -72,7 +72,7 @@ export default function PaymentsPage() {
     classOptionId: classOptions[0]?.id ?? "weekday",
     method: "mobile_money" as PaymentRecord["method"],
     reference: "",
-    amount: feeTracks[0]?.total ?? 3050000,
+    amount: feeTracks[0]?.total ?? 3350000,
   });
 
   const selectedTrack = useMemo(

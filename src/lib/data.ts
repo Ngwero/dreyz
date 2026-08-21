@@ -34,14 +34,19 @@ export const programme = {
 export const schoolInfo = {
   name: "Dreyz Interior Design School",
   tagline: "Learn | Design | Inspire",
-  location: "Palm Tree Close, Kira Road, opposite Total Kyaliwajjala",
+  location: "Kira Road, opposite Total Kyaliwajjala, Kyaliwajjala",
   area: "Kyaliwajjala",
   phones: ["+256 779 449481", "+256 758 218 123"],
   email: "dreyzinteriorug@gmail.com",
-  website: "www.dreyzinteriorug.com",
+  website: "www.dreyzschool.com",
   format: "Physical classes and practicals only — no online option.",
   certificate: "Graduates receive a certificate.",
   installments: "Fees can be paid in 3 or 4 installments.",
+  /** Current open registration window */
+  intake: "January 2027",
+  intakeStatus: "open" as const,
+  intakeNote:
+    "September intake is closed. We are now registering for the January 2027 intake.",
 };
 
 export const admissionRequirements = [
@@ -53,8 +58,20 @@ export const admissionRequirements = [
 ];
 
 export const classOptions: ClassOption[] = [
-  { id: "weekday", name: "Weekday Classes", days: "Monday – Wednesday", time: "8:30 AM – 10:30 AM", hoursPerDay: 2 },
-  { id: "saturday", name: "Saturday Classes", days: "Saturday", time: "9:00 AM – 1:00 PM", hoursPerDay: 4 },
+  {
+    id: "weekday",
+    name: "Weekday Morning",
+    days: "Monday – Wednesday",
+    time: "8:30 AM – 10:30 AM",
+    hoursPerDay: 2,
+  },
+  {
+    id: "weekday-pm",
+    name: "Weekday Midday",
+    days: "Monday – Wednesday",
+    time: "11:00 AM – 1:00 PM",
+    hoursPerDay: 2,
+  },
 ];
 
 export const feeTracks: FeeTrack[] = [
@@ -62,28 +79,28 @@ export const feeTracks: FeeTrack[] = [
     id: "4-month",
     name: "4-Month Main Course",
     durationMonths: 4,
-    total: 3050000,
+    total: 3350000,
     includesInternship: false,
     breakdown: [
       { label: "Registration", amount: 350000 },
       { label: "Tuition", amount: 2000000 },
       { label: "Study text book", amount: 350000 },
-      { label: "Graduation", amount: 350000 },
+      { label: "Graduation", amount: 650000 },
     ],
   },
   {
     id: "6-month",
     name: "6-Month Course + Internship",
     durationMonths: 6,
-    total: 3950000,
+    total: 4400000,
     includesInternship: true,
     breakdown: [
       { label: "Registration", amount: 350000 },
       { label: "Tuition", amount: 2000000 },
       { label: "Study text book", amount: 350000 },
-      { label: "Graduation", amount: 350000 },
+      { label: "Graduation", amount: 650000 },
       { label: "PPE (protective gear)", amount: 350000 },
-      { label: "Internship", amount: 520000 },
+      { label: "Internship", amount: 700000 },
     ],
   },
 ];
@@ -199,7 +216,15 @@ export const assessments: Assessment[] = [
 ];
 
 export const notices: Notice[] = [
-  { id: "NTC001", title: "New Workshop: Hospitality Interior Design", content: "Join Isabella Romano for a live workshop on hospitality interiors and guest experience design.", date: "2025-06-30", priority: "high", category: "Workshop" },
+  {
+    id: "NTC001",
+    title: "January 2027 intake now open",
+    content:
+      "September intake is closed. Registration is open for the January 2027 intake. Choose the 4-month main course or 6-month course with internship.",
+    date: "2026-08-21",
+    priority: "high",
+    category: "Enrollment",
+  },
   { id: "NTC002", title: "Platform Maintenance Scheduled", content: "The learning platform will undergo maintenance on July 2nd from 2:00 AM to 4:00 AM UTC.", date: "2025-06-29", priority: "medium", category: "System" },
   { id: "NTC003", title: "New Resource Pack: Material Swatches", content: "We've added 240 new material textures to the Design Resource Center.", date: "2025-06-28", priority: "low", category: "Resources" },
   { id: "NTC004", title: "Internship Placements Open", content: "The 2-month internship block placements are now open. Apply via Industrial Training and Site Visits.", date: "2025-06-27", priority: "high", category: "Enrollment" },
@@ -216,13 +241,13 @@ export const projects: Project[] = [
 ];
 
 export const enrollments: Enrollment[] = [
-  { id: "ENR001", learnerName: "Lucas Bergström", course: "6-Month Course + Internship", date: "2025-06-30", amount: 3950000, status: "paid", learnerEmail: "lucas.b@email.com", feeTrackId: "6-month", credentialsSent: true },
-  { id: "ENR002", learnerName: "David Chen", course: "4-Month Main Course", date: "2025-06-29", amount: 3050000, status: "paid", learnerEmail: "d.chen@email.com", feeTrackId: "4-month", credentialsSent: true },
-  { id: "ENR003", learnerName: "Sarah Williams", course: "4-Month Main Course", date: "2025-06-29", amount: 3050000, status: "pending", learnerEmail: "sarah.w@email.com", feeTrackId: "4-month", credentialsSent: false },
-  { id: "ENR004", learnerName: "Kenji Yamamoto", course: "6-Month Course + Internship", date: "2025-06-28", amount: 3950000, status: "paid", learnerEmail: "kenji.y@email.com", feeTrackId: "6-month", credentialsSent: true },
-  { id: "ENR005", learnerName: "Aisha Bello", course: "4-Month Main Course", date: "2025-06-27", amount: 3050000, status: "paid", learnerEmail: "aisha.b@email.com", feeTrackId: "4-month", credentialsSent: true },
-  { id: "ENR006", learnerName: "Grace Nakato", course: "4-Month Main Course", date: "2025-06-08", amount: 3050000, status: "paid", learnerEmail: "grace.n@email.com", feeTrackId: "4-month", credentialsSent: true },
-  { id: "ENR007", learnerName: "Amara Okafor", course: "6-Month Course + Internship", date: "2025-09-12", amount: 3950000, status: "paid", learnerEmail: "amara.o@email.com", feeTrackId: "6-month", credentialsSent: true },
+  { id: "ENR001", learnerName: "Lucas Bergström", course: "6-Month Course + Internship", date: "2025-06-30", amount: 4400000, status: "paid", learnerEmail: "lucas.b@email.com", feeTrackId: "6-month", credentialsSent: true },
+  { id: "ENR002", learnerName: "David Chen", course: "4-Month Main Course", date: "2025-06-29", amount: 3350000, status: "paid", learnerEmail: "d.chen@email.com", feeTrackId: "4-month", credentialsSent: true },
+  { id: "ENR003", learnerName: "Sarah Williams", course: "4-Month Main Course", date: "2025-06-29", amount: 3350000, status: "pending", learnerEmail: "sarah.w@email.com", feeTrackId: "4-month", credentialsSent: false },
+  { id: "ENR004", learnerName: "Kenji Yamamoto", course: "6-Month Course + Internship", date: "2025-06-28", amount: 4400000, status: "paid", learnerEmail: "kenji.y@email.com", feeTrackId: "6-month", credentialsSent: true },
+  { id: "ENR005", learnerName: "Aisha Bello", course: "4-Month Main Course", date: "2025-06-27", amount: 3350000, status: "paid", learnerEmail: "aisha.b@email.com", feeTrackId: "4-month", credentialsSent: true },
+  { id: "ENR006", learnerName: "Grace Nakato", course: "4-Month Main Course", date: "2025-06-08", amount: 3350000, status: "paid", learnerEmail: "grace.n@email.com", feeTrackId: "4-month", credentialsSent: true },
+  { id: "ENR007", learnerName: "Amara Okafor", course: "6-Month Course + Internship", date: "2025-09-12", amount: 4400000, status: "paid", learnerEmail: "amara.o@email.com", feeTrackId: "6-month", credentialsSent: true },
 ];
 
 export const courseStats = [

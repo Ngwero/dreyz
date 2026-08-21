@@ -13,6 +13,8 @@ import {
   getPayments,
   updateAccount,
 } from "@/lib/auth";
+import { PasswordStrengthMeter } from "@/components/auth/PasswordStrength";
+import { isPasswordAcceptable } from "@/lib/password-strength";
 import { ROLE_LABELS } from "@/lib/roles";
 import { classOptions, enrollments, feeTracks, schoolInfo } from "@/lib/data";
 import { formatUGX } from "@/lib/utils";
@@ -97,6 +99,10 @@ export default function MyAccountPage() {
   const onChangePassword = (e: FormEvent) => {
     e.preventDefault();
     setMessage("");
+    if (!isPasswordAcceptable(password)) {
+      setMessage("Password is too weak. Use 6+ characters with mixed case, numbers, or symbols.");
+      return;
+    }
     if (password !== confirm) {
       setMessage("Passwords do not match.");
       return;
@@ -173,8 +179,14 @@ export default function MyAccountPage() {
                 className={fieldClass}
                 required
                 minLength={6}
+                autoComplete="new-password"
               />
             </label>
+            <PasswordStrengthMeter
+              password={password}
+              confirm={confirm}
+              variant="light"
+            />
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
               Confirm password
               <input
@@ -184,6 +196,7 @@ export default function MyAccountPage() {
                 className={fieldClass}
                 required
                 minLength={6}
+                autoComplete="new-password"
               />
             </label>
             <Button type="submit" size="sm">

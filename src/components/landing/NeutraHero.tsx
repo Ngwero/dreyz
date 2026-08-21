@@ -98,7 +98,7 @@ function HeroCTA({ href, label }: { href: string; label: string }) {
 
 export function NeutraHero() {
   return (
-    <section className="relative z-10 min-h-[100svh] px-5 pb-16 pt-36 sm:px-8 sm:pb-24 sm:pt-44 lg:px-12 lg:pt-72 xl:pt-80" data-tour="hero">
+    <section className="relative z-10 min-h-[100svh] px-5 pb-16 pt-36 sm:px-8 sm:pb-24 sm:pt-44 lg:px-12 lg:pt-72 xl:pt-80">
       <div className="mx-auto grid w-full max-w-[1280px] items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <div className="relative z-10 flex flex-col gap-10">
           <HeroEnter delay={0.12} y={72}>
@@ -107,7 +107,7 @@ export function NeutraHero() {
                 className="text-[11px] font-semibold uppercase tracking-[0.28em]"
                 style={{ color: brand.sage }}
               >
-                Dreyz Interior · Kyaliwajjala
+                Dreyz Interior · January 2027 intake
               </p>
               <h1 className="text-[clamp(2.75rem,6.5vw,5rem)] font-semibold leading-[0.98] tracking-[-0.04em] text-white">
                 Design spaces

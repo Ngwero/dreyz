@@ -63,6 +63,49 @@ export function authEmailHtml(opts: {
   `;
 }
 
+/** Welcome / credentials email after account creation. */
+export function welcomeAccountHtml(opts: {
+  name: string;
+  roleLabel: string;
+  portalUrl: string;
+  email: string;
+  password: string;
+  extras?: string[];
+}) {
+  const extrasHtml = (opts.extras ?? [])
+    .map((line) => `<p style="margin:0 0 4px;font-size:14px;color:#5b6f94">${line}</p>`)
+    .join("");
+
+  return `
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;color:#082878;background:#ffffff">
+      <div style="text-align:left;margin-bottom:24px">
+        <img
+          src="cid:${LOGO_CID}"
+          alt="Dreyz Interior Design School"
+          width="96"
+          height="92"
+          style="display:block;width:96px;height:auto;border:0;outline:none;margin:0"
+        />
+      </div>
+      <p style="margin:0 0 12px;font-size:16px">Hi ${opts.name},</p>
+      <p style="margin:0 0 12px;font-size:15px;line-height:1.55">
+        <strong>Welcome to Dreyz Interior Design School.</strong>
+      </p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
+        Your ${opts.roleLabel} portal account is ready. Sign in with the details below and change your password from My Account.
+      </p>
+      ${extrasHtml}
+      <div style="margin:20px 0;padding:16px 18px;border-radius:12px;background:#f0f4ff;border:1px solid #d6e0ff">
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#5b6f94">Login details</p>
+        <p style="margin:0 0 6px;font-size:14px"><strong>Portal:</strong> <a href="${opts.portalUrl}" style="color:#1b7eef">${opts.portalUrl}</a></p>
+        <p style="margin:0 0 6px;font-size:14px"><strong>Email:</strong> ${opts.email}</p>
+        <p style="margin:0;font-size:14px"><strong>Temporary password:</strong> ${opts.password}</p>
+      </div>
+      <p style="margin-top:24px;font-size:13px;color:#5b6f94">— Dreyz Interior Design School · Learn | Design | Inspire</p>
+    </div>
+  `;
+}
+
 export async function sendMail(opts: {
   to: string;
   subject: string;

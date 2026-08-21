@@ -20,6 +20,7 @@ import {
   getEmailOutbox,
   resendLoginEmail,
   resetUserPassword,
+  upsertUser,
   updateAccount,
   updateUserStatus,
 } from "@/lib/auth";
@@ -60,6 +61,7 @@ export default function AccountsPage() {
   const [form, setForm] = useState<AccountForm>(emptyForm("student"));
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const onStore = () => setTick((t) => t + 1);
@@ -130,26 +132,74 @@ export default function AccountsPage() {
     setOpen("edit");
   };
 
-  const onCreate = (e: FormEvent) => {
+  const onCreate = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setSaving(true);
     try {
-      const result = createAccount({
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        role: isAdmin ? form.role : "student",
-        feeTrackId: form.feeTrackId,
-        classOptionId: form.classOptionId,
-        specialty: form.specialty,
+      const role = isAdmin ? form.role : "student";
+      const res = await fetch("/api/accounts/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          role,
+          feeTrackId: form.feeTrackId,
+          classOptionId: form.classOptionId,
+          specialty: form.specialty,
+        }),
       });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        password?: string;
+        user?: PortalUser;
+      };
+
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Could not create account.");
+        return;
+      }
+
+      if (data.user) {
+        upsertUser({
+          ...data.user,
+          password: data.password ?? "dreyz2026",
+          phone: data.user.phone ?? undefined,
+        });
+      }
+
       setNotice(
-        `Created ${ROLE_LABELS[result.user.role]} ${result.user.name}. Login emailed to ${result.user.email}. Temporary password: ${result.password}`
+        `Welcome to Dreyz Interior — confirmation emailed to ${form.email}. Temporary password: ${data.password ?? "—"}`
       );
       setOpen(null);
       bump();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create account.");
+    } catch {
+      // Offline / API unreachable — keep local create as fallback
+      try {
+        const role = isAdmin ? form.role : "student";
+        const result = createAccount({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          role,
+          feeTrackId: form.feeTrackId,
+          classOptionId: form.classOptionId,
+          specialty: form.specialty,
+        });
+        setNotice(
+          `Created ${ROLE_LABELS[result.user.role]} ${result.user.name}. Welcome email queued for ${result.user.email}. Temporary password: ${result.password}`
+        );
+        setOpen(null);
+        bump();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not create account.");
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -230,7 +280,7 @@ export default function AccountsPage() {
         title="Account management"
         description={
           isAdmin
-            ? "Create and manage Super Admin, Accountant, Tutor, and Student portal logins. New accounts are emailed a temporary password."
+            ? "Create and manage Super Admin, Accountant, Tutor, and Student portal logins. New accounts get a Welcome to Dreyz Interior email with a temporary password."
             : "Create and manage student portal accounts. Confirming a payment also provisions a student login."
         }
         action={
@@ -515,18 +565,22 @@ export default function AccountsPage() {
 
           {open === "create" && (
             <p className="text-xs text-muted">
-              A temporary password is generated and emailed to this address.
+              Creates the portal login and sends a Welcome to Dreyz Interior confirmation email with a temporary password.
             </p>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(null)}>
+            <Button type="button" variant="outline" onClick={() => setOpen(null)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit">
-              {open === "edit" ? "Save changes" : (
+            <Button type="submit" disabled={saving}>
+              {open === "edit" ? (
+                "Save changes"
+              ) : saving ? (
+                "Creating…"
+              ) : (
                 <>
-                  <Plus size={14} /> Create &amp; email login
+                  <Plus size={14} /> Create &amp; send welcome
                 </>
               )}
             </Button>

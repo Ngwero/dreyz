@@ -28,7 +28,7 @@ export default function AdmissionsPage() {
     <div>
       <PageHeader
         title="Admissions"
-        description={`${schoolInfo.name} — ${programme.courseworkUnits} course units plus a ${programme.internshipMonths}-month internship. ${schoolInfo.tagline}.`}
+        description={`${schoolInfo.intakeNote} ${programme.courseworkUnits} course units plus optional ${programme.internshipMonths}-month internship. ${schoolInfo.tagline}.`}
         action={
           <Link href="/portal/payments">
             <Button size="sm">Enroll / Record payment</Button>
@@ -36,6 +36,12 @@ export default function AdmissionsPage() {
         }
       />
 
+      <div className="mb-6 rounded-2xl border border-accent/25 bg-accent/10 px-4 py-3 text-sm text-foreground">
+        <p className="font-semibold text-accent-dark">
+          Now registering · {schoolInfo.intake} intake
+        </p>
+        <p className="mt-1 text-muted">{schoolInfo.intakeNote}</p>
+      </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Requirements */}
         <Card title="Admission Requirements">

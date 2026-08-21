@@ -188,7 +188,7 @@ export function NeutraHeader({
       <header className="neutra-header pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4 lg:px-8">
         <div
           ref={barRef}
-          data-tour="nav"
+         
           className={`neutra-header-bar pointer-events-auto mx-auto flex w-full items-center justify-between ${
             isCompact ? "is-scrolled" : ""
           }`}
