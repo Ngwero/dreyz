@@ -63,10 +63,9 @@ export function authEmailHtml(opts: {
   `;
 }
 
-/** Welcome / credentials email after account creation. */
-export function welcomeAccountHtml(opts: {
+/** Student welcome after public signup / student account create. */
+export function welcomeStudentHtml(opts: {
   name: string;
-  roleLabel: string;
   portalUrl: string;
   email: string;
   password: string;
@@ -92,11 +91,11 @@ export function welcomeAccountHtml(opts: {
         <strong>Welcome to Dreyz Interior Design School.</strong>
       </p>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
-        Your ${opts.roleLabel} portal account is ready. Sign in with the details below and change your password from My Account.
+        Your <strong>student</strong> portal is ready. Use it to follow classes, fees, projects, and attendance. Sign in with the details below, then change your password from My Account.
       </p>
       ${extrasHtml}
       <div style="margin:20px 0;padding:16px 18px;border-radius:12px;background:#f0f4ff;border:1px solid #d6e0ff">
-        <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#5b6f94">Login details</p>
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#5b6f94">Student login</p>
         <p style="margin:0 0 6px;font-size:14px"><strong>Portal:</strong> <a href="${opts.portalUrl}" style="color:#1b7eef">${opts.portalUrl}</a></p>
         <p style="margin:0 0 6px;font-size:14px"><strong>Email:</strong> ${opts.email}</p>
         <p style="margin:0;font-size:14px"><strong>Temporary password:</strong> ${opts.password}</p>
@@ -104,6 +103,64 @@ export function welcomeAccountHtml(opts: {
       <p style="margin-top:24px;font-size:13px;color:#5b6f94">— Dreyz Interior Design School · Learn | Design | Inspire</p>
     </div>
   `;
+}
+
+/** Staff / Super Admin / Tutor / Accountant welcome — not the student letter. */
+export function welcomeStaffHtml(opts: {
+  name: string;
+  roleLabel: string;
+  portalUrl: string;
+  email: string;
+  password: string;
+  extras?: string[];
+}) {
+  const extrasHtml = (opts.extras ?? [])
+    .map((line) => `<p style="margin:0 0 4px;font-size:14px;color:#5b6f94">${line}</p>`)
+    .join("");
+
+  return `
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;color:#082878;background:#ffffff">
+      <div style="text-align:left;margin-bottom:24px">
+        <img
+          src="cid:${LOGO_CID}"
+          alt="Dreyz Interior Design School"
+          width="96"
+          height="92"
+          style="display:block;width:96px;height:auto;border:0;outline:none;margin:0"
+        />
+      </div>
+      <p style="margin:0 0 12px;font-size:16px">Hi ${opts.name},</p>
+      <p style="margin:0 0 12px;font-size:15px;line-height:1.55">
+        <strong>You have been added to the Dreyz Interior staff portal.</strong>
+      </p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
+        Your role is <strong>${opts.roleLabel}</strong>. This is an administration login — not a student account. Use it to manage the school portal. Sign in below, then change your password from My Account.
+      </p>
+      ${extrasHtml}
+      <div style="margin:20px 0;padding:16px 18px;border-radius:12px;background:#082878;color:#ffffff">
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#d8ff59">Staff login</p>
+        <p style="margin:0 0 6px;font-size:14px"><strong>Portal:</strong> <a href="${opts.portalUrl}" style="color:#d8ff59">${opts.portalUrl}</a></p>
+        <p style="margin:0 0 6px;font-size:14px"><strong>Email:</strong> ${opts.email}</p>
+        <p style="margin:0;font-size:14px"><strong>Temporary password:</strong> ${opts.password}</p>
+      </div>
+      <p style="margin-top:24px;font-size:13px;color:#5b6f94">Keep these details private. — Dreyz Interior Design School</p>
+    </div>
+  `;
+}
+
+/** @deprecated prefer welcomeStudentHtml / welcomeStaffHtml */
+export function welcomeAccountHtml(opts: {
+  name: string;
+  roleLabel: string;
+  portalUrl: string;
+  email: string;
+  password: string;
+  extras?: string[];
+}) {
+  if (opts.roleLabel === "Student") {
+    return welcomeStudentHtml(opts);
+  }
+  return welcomeStaffHtml(opts);
 }
 
 export async function sendMail(opts: {

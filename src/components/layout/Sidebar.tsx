@@ -245,7 +245,6 @@ export function Sidebar({
         aria-hidden={!open}
       />
       <aside
-        data-tour="nav-sidebar"
         className={cn(
           "fixed left-0 top-0 z-50 flex h-[100dvh] w-[min(280px,88vw)] flex-col border-r border-border bg-sidebar transition-transform duration-300 ease-out lg:w-[260px] lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
@@ -270,7 +269,10 @@ export function Sidebar({
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto overscroll-contain px-3 py-4">
+      <nav
+        data-tour="nav-sidebar"
+        className="flex-1 overflow-y-auto overscroll-contain px-3 py-4"
+      >
         {navSections.map((section) => (
           <div key={section.title} className="mb-5">
             <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted/80">

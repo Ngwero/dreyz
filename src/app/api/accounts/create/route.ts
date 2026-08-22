@@ -150,30 +150,54 @@ export async function POST(request: Request) {
           ? [`Specialty: ${specialty}`]
           : [];
 
-    const text = [
-      `Hi ${name.split(" ")[0] || name},`,
-      ``,
-      `Welcome to Dreyz Interior Design School.`,
-      ``,
-      `Your ${label} portal account is ready.`,
-      ...extras.map((e) => e),
-      ``,
-      `Login details`,
-      `Portal: ${loginUrl}`,
-      `Email: ${email}`,
-      `Temporary password: ${password}`,
-      ``,
-      `Please sign in and change your password from My Account.`,
-      ``,
-      `Questions? ${schoolInfo.email} · ${schoolInfo.phones.join(" / ")}`,
-      ``,
-      `— Dreyz Interior Design School`,
-      `Learn | Design | Inspire`,
-    ].join("\n");
+    const isStudent = role === "student";
+    const subject = isStudent
+      ? "Welcome to Dreyz Interior Design School"
+      : `Your Dreyz Interior ${label} access`;
+
+    const text = isStudent
+      ? [
+          `Hi ${name.split(" ")[0] || name},`,
+          ``,
+          `Welcome to Dreyz Interior Design School.`,
+          ``,
+          `Your student portal is ready.`,
+          ...extras,
+          ``,
+          `Student login`,
+          `Portal: ${loginUrl}`,
+          `Email: ${email}`,
+          `Temporary password: ${password}`,
+          ``,
+          `Sign in and change your password from My Account.`,
+          ``,
+          `Questions? ${schoolInfo.email} · ${schoolInfo.phones.join(" / ")}`,
+          ``,
+          `— Dreyz Interior Design School`,
+        ].join("\n")
+      : [
+          `Hi ${name.split(" ")[0] || name},`,
+          ``,
+          `You have been added to the Dreyz Interior staff portal.`,
+          ``,
+          `Your role is ${label}. This is an administration login — not a student account.`,
+          ...extras,
+          ``,
+          `Staff login`,
+          `Portal: ${loginUrl}`,
+          `Email: ${email}`,
+          `Temporary password: ${password}`,
+          ``,
+          `Please sign in and change your password from My Account. Keep these details private.`,
+          ``,
+          `Questions? ${schoolInfo.email} · ${schoolInfo.phones.join(" / ")}`,
+          ``,
+          `— Dreyz Interior Design School`,
+        ].join("\n");
 
     await sendMail({
       to: email,
-      subject: "Welcome to Dreyz Interior Design School",
+      subject,
       text,
       html: welcomeAccountHtml({
         name: name.split(" ")[0] || name,

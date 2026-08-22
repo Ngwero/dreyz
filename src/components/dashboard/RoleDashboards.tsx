@@ -61,7 +61,7 @@ function DashHero({
   actions?: ReactNode;
 }) {
   return (
-    <div className="portal-hero portal-fade-up mb-6 p-5 sm:mb-8 sm:p-7">
+    <div className="portal-hero portal-fade-up mb-6 p-5 sm:mb-8 sm:p-7" data-tour="portal-hero">
       <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 max-w-2xl">
           <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#d8ff59]">

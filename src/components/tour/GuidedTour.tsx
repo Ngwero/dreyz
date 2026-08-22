@@ -13,17 +13,17 @@ export type TourStep = {
 
 type Rect = { top: number; left: number; width: number; height: number };
 
-function clampRect(el: Element, pad: number): Rect {
+function measureEl(el: Element, pad: number): Rect {
   const r = el.getBoundingClientRect();
-  const top = Math.max(16, r.top - pad);
-  const left = Math.max(16, r.left - pad);
-  const right = Math.min(window.innerWidth - 16, r.right + pad);
-  const bottom = Math.min(window.innerHeight - 16, r.bottom + pad);
+  const top = Math.max(8, r.top - pad);
+  const left = Math.max(8, r.left - pad);
+  const right = Math.min(window.innerWidth - 8, r.right + pad);
+  const bottom = Math.min(window.innerHeight - 8, r.bottom + pad);
   return {
     top,
     left,
-    width: Math.max(80, right - left),
-    height: Math.max(48, bottom - top),
+    width: Math.max(48, right - left),
+    height: Math.max(40, bottom - top),
   };
 }
 
@@ -44,12 +44,36 @@ function markSeen(key: string) {
 }
 
 export function startTour(storageKey: string) {
-  try {
-    localStorage.removeItem(storageKey);
-  } catch {
-    /* ignore */
-  }
   window.dispatchEvent(new CustomEvent("dreyz-tour-start", { detail: { storageKey } }));
+}
+
+function placeTooltip(rect: Rect) {
+  const gap = 16;
+  const tw = Math.min(360, window.innerWidth - 32);
+  const th = 220;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const clampX = (x: number) => Math.max(16, Math.min(x, vw - tw - 16));
+  const clampY = (y: number) => Math.max(16, Math.min(y, vh - th - 16));
+
+  const spaceRight = vw - (rect.left + rect.width);
+  const spaceLeft = rect.left;
+  const spaceBelow = vh - (rect.top + rect.height);
+  const spaceAbove = rect.top;
+
+  if (spaceRight >= tw + gap + 8) {
+    return { top: clampY(rect.top), left: rect.left + rect.width + gap };
+  }
+  if (spaceBelow >= th + gap) {
+    return { top: rect.top + rect.height + gap, left: clampX(rect.left) };
+  }
+  if (spaceLeft >= tw + gap + 8) {
+    return { top: clampY(rect.top), left: rect.left - tw - gap };
+  }
+  if (spaceAbove >= th + gap) {
+    return { top: rect.top - th - gap, left: clampX(rect.left) };
+  }
+  return { top: 16, left: clampX(vw - tw - 16) };
 }
 
 export function GuidedTour({
@@ -63,7 +87,6 @@ export function GuidedTour({
   steps: TourStep[];
   startDelay?: number;
   variant?: "landing" | "portal";
-  /** Called when the tour opens (auto first-visit or manual replay). */
   onStart?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -79,6 +102,7 @@ export function GuidedTour({
     markSeen(storageKey);
     setOpen(false);
     setIndex(0);
+    setRect(null);
   }, [storageKey]);
 
   const measure = useCallback(() => {
@@ -88,7 +112,7 @@ export function GuidedTour({
       setRect(null);
       return;
     }
-    setRect(clampRect(el, step.pad ?? 12));
+    setRect(measureEl(el, step.pad ?? 10));
   }, [step]);
 
   const goTo = useCallback(
@@ -104,30 +128,30 @@ export function GuidedTour({
   );
 
   useEffect(() => {
-    const begin = () => {
+    const begin = (manual: boolean) => {
+      if (!manual) markSeen(storageKey);
       onStartRef.current?.();
       window.setTimeout(
         () => {
           setIndex(0);
           setOpen(true);
         },
-        onStartRef.current ? 280 : 0
+        onStartRef.current ? 320 : 0
       );
     };
 
     const onCustom = (e: Event) => {
       const key = (e as CustomEvent<{ storageKey?: string }>).detail?.storageKey;
-      if (!key || key === storageKey) begin();
+      if (!key || key === storageKey) begin(true);
     };
 
     window.addEventListener("dreyz-tour-start", onCustom);
 
-    // Auto-start only for first visit (storage key not marked yet)
     if (hasSeen(storageKey)) {
       return () => window.removeEventListener("dreyz-tour-start", onCustom);
     }
 
-    const t = window.setTimeout(begin, startDelay);
+    const t = window.setTimeout(() => begin(false), startDelay);
     return () => {
       window.clearTimeout(t);
       window.removeEventListener("dreyz-tour-start", onCustom);
@@ -140,11 +164,11 @@ export function GuidedTour({
     if (!el) {
       const skip = window.setTimeout(() => {
         if (index < steps.length - 1) goTo(index + 1);
-      }, 250);
+      }, 280);
       return () => window.clearTimeout(skip);
     }
-    el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-    const t = window.setTimeout(measure, 380);
+    el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    const t = window.setTimeout(measure, 360);
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, { passive: true });
     return () => {
@@ -167,50 +191,84 @@ export function GuidedTour({
 
   if (!open || !step) return null;
 
-  const tooltipBelow =
-    rect ? rect.top + rect.height + 220 < window.innerHeight : true;
-  const largeTarget = rect ? rect.height > window.innerHeight * 0.62 : false;
-  const tooltipLeft = rect
-    ? Math.max(16, Math.min(rect.left, window.innerWidth - 376))
-    : 0;
-  const tooltipStyle = !rect
-    ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
-    : largeTarget
-      ? { bottom: 24, left: tooltipLeft, top: "auto" as const }
-      : tooltipBelow
-        ? { top: rect.top + rect.height + 14, left: tooltipLeft }
-        : {
-            top: Math.max(16, rect.top - 14),
-            left: tooltipLeft,
-            transform: "translateY(-100%)",
-          };
+  const tooltipStyle = rect
+    ? placeTooltip(rect)
+    : { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+
+  const dim = landing ? "bg-[#061a4a]/80" : "bg-black/55 dark:bg-black/70";
+  const ring = landing
+    ? "0 0 0 3px #d8ff59, 0 0 28px rgba(216,255,89,0.55)"
+    : "0 0 0 3px #d8ff59, 0 0 24px rgba(27,126,239,0.55)";
 
   return (
     <div
-      className="fixed inset-0 z-[200] overflow-hidden"
+      className="fixed inset-0 z-[200]"
       role="dialog"
       aria-modal="true"
       aria-label="Quick tour"
     >
-      <button
-        type="button"
-        className={rect ? "absolute inset-0 cursor-default bg-transparent" : "absolute inset-0 bg-black/60"}
-        aria-label="Dismiss tour"
-        onClick={close}
-      />
-
-      {rect && (
-        <div
-          className="pointer-events-none absolute rounded-2xl transition-[top,left,width,height] duration-300 ease-out"
-          style={{
-            top: rect.top,
-            left: rect.left,
-            width: rect.width,
-            height: rect.height,
-            boxShadow: landing
-              ? "0 0 0 9999px rgba(6, 26, 74, 0.78), 0 0 0 2px rgba(216, 255, 89, 0.9)"
-              : "0 0 0 9999px rgba(6, 26, 74, 0.72), 0 0 0 2px rgba(27, 126, 239, 0.95)",
-          }}
+      {rect ? (
+        <>
+          <button
+            type="button"
+            className={cn("absolute cursor-default", dim)}
+            style={{ top: 0, left: 0, right: 0, height: rect.top }}
+            aria-label="Dismiss tour"
+            onClick={close}
+          />
+          <button
+            type="button"
+            className={cn("absolute cursor-default", dim)}
+            style={{
+              top: rect.top,
+              left: 0,
+              width: rect.left,
+              height: rect.height,
+            }}
+            aria-label="Dismiss tour"
+            onClick={close}
+          />
+          <button
+            type="button"
+            className={cn("absolute cursor-default", dim)}
+            style={{
+              top: rect.top,
+              left: rect.left + rect.width,
+              right: 0,
+              height: rect.height,
+            }}
+            aria-label="Dismiss tour"
+            onClick={close}
+          />
+          <button
+            type="button"
+            className={cn("absolute cursor-default", dim)}
+            style={{
+              top: rect.top + rect.height,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            aria-label="Dismiss tour"
+            onClick={close}
+          />
+          <div
+            className="pointer-events-none absolute rounded-xl"
+            style={{
+              top: rect.top,
+              left: rect.left,
+              width: rect.width,
+              height: rect.height,
+              boxShadow: ring,
+            }}
+          />
+        </>
+      ) : (
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/60"
+          aria-label="Dismiss tour"
+          onClick={close}
         />
       )}
 
@@ -219,7 +277,7 @@ export function GuidedTour({
           "absolute z-10 w-[min(360px,calc(100vw-32px))] rounded-2xl p-5 shadow-2xl",
           landing
             ? "border border-white/15 bg-[#082878]/95 text-white backdrop-blur-md"
-            : "border border-border bg-card text-foreground"
+            : "border border-[#d8ff59]/40 bg-card text-foreground"
         )}
         style={tooltipStyle}
       >
@@ -237,7 +295,9 @@ export function GuidedTour({
             onClick={close}
             className={cn(
               "rounded-lg p-1 transition",
-              landing ? "text-white/50 hover:bg-white/10 hover:text-white" : "text-muted hover:bg-surface hover:text-foreground"
+              landing
+                ? "text-white/50 hover:bg-white/10 hover:text-white"
+                : "text-muted hover:bg-surface hover:text-foreground"
             )}
             aria-label="Close tour"
           >

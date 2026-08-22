@@ -5,14 +5,14 @@ import { GuidedTour, type TourStep } from "./GuidedTour";
 import type { UserRole } from "@/lib/types";
 
 /** Per-user key so the tour auto-starts only on that account’s first portal visit. */
-export const portalTourKey = (userId: string) => `dreyz_portal_tour_user_${userId}_v1`;
+export const portalTourKey = (userId: string) => `dreyz_portal_tour_user_${userId}_v2`;
 
 const shared: TourStep[] = [
   {
     selector: '[data-tour="nav-sidebar"]',
     title: "Your tools",
     body: "Everything for your role lives here — open a page any time from this menu.",
-    pad: 8,
+    pad: 6,
   },
   {
     selector: '[data-tour="header-search"]',
@@ -21,7 +21,7 @@ const shared: TourStep[] = [
     pad: 8,
   },
   {
-    selector: '[data-tour="portal-main"]',
+    selector: '[data-tour="portal-hero"]',
     title: "Your dashboard",
     body: "A live snapshot of what matters today. Stats and lists update as you work.",
     pad: 10,

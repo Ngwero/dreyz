@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendMail, welcomeAccountHtml } from "@/lib/mail";
+import { sendMail, welcomeStudentHtml } from "@/lib/mail";
 import { portalLoginUrl } from "@/lib/portal-url";
 import { classOptions, feeTracks, schoolInfo } from "@/lib/data";
 
@@ -125,10 +125,10 @@ export async function POST(request: Request) {
       ``,
       `Welcome to Dreyz Interior Design School.`,
       ``,
-      `Your student portal account is ready.`,
+      `Your student portal is ready.`,
       ...extras,
       ``,
-      `Login details`,
+      `Student login`,
       `Portal: ${loginUrl}`,
       `Email: ${email}`,
       `Password: ${password}`,
@@ -145,9 +145,8 @@ export async function POST(request: Request) {
       to: email,
       subject: "Welcome to Dreyz Interior Design School",
       text,
-      html: welcomeAccountHtml({
+      html: welcomeStudentHtml({
         name: name.split(" ")[0] || name,
-        roleLabel: "Student",
         portalUrl: loginUrl,
         email,
         password,
