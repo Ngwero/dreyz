@@ -296,7 +296,7 @@ export function GuidedTour({
             className={cn(
               "rounded-lg p-1 transition",
               landing
-                ? "text-white/50 hover:bg-white/10 hover:text-white"
+                ? "text-white/85 hover:bg-white/10 hover:text-white"
                 : "text-muted hover:bg-surface hover:text-foreground"
             )}
             aria-label="Close tour"
@@ -305,7 +305,7 @@ export function GuidedTour({
           </button>
         </div>
         <h2 className="text-lg font-semibold tracking-tight">{step.title}</h2>
-        <p className={cn("mt-2 text-sm leading-relaxed", landing ? "text-white/65" : "text-muted")}>
+        <p className={cn("mt-2 text-sm leading-relaxed", landing ? "text-white/90" : "text-muted")}>
           {step.body}
         </p>
         <div className="mt-5 flex items-center justify-between gap-2">
@@ -314,7 +314,7 @@ export function GuidedTour({
             onClick={close}
             className={cn(
               "text-xs font-semibold",
-              landing ? "text-white/45 hover:text-white" : "text-muted hover:text-foreground"
+              landing ? "text-white/85 hover:text-white" : "text-muted hover:text-foreground"
             )}
           >
             Skip tour

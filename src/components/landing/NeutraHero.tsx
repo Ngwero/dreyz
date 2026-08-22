@@ -116,7 +116,7 @@ export function NeutraHero() {
                 <br />
                 <span style={{ color: brand.orange }}>Build a career that lasts.</span>
               </h1>
-              <p className="max-w-lg text-base leading-relaxed text-white/55 sm:text-lg">
+              <p className="max-w-lg text-base leading-relaxed text-white/90 sm:text-lg">
                 Studio craft, technical drawing, materials, and site practice —
                 train like a professional interior designer from day one.
               </p>
@@ -144,7 +144,7 @@ export function NeutraHero() {
                   <p className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                     {item.value}
                   </p>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-white/40">
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-white/80">
                     {item.label}
                   </p>
                 </div>

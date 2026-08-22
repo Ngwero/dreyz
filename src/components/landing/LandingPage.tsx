@@ -102,7 +102,7 @@ export function LandingPage() {
               />
             </div>
             <Reveal delay={0.15}>
-              <p className="text-base leading-relaxed text-white/50 sm:text-lg lg:pt-10">
+              <p className="text-base leading-relaxed text-white/88 sm:text-lg lg:pt-10">
                 We&apos;re not here to fill notebooks — we&apos;re here to build
                 designers who can quote a project, draw it accurately, style it
                 beautifully, and deliver it on time. That&apos;s the Dreyz
@@ -166,7 +166,7 @@ export function LandingPage() {
                   >
                     {item.word}
                   </p>
-                  <p className="mt-3 text-sm leading-relaxed text-white/45">
+                  <p className="mt-3 text-sm leading-relaxed text-white/85">
                     {item.copy}
                   </p>
                 </div>
@@ -187,7 +187,7 @@ export function LandingPage() {
                   Real training. Real results.
                 </h2>
               </div>
-              <p className="max-w-sm text-sm text-white/45">
+              <p className="max-w-sm text-sm text-white/85">
                 Everything you need to go from passion to profession — in one
                 structured programme.
               </p>
@@ -230,7 +230,7 @@ export function LandingPage() {
                     {fact.value}
                   </p>
                   <p className="mt-4 text-sm font-medium">{fact.label}</p>
-                  <p className="mt-1 text-xs text-white/40">{fact.note}</p>
+                  <p className="mt-1 text-xs text-white/80">{fact.note}</p>
                 </div>
               </Reveal>
             ))}
@@ -256,7 +256,7 @@ export function LandingPage() {
                 delay={0.05}
               />
               <Reveal delay={0.15}>
-                <p className="mt-6 text-base leading-relaxed text-white/50">
+                <p className="mt-6 text-base leading-relaxed text-white/88">
                   {programme.courseworkUnits} practical units take you from
                   beginner to professional — then {programme.internshipMonths}{" "}
                   months on the job put your skills to work where it matters
@@ -278,14 +278,14 @@ export function LandingPage() {
                   >
                     <div>
                       <p className="text-lg font-semibold">{opt.name}</p>
-                      <p className="mt-1 text-sm text-white/45">{opt.days}</p>
-                      <p className="mt-2 text-xs leading-relaxed text-white/35">
+                      <p className="mt-1 text-sm text-white/85">{opt.days}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-white/80">
                         {classTaglines[opt.id]}
                       </p>
                     </div>
                     <div className="landing-glass rounded-2xl px-4 py-2 text-right">
                       <p className="text-sm font-medium">{opt.time}</p>
-                      <p className="text-xs text-white/40">
+                      <p className="text-xs text-white/80">
                         {opt.hoursPerDay}h per day
                       </p>
                     </div>
@@ -307,7 +307,7 @@ export function LandingPage() {
             </h2>
           </Reveal>
           <Reveal delay={0.1}>
-            <p className="max-w-sm text-sm text-white/45">
+            <p className="max-w-sm text-sm text-white/85">
               From studio collaboration to graduation day — the Dreyz community
               that builds careers in interior design.
             </p>
@@ -362,7 +362,7 @@ export function LandingPage() {
                   </p>
                 </Reveal>
                 <Reveal delay={0.15}>
-                  <p className="mt-5 max-w-md text-base leading-relaxed text-white/50">
+                  <p className="mt-5 max-w-md text-base leading-relaxed text-white/88">
                     Quality design education shouldn&apos;t be out of reach.
                     Choose a payment plan that fits your life — 3 or 4
                     installments — and graduate with a certificate that opens
@@ -375,7 +375,7 @@ export function LandingPage() {
                     {admissionRequirements.map((req) => (
                       <li
                         key={req}
-                        className="flex items-start gap-2 text-sm text-white/55"
+                        className="flex items-start gap-2 text-sm text-white/90"
                       >
                         <span
                           className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
@@ -402,12 +402,12 @@ export function LandingPage() {
                   <Reveal key={track.id} delay={i * 0.1} y={20}>
                     <div className="landing-glass landing-card-hover flex items-end justify-between gap-4 rounded-2xl px-6 py-5">
                       <div>
-                        <p className="text-sm text-white/50">{track.name}</p>
+                        <p className="text-sm text-white/88">{track.name}</p>
                         <p className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
                           {formatUGX(track.total)}
                         </p>
                         {feeTaglines[track.id] && (
-                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-white/40">
+                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-white/80">
                             {feeTaglines[track.id]}
                           </p>
                         )}
@@ -448,7 +448,7 @@ export function LandingPage() {
           />
 
           <Reveal delay={0.2}>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg">
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/88 sm:text-lg">
               Visit us on Kira Road, opposite Total Kyaliwajjala. Talk to our
               team or apply for the {schoolInfo.intake} intake — your design
               career starts with one decision.
@@ -498,12 +498,12 @@ export function LandingPage() {
                       href={item.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-3 block text-sm leading-relaxed text-white/70 transition hover:text-white"
+                      className="mt-3 block text-sm leading-relaxed text-white/85 transition hover:text-white"
                     >
                       {item.body}
                     </a>
                   ) : (
-                    <p className="mt-3 text-sm leading-relaxed text-white/70">
+                    <p className="mt-3 text-sm leading-relaxed text-white/85">
                       {item.body}
                     </p>
                   )}
@@ -524,17 +524,17 @@ export function LandingPage() {
               height={38}
               className="h-9 w-auto opacity-80"
             />
-            <p className="text-sm text-white/40">
+            <p className="text-sm text-white/80">
               © {new Date().getFullYear()} Dreyz Interior Design School
             </p>
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
-            <p className="text-sm text-white/35">
+            <p className="text-sm text-white/80">
               <span style={{ color: brand.sage }}>Learn</span>
               <span className="mx-2">·</span>
               <span style={{ color: brand.orange }}>Design</span>
               <span className="mx-2">·</span>
-              <span className="text-white/50">Inspire — your design career starts here</span>
+              <span className="text-white/88">Inspire — your design career starts here</span>
             </p>
           </div>
         </div>

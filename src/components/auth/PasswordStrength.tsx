@@ -80,7 +80,7 @@ export function PasswordStrengthMeter({
                     ? "text-emerald-300/90"
                     : "text-emerald-600"
                   : dark
-                    ? "text-white/40"
+                    ? "text-white/80"
                     : "text-muted"
               }`}
             >
@@ -91,7 +91,7 @@ export function PasswordStrengthMeter({
                       ? "bg-emerald-400/20 text-emerald-300"
                       : "bg-emerald-500/15 text-emerald-600"
                     : dark
-                      ? "bg-white/10 text-white/35"
+                      ? "bg-white/15 text-white/80"
                       : "bg-border text-muted"
                 }`}
                 aria-hidden

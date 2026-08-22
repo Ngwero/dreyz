@@ -19,7 +19,7 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-surface">
             <div
-              className="h-full rounded-full bg-navy transition-all"
+              className="h-full rounded-full bg-accent transition-all"
               style={{ width: `${(item.score / maxScore) * 100}%` }}
             />
           </div>

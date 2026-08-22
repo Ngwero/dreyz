@@ -64,14 +64,14 @@ function DashHero({
     <div className="portal-hero portal-fade-up mb-6 p-5 sm:mb-8 sm:p-7" data-tour="portal-hero">
       <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 max-w-2xl">
-          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#d8ff59]">
+          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
             <Sparkles size={12} />
             {eyebrow}
           </p>
-          <h1 className="mt-3 font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-white sm:text-[1.9rem]">
+          <h1 className="mt-3 font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.9rem]">
             {title}
           </h1>
-          <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-white/65">
+          <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted">
             {description}
           </p>
         </div>
@@ -154,7 +154,7 @@ function SuperAdminDashboard() {
         title={
           <>
             Welcome back to{" "}
-            <span className="text-[#d8ff59]">Dreyz Interior</span>
+            <span className="text-accent">Dreyz Interior</span>
           </>
         }
         description="Full school control — programme, people, payments, and accounts in one place."
@@ -162,13 +162,13 @@ function SuperAdminDashboard() {
           <>
             <Link
               href="/portal/payments"
-              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/15"
+              className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
             >
               Payments
             </Link>
             <Link
               href="/portal/accounts"
-              className="inline-flex items-center justify-center rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+              className="inline-flex items-center justify-center rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:brightness-110"
             >
               Accounts
             </Link>
@@ -345,13 +345,13 @@ function AccountantDashboard() {
           <>
             <Link
               href="/portal/accounts"
-              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/15"
+              className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
             >
               Student accounts
             </Link>
             <Link
               href="/portal/payments"
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:brightness-110"
             >
               <Wallet size={14} />
               Record payment
@@ -465,7 +465,7 @@ function TutorDashboard({ name }: { name: string }) {
         actions={
           <Link
             href="/portal/attendance"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:brightness-110"
           >
             <ClipboardCheck size={14} />
             Mark attendance
@@ -576,7 +576,7 @@ function StudentDashboard({
         actions={
           <Link
             href="/portal/projects"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#d8ff59] px-3.5 py-2 text-xs font-semibold text-[#082878] transition hover:brightness-105"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:brightness-110"
           >
             <FolderKanban size={14} />
             My projects

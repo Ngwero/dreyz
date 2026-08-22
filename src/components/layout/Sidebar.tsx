@@ -275,7 +275,7 @@ export function Sidebar({
       >
         {navSections.map((section) => (
           <div key={section.title} className="mb-5">
-            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted/80">
+            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
               {section.title}
             </p>
             <ul className="space-y-0.5">
@@ -294,7 +294,7 @@ export function Sidebar({
                         className={cn(
                           "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors sm:py-2",
                           active
-                            ? "bg-navy text-white"
+                            ? "bg-accent/10 font-semibold text-accent"
                             : "text-muted hover:bg-surface-hover hover:text-foreground"
                         )}
                       >
@@ -344,7 +344,7 @@ export function Sidebar({
                       className={cn(
                         "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors sm:py-2",
                         active
-                          ? "bg-navy text-white"
+                          ? "bg-accent/10 font-semibold text-accent"
                           : "text-muted hover:bg-surface-hover hover:text-foreground"
                       )}
                     >
@@ -361,11 +361,11 @@ export function Sidebar({
 
       <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {(user?.role === "super_admin" || user?.role === "accountant") && (
-          <div className="rounded-xl bg-navy p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-yellow">
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-accent">
               Record a payment
             </p>
-            <p className="mt-1.5 text-[13px] font-semibold leading-snug text-white">
+            <p className="mt-1.5 text-[13px] font-semibold leading-snug text-foreground">
               Confirm fees &amp; email student login
             </p>
             <Link
@@ -378,11 +378,11 @@ export function Sidebar({
           </div>
         )}
         {user?.role === "student" && (
-          <div className="rounded-xl bg-navy p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-yellow">
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-accent">
               Your portal
             </p>
-            <p className="mt-1.5 text-[13px] font-semibold leading-snug text-white">
+            <p className="mt-1.5 text-[13px] font-semibold leading-snug text-foreground">
               Track classes, fees, and projects
             </p>
             <Link
@@ -395,11 +395,11 @@ export function Sidebar({
           </div>
         )}
         {user?.role === "tutor" && (
-          <div className="rounded-xl bg-navy p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-yellow">
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-accent">
               Teaching
             </p>
-            <p className="mt-1.5 text-[13px] font-semibold leading-snug text-white">
+            <p className="mt-1.5 text-[13px] font-semibold leading-snug text-foreground">
               Mark attendance and review work
             </p>
             <Link

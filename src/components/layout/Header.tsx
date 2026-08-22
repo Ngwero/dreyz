@@ -119,7 +119,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             }}
             onFocus={() => setOpen(true)}
             placeholder="Search…"
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted/70 focus:border-accent/40 focus:bg-card focus:ring-2 focus:ring-accent/15"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent/40 focus:bg-card focus:ring-2 focus:ring-accent/15"
           />
           {open && query.trim().length >= 2 && (
             <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[60vh] overflow-hidden overflow-y-auto rounded-xl border border-border bg-card shadow-lg">

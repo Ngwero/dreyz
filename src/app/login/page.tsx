@@ -28,13 +28,13 @@ import { classOptions, feeTracks } from "@/lib/data";
 const OTP_LENGTH = 6;
 
 const fieldClass =
-  "mt-2 w-full rounded-2xl border border-white/12 bg-white/[0.07] px-4 py-3.5 text-base text-white outline-none transition placeholder:text-white/35 focus:border-[#d8ff59]/45 focus:bg-white/[0.1] focus:ring-4 focus:ring-[#d8ff59]/10 sm:py-3 sm:text-sm";
+  "mt-2 w-full rounded-2xl border border-white/12 bg-white/[0.07] px-4 py-3.5 text-base text-white outline-none transition placeholder:text-white/70 focus:border-[#d8ff59]/45 focus:bg-white/[0.1] focus:ring-4 focus:ring-[#d8ff59]/10 sm:py-3 sm:text-sm";
 
 const labelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[10px]";
+  "text-[11px] font-semibold uppercase tracking-[0.14em] text-white/80 sm:text-[10px]";
 
 const linkMuted =
-  "text-xs font-medium text-white/50 transition hover:text-white";
+  "text-xs font-medium text-white/85 transition hover:text-white";
 
 type Step =
   | "password"
@@ -477,12 +477,12 @@ function LoginForm() {
               Learn. Design.
               <span className="block text-white/80">Inspire.</span>
             </h2>
-            <p className="mt-4 max-w-[32ch] text-sm leading-relaxed text-white/65 sm:text-[15px]">
+            <p className="mt-4 max-w-[32ch] text-sm leading-relaxed text-white/88 sm:text-[15px]">
               Sign in to your Dreyz Interior Design School account — classes, fees, and studio work in one place.
             </p>
           </div>
 
-          <p className="relative hidden text-xs text-white/40 lg:block landing-fade-in landing-delay-3">
+          <p className="relative hidden text-xs text-white/80 lg:block landing-fade-in landing-delay-3">
             Kira Road · opposite Total Kyaliwajjala
           </p>
         </aside>
@@ -494,7 +494,7 @@ function LoginForm() {
               <h1 className="font-display text-2xl font-semibold tracking-tight text-white sm:text-[1.75rem]">
                 {heading}
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-white/55">{subtitle}</p>
+              <p className="mt-2 text-sm leading-relaxed text-white/85">{subtitle}</p>
             </div>
 
             <form
@@ -551,8 +551,8 @@ function LoginForm() {
                         Code verified
                       </p>
                     )}
-                    <p className="mt-3 text-xs text-white/45">
-                      Code sent to <span className="text-white/75">{email}</span>
+                    <p className="mt-3 text-xs text-white/80">
+                      Code sent to <span className="text-white">{email}</span>
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                       <button
@@ -728,7 +728,7 @@ function LoginForm() {
                         <button
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
-                          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white/75"
+                          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-white/75 hover:bg-white/5 hover:text-white"
                           aria-label={showPassword ? "Hide password" : "Show password"}
                         >
                           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -793,7 +793,7 @@ function LoginForm() {
                         <button
                           type="button"
                           onClick={() => setShowNewPassword((v) => !v)}
-                          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white/75"
+                          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-white/75 hover:bg-white/5 hover:text-white"
                           aria-label={showNewPassword ? "Hide password" : "Show password"}
                         >
                           {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -877,7 +877,7 @@ function LoginForm() {
                         <button
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
-                          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white/75 sm:h-9 sm:w-9"
+                          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-white/75 hover:bg-white/5 hover:text-white sm:h-9 sm:w-9"
                           aria-label={showPassword ? "Hide password" : "Show password"}
                         >
                           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -944,10 +944,10 @@ function LoginForm() {
               )}
             </form>
 
-            <p className="mt-6 pb-[env(safe-area-inset-bottom)] text-center text-sm text-white/40">
+            <p className="mt-6 pb-[env(safe-area-inset-bottom)] text-center text-sm text-white/85">
               <Link
                 href="/"
-                className="inline-flex min-h-11 items-center font-medium text-white/60 transition hover:text-[#d8ff59]"
+                className="inline-flex min-h-11 items-center font-medium text-white/90 transition hover:text-[#d8ff59]"
               >
                 ← Back to website
               </Link>
@@ -963,7 +963,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[100svh] items-center justify-center bg-[#082878] px-4 text-sm text-white/60">
+        <div className="flex min-h-[100svh] items-center justify-center bg-[#082878] px-4 text-sm text-white">
           Loading…
         </div>
       }

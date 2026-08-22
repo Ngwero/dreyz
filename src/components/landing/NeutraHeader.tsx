@@ -245,7 +245,7 @@ export function NeutraHeader({
                   href={link.href}
                   data-active={isActive ? "true" : "false"}
                   className={`neutra-nav-link relative z-10 px-3.5 py-2 text-[13px] font-medium transition-colors duration-300 xl:px-4 ${
-                    isActive ? "text-white" : "text-white/55 hover:text-white/85"
+                    isActive ? "text-white" : "text-white/85 hover:text-white"
                   }`}
                   onMouseEnter={() => setHoveredHref(link.href)}
                   onClick={() => setActiveHref(link.href)}
@@ -305,7 +305,7 @@ export function NeutraHeader({
                 onClick={() => setMenuOpen(false)}
                 className="flex items-baseline gap-4 rounded-2xl px-4 py-4 text-[clamp(1.75rem,6vw,2.75rem)] font-semibold tracking-tight text-white transition hover:bg-white/10"
               >
-                <span className="font-mono text-sm text-white/50">0{i + 1}</span>
+                <span className="font-mono text-sm text-white/85">0{i + 1}</span>
                 {link.label}
               </a>
             ))}

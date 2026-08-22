@@ -8,50 +8,50 @@
   primary-dark #082878 · primary #1F429A · bright #1b7eef · lime #d8ff59 · deep #061a4a
 */
 :root {
-  --background: #f8fafc;
-  --foreground: #082878;
+  --background: #ffffff;
+  --foreground: #0a1738;
   --card: #ffffff;
   --sidebar: #ffffff;
-  --border: #d6e0f5;
-  --muted: #5b6f94;
-  --surface: #f0f4ff;
-  --surface-hover: #e8eefc;
+  --border: #e4eaf4;
+  --muted: #334766;
+  --surface: #f5f8fc;
+  --surface-hover: #eef3fb;
   --accent: #1b7eef;
   --accent-dark: #082878;
   --navy: #082878;
-  --brand-sage: #f0f4ff;
+  --brand-sage: #f5f8fc;
   --brand-plum: #1f429a;
   --brand-red: #ef4242;
   --brand-yellow: #d8ff59;
   --brand-lime: #d8ff59;
-  --shadow-sm: 0 1px 2px rgba(8, 40, 120, 0.06);
-  --shadow-md: 0 4px 16px rgba(8, 40, 120, 0.1);
-  --scrollbar: #b8c8e8;
+  --shadow-sm: 0 1px 2px rgba(15, 31, 74, 0.05);
+  --shadow-md: 0 8px 24px rgba(15, 31, 74, 0.08);
+  --scrollbar: #c5d0e4;
   --scrollbar-hover: #8fa4d4;
 }
 
-/* Dark theme — RukaPay deep blues */
+/* Dark theme — charcoal, not navy-on-navy, so text stays readable */
 .dark {
-  --background: #061a4a;
-  --foreground: #f0f4ff;
-  --card: #082878;
-  --sidebar: #071f5c;
-  --border: #1f429a;
-  --muted: #9bb0d8;
-  --surface: #0a2f8a;
-  --surface-hover: #1f429a;
-  --accent: #1b7eef;
-  --accent-dark: #d8ff59;
-  --navy: #3b82f6;
-  --brand-sage: #0d3a9e;
-  --brand-plum: #3b82f6;
-  --brand-red: #ff6b6b;
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --sidebar: #1e293b;
+  --border: #334155;
+  --muted: #e2e8f0;
+  --surface: #243044;
+  --surface-hover: #2c3b52;
+  --accent: #60a5fa;
+  --accent-dark: #93c5fd;
+  --navy: #93c5fd;
+  --brand-sage: #243044;
+  --brand-plum: #60a5fa;
+  --brand-red: #f87171;
   --brand-yellow: #d8ff59;
   --brand-lime: #d8ff59;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --scrollbar: #1f429a;
-  --scrollbar-hover: #3b82f6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --scrollbar: #475569;
+  --scrollbar-hover: #64748b;
 }
 
 @theme inline {
@@ -713,8 +713,7 @@ html.landing-smooth {
 /* Portal dashboard atmosphere */
 .portal-shell {
   background:
-    radial-gradient(900px 420px at 8% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 55%),
-    radial-gradient(700px 380px at 100% 0%, color-mix(in srgb, var(--brand-lime) 10%, transparent), transparent 50%),
+    radial-gradient(800px 360px at 100% -8%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 55%),
     var(--background);
 }
 
@@ -722,20 +721,20 @@ html.landing-smooth {
   position: relative;
   overflow: hidden;
   border-radius: 1.35rem;
-  border: 1px solid color-mix(in srgb, white 14%, transparent);
-  background:
-    linear-gradient(135deg, #061a4a 0%, #082878 48%, #1f429a 100%);
-  color: white;
-  box-shadow: 0 18px 50px rgba(8, 40, 120, 0.22);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--shadow-sm);
 }
 
 .portal-hero::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(500px 220px at 85% 20%, rgba(216, 255, 89, 0.18), transparent 60%),
-    radial-gradient(420px 200px at 10% 90%, rgba(27, 126, 239, 0.35), transparent 55%);
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
   pointer-events: none;
 }
 

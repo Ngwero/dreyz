@@ -103,7 +103,7 @@ export function SearchInput({
       <input
         type="search"
         placeholder={placeholder}
-        className="w-full rounded-lg border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted/70 focus:border-accent/40 focus:ring-2 focus:ring-accent/15"
+        className="w-full rounded-lg border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent/40 focus:ring-2 focus:ring-accent/15"
         {...props}
       />
     </div>
