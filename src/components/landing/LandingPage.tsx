@@ -12,12 +12,18 @@ import { NeutraHero } from "./NeutraHero";
 import { ArchDrawingBackdrop } from "./ArchDrawingBackdrop";
 
 const gallery = [
-  "/gallery/studio/design-team.png",
-  "/gallery/studio/graduate.png",
-  "/gallery/studio/speaker.png",
+  "/gallery/studio/design-team.jpg",
+  "/gallery/studio/graduate.jpg",
+  "/gallery/studio/speaker.jpg",
+  "/gallery/kitchen-hero/slot-main.jpg",
   "/gallery/kitchen-hero/slot-mid-top.jpg",
   "/gallery/kitchen-hero/slot-right-top.jpg",
   "/gallery/campus-01.jpg",
+  "/gallery/campus-04.jpg",
+  "/gallery/campus-08.jpg",
+  "/gallery/campus-12.jpg",
+  "/gallery/campus-16.jpg",
+  "/gallery/campus-20.jpg",
 ];
 
 const classTaglines: Record<string, string> = {

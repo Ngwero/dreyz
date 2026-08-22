@@ -9,18 +9,18 @@ import { brand } from "./NeutraHeader";
 
 const heroFrames = [
   {
-    src: "/gallery/studio/design-team.png",
-    alt: "Dreyz design team reviewing interior concepts",
+    src: "/gallery/kitchen-hero/slot-main.jpg",
+    alt: "Dreyz students measuring and reading plans on a site visit",
     className: "hero-frame hero-frame--main",
   },
   {
-    src: "/gallery/studio/graduate.png",
-    alt: "Dreyz graduate with faculty at certification",
+    src: "/gallery/campus-15.jpg",
+    alt: "Dreyz Interior Design School Class of 2026 graduates",
     className: "hero-frame hero-frame--top",
   },
   {
-    src: "/gallery/studio/speaker.png",
-    alt: "Dreyz Interior Design School ceremony address",
+    src: "/gallery/campus-18.jpg",
+    alt: "A Dreyz instructor explaining electrical fittings to students on a site visit",
     className: "hero-frame hero-frame--bot",
   },
 ];
