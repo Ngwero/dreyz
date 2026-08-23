@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Modal, Field, fieldClass } from "@/components/ui/Modal";
-import { Plus, Download, Trash2, UserPlus, Pencil } from "lucide-react";
+import { Plus, Download, Trash2, UserPlus, Pencil, Eye } from "lucide-react";
 import {
   learnersStore,
   useStoreList,
@@ -22,6 +22,7 @@ import {
 import { createAccount, getAllUsers } from "@/lib/auth";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { computeLearnerProgress } from "@/lib/academics";
+import { LearnerProfile } from "@/components/portal/LearnerProfile";
 
 export default function LearnersPage() {
   const { user } = useAuth();
@@ -38,6 +39,7 @@ export default function LearnersPage() {
     createLogin: true,
   });
   const [notice, setNotice] = useState("");
+  const [selected, setSelected] = useState<Learner | null>(null);
 
   const canEdit = user?.role === "super_admin" || user?.role === "accountant" || user?.role === "tutor";
 
@@ -204,6 +206,7 @@ export default function LearnersPage() {
           { key: "name", label: "Name" },
           { key: "course", label: "Course" },
           { key: "progress", label: "Progress" },
+          { key: "fees", label: "Fees" },
           { key: "status", label: "Status" },
           { key: "enrolled", label: "Enrolled" },
           ...(canEdit ? [{ key: "actions", label: "" }] : []),
@@ -215,15 +218,19 @@ export default function LearnersPage() {
           <TableRow key={learner.id}>
             <TableCell className="font-mono text-xs text-muted">{learner.id}</TableCell>
             <TableCell>
-              <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="flex items-center gap-3 text-left"
+                onClick={() => setSelected(learner)}
+              >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent-dark">
                   {learner.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                 </div>
                 <div>
-                  <p className="font-medium">{learner.name}</p>
+                  <p className="font-medium hover:text-accent">{learner.name}</p>
                   <p className="text-xs text-muted">{learner.email}</p>
                 </div>
-              </div>
+              </button>
             </TableCell>
             <TableCell className="max-w-[200px] truncate">{learner.course}</TableCell>
             <TableCell>
@@ -236,6 +243,10 @@ export default function LearnersPage() {
                 </div>
                 <span className="text-xs font-medium">{progress}%</span>
               </div>
+            </TableCell>
+            <TableCell>
+              <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Not paid</p>
+              <p className="text-[11px] text-muted">No payment yet</p>
             </TableCell>
             <TableCell>
               <button type="button" onClick={() => cycleStatus(learner)} disabled={!canEdit}>
@@ -256,6 +267,9 @@ export default function LearnersPage() {
             {canEdit && (
               <TableCell>
                 <div className="flex justify-end gap-1">
+                  <Button size="sm" variant="outline" onClick={() => setSelected(learner)}>
+                    <Eye size={13} /> Profile
+                  </Button>
                   {canManageAccounts && !hasPortal(learner) && (
                     <Button size="sm" variant="outline" onClick={() => grantLogin(learner)}>
                       <UserPlus size={13} /> Grant login
@@ -300,6 +314,8 @@ export default function LearnersPage() {
       {filtered.length === 0 && (
         <p className="mt-4 text-sm text-muted">No learners match your search.</p>
       )}
+
+      <LearnerProfile learner={selected} onClose={() => setSelected(null)} />
 
       <Modal
         open={open}

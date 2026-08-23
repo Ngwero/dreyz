@@ -14,10 +14,12 @@ export interface Instructor {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   specialty: string;
   courses: number;
   rating: number;
-  status: "active" | "on-leave";
+  status: "active" | "on-leave" | "suspended";
+  assignedCourseIds?: string[];
 }
 
 export interface Course {

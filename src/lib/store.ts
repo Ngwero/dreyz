@@ -287,14 +287,24 @@ export function upsertInstructorFromAccount(input: {
   status?: Instructor["status"];
 }) {
   const existing = instructorsStore.getAll().find((i) => i.id === input.id);
+  const keepSuspended =
+    existing?.status === "suspended" && input.status !== "active";
+  const keepOnLeave =
+    existing?.status === "on-leave" && (input.status === "active" || !input.status);
   instructorsStore.upsert({
     id: input.id,
     name: input.name,
     email: input.email,
+    phone: existing?.phone,
     specialty: input.specialty,
-    courses: existing?.courses ?? 1,
+    courses: existing?.assignedCourseIds?.length ?? existing?.courses ?? 1,
     rating: existing?.rating ?? 4.8,
-    status: input.status ?? existing?.status ?? "active",
+    status: keepSuspended
+      ? "suspended"
+      : keepOnLeave
+        ? "on-leave"
+        : (input.status ?? existing?.status ?? "active"),
+    assignedCourseIds: existing?.assignedCourseIds,
   });
 }
 
@@ -365,14 +375,13 @@ export function useStoreList<T extends { id: string }>(
 export function useLiveTick() {
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    void hydrateSchoolData().then(() => setTick((t) => t + 1));
     const bump = () => setTick((t) => t + 1);
+    bump();
+    void hydrateSchoolData().then(bump);
     window.addEventListener("storage", bump);
-    window.addEventListener("dreyz-store", bump);
     window.addEventListener("dreyz-store", bump);
     return () => {
       window.removeEventListener("storage", bump);
-      window.removeEventListener("dreyz-store", bump);
       window.removeEventListener("dreyz-store", bump);
     };
   }, []);

@@ -90,11 +90,7 @@ function navForRole(role: UserRole): NavSection[] {
               { label: "Enrollments", href: `${P}/enrollments` },
             ],
           },
-          {
-            label: "Tutors",
-            icon: <GraduationCap size={17} />,
-            children: [{ label: "All Tutors", href: `${P}/instructors` }],
-          },
+          { label: "Tutors", href: `${P}/instructors`, icon: <GraduationCap size={17} /> },
           { label: "Accounts", href: `${P}/accounts`, icon: <UserCog size={17} /> },
         ],
       },

@@ -241,13 +241,13 @@ export const projects: Project[] = [
 ];
 
 export const enrollments: Enrollment[] = [
-  { id: "ENR001", learnerName: "Lucas Bergström", course: "6-Month Course + Internship", date: "2025-06-30", amount: 4400000, status: "paid", learnerEmail: "lucas.b@email.com", feeTrackId: "6-month", credentialsSent: true },
-  { id: "ENR002", learnerName: "David Chen", course: "4-Month Main Course", date: "2025-06-29", amount: 3350000, status: "paid", learnerEmail: "d.chen@email.com", feeTrackId: "4-month", credentialsSent: true },
+  { id: "ENR001", learnerName: "Lucas Bergström", course: "6-Month Course + Internship", date: "2025-06-30", amount: 4400000, status: "pending", learnerEmail: "lucas.b@email.com", feeTrackId: "6-month", credentialsSent: false },
+  { id: "ENR002", learnerName: "David Chen", course: "4-Month Main Course", date: "2025-06-29", amount: 3350000, status: "pending", learnerEmail: "d.chen@email.com", feeTrackId: "4-month", credentialsSent: false },
   { id: "ENR003", learnerName: "Sarah Williams", course: "4-Month Main Course", date: "2025-06-29", amount: 3350000, status: "pending", learnerEmail: "sarah.w@email.com", feeTrackId: "4-month", credentialsSent: false },
-  { id: "ENR004", learnerName: "Kenji Yamamoto", course: "6-Month Course + Internship", date: "2025-06-28", amount: 4400000, status: "paid", learnerEmail: "kenji.y@email.com", feeTrackId: "6-month", credentialsSent: true },
-  { id: "ENR005", learnerName: "Aisha Bello", course: "4-Month Main Course", date: "2025-06-27", amount: 3350000, status: "paid", learnerEmail: "aisha.b@email.com", feeTrackId: "4-month", credentialsSent: true },
-  { id: "ENR006", learnerName: "Grace Nakato", course: "4-Month Main Course", date: "2025-06-08", amount: 3350000, status: "paid", learnerEmail: "grace.n@email.com", feeTrackId: "4-month", credentialsSent: true },
-  { id: "ENR007", learnerName: "Amara Okafor", course: "6-Month Course + Internship", date: "2025-09-12", amount: 4400000, status: "paid", learnerEmail: "amara.o@email.com", feeTrackId: "6-month", credentialsSent: true },
+  { id: "ENR004", learnerName: "Kenji Yamamoto", course: "6-Month Course + Internship", date: "2025-06-28", amount: 4400000, status: "pending", learnerEmail: "kenji.y@email.com", feeTrackId: "6-month", credentialsSent: false },
+  { id: "ENR005", learnerName: "Aisha Bello", course: "4-Month Main Course", date: "2025-06-27", amount: 3350000, status: "pending", learnerEmail: "aisha.b@email.com", feeTrackId: "4-month", credentialsSent: false },
+  { id: "ENR006", learnerName: "Grace Nakato", course: "4-Month Main Course", date: "2025-06-08", amount: 3350000, status: "pending", learnerEmail: "grace.n@email.com", feeTrackId: "4-month", credentialsSent: false },
+  { id: "ENR007", learnerName: "Amara Okafor", course: "6-Month Course + Internship", date: "2025-09-12", amount: 4400000, status: "pending", learnerEmail: "amara.o@email.com", feeTrackId: "6-month", credentialsSent: false },
 ];
 
 export const courseStats = [

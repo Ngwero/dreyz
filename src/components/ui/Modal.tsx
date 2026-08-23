@@ -9,17 +9,19 @@ export function Modal({
   onClose,
   children,
   wide,
+  xl,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
+  xl?: boolean;
 }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
@@ -28,8 +30,8 @@ export function Modal({
       />
       <div
         className={cn(
-          "relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-xl sm:p-6",
-          wide ? "max-w-2xl" : "max-w-lg"
+          "relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-xl sm:p-6",
+          xl ? "max-w-4xl" : wide ? "max-w-2xl" : "max-w-lg"
         )}
         role="dialog"
         aria-modal="true"

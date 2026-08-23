@@ -464,6 +464,10 @@ function syncLinkedRecords(user: PortalUser) {
 }
 
 export function getPayments(): PaymentRecord[] {
+  if (isBrowser() && !localStorage.getItem("dreyz_payments_cleared_v1")) {
+    writeJson(PAYMENTS_KEY, []);
+    localStorage.setItem("dreyz_payments_cleared_v1", "1");
+  }
   return readJson<PaymentRecord[]>(PAYMENTS_KEY, []);
 }
 

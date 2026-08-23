@@ -32,10 +32,17 @@ import {
   enrollments,
   feeTracks,
 } from "@/lib/data";
+import { ExpandableChart } from "@/components/dashboard/ExpandableChart";
 import { CourseDonutChart } from "@/components/dashboard/CourseDonutChart";
 import { PerformanceChart } from "@/components/dashboard/PerformanceChart";
+import {
+  AttendancePulseChart,
+  GradientBarChart,
+  PeoplePortalChart,
+  ProgressRadarChart,
+} from "@/components/dashboard/SchoolCharts";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { getPayments, getAllUsers } from "@/lib/auth";
+import { getAllUsers } from "@/lib/auth";
 import { ROLE_LABELS, roleHomeEyebrow } from "@/lib/roles";
 import {
   assessmentsStore,
@@ -50,7 +57,12 @@ import {
   scheduleStore,
   useLiveTick,
 } from "@/lib/store";
-import { liveCourseMix, livePerformanceByLevel, learnerProgressBreakdown } from "@/lib/academics";
+import {
+  liveCourseMix,
+  livePerformanceByLevel,
+  learnerProgressBreakdown,
+  attendanceSummary,
+} from "@/lib/academics";
 
 function DashHero({
   eyebrow,
@@ -132,21 +144,108 @@ function CourseMixSection({
         </p>
       </div>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <Card title="Unit breakdown">
+        <ExpandableChart
+          title="Unit breakdown"
+          details={(mix.length ? mix : courseStats).map((row) => ({
+            label: row.name,
+            value: `${row.value} units`,
+            color: row.color,
+          }))}
+        >
           <CourseDonutChart
             data={mix.length ? mix : courseStats}
             total={unitTotal}
           />
-        </Card>
-        <Card title="Performance by level">
+        </ExpandableChart>
+        <ExpandableChart
+          title="Performance by level"
+          details={(performance.some((p) => p.score > 0) ? performance : performanceByLevel).map(
+            (row) => ({
+              label: row.level,
+              value: `${row.score}% average`,
+            })
+          )}
+        >
           <PerformanceChart
             data={
               performance.some((p) => p.score > 0) ? performance : performanceByLevel
             }
           />
-        </Card>
+        </ExpandableChart>
       </div>
     </section>
+  );
+}
+
+function ratio(done: number, required: number) {
+  if (!required) return 0;
+  return Math.round(Math.min(1, done / required) * 100);
+}
+
+function LiveInsightCharts({
+  showRoles = false,
+}: {
+  showRoles?: boolean;
+}) {
+  const tick = useLiveTick();
+  void tick;
+  const { present, late, absent } = attendanceSummary(attendanceStore.getAll());
+  const users = getAllUsers();
+  const roleBars = (["super_admin", "accountant", "tutor", "student"] as const).map(
+    (role, i) => ({
+      name: ROLE_LABELS[role],
+      value: users.filter((u) => u.role === role).length,
+      color: ["#082878", "#1b7eef", "#5b8def", "#c8f24a"][i],
+    })
+  );
+  const attendanceBars = [
+    { name: "Present", value: present, color: "#082878" },
+    { name: "Late", value: late, color: "#ff8c00" },
+    { name: "Absent", value: absent, color: "#c45c5c" },
+  ];
+
+  return (
+    <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <ExpandableChart
+        title="Attendance pulse"
+        hint="Present, late, and absent marks school-wide"
+        className="lg:col-span-6"
+        details={[
+          { label: "Present", value: `${present} (${present + late + absent ? Math.round((present / (present + late + absent)) * 100) : 0}%)`, color: "#082878" },
+          { label: "Late", value: `${late} (${present + late + absent ? Math.round((late / (present + late + absent)) * 100) : 0}%)`, color: "#ff8c00" },
+          { label: "Absent", value: `${absent} (${present + late + absent ? Math.round((absent / (present + late + absent)) * 100) : 0}%)`, color: "#c45c5c" },
+          { label: "Total marks", value: String(present + late + absent) },
+        ]}
+      >
+        <AttendancePulseChart present={present} late={late} absent={absent} />
+      </ExpandableChart>
+      <ExpandableChart
+        title="Attendance mix"
+        hint="How marks split across the school"
+        className="lg:col-span-6"
+        details={attendanceBars.map((row) => ({
+          label: row.name,
+          value: String(row.value),
+          color: row.color,
+        }))}
+      >
+        <GradientBarChart data={attendanceBars} valueLabel="Marks" />
+      </ExpandableChart>
+      {showRoles && (
+        <ExpandableChart
+          title="People on the portal"
+          hint="Accounts by role"
+          className="lg:col-span-12"
+          details={roleBars.map((row) => ({
+            label: row.name,
+            value: `${row.value} accounts`,
+            color: row.color,
+          }))}
+        >
+          <PeoplePortalChart data={roleBars} />
+        </ExpandableChart>
+      )}
+    </div>
   );
 }
 
@@ -160,10 +259,7 @@ function SuperAdminDashboard() {
   const users = getAllUsers();
   const featuredProjects = projects.filter((p) => p.status === "featured");
   const recentNotices = notices.slice(0, 4);
-  const payments = getPayments();
-  const revenue = payments
-    .filter((p) => p.status === "confirmed")
-    .reduce((s, p) => s + p.amount, 0);
+  const { present } = attendanceSummary(attendanceStore.getAll());
 
   return (
     <div>
@@ -175,14 +271,14 @@ function SuperAdminDashboard() {
             <span className="text-accent">Dreyz Interior</span>
           </>
         }
-        description="Full school control — programme, people, payments, and accounts in one place."
+        description="Full school control — programme, people, and accounts in one place."
         actions={
           <>
             <Link
-              href="/portal/payments"
+              href="/portal/learners"
               className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
             >
-              Payments
+              Learners
             </Link>
             <Link
               href="/portal/accounts"
@@ -223,14 +319,16 @@ function SuperAdminDashboard() {
         </div>
         <div className="portal-fade-up portal-delay-4">
           <StatCard
-            label="Confirmed fees"
-            value={formatUGX(revenue)}
-            hint={`${payments.length} payments`}
-            icon={Banknote}
+            label="Present today"
+            value={String(present)}
+            hint="Attendance marks"
+            icon={ClipboardCheck}
             tone="warm"
           />
         </div>
       </div>
+
+      <LiveInsightCharts showRoles />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="space-y-5 lg:col-span-4">
@@ -345,59 +443,32 @@ function SuperAdminDashboard() {
 function AccountantDashboard() {
   const tick = useLiveTick();
   void tick;
-  const payments = getPayments();
   const users = getAllUsers().filter((u) => u.role === "student");
-  const confirmed = payments.filter((p) => p.status === "confirmed");
-  const revenue =
-    confirmed.reduce((s, p) => s + p.amount, 0) ||
-    enrollments.filter((e) => e.status === "paid").reduce((s, e) => s + e.amount, 0);
-  const pending = enrollments.filter((e) => e.status === "pending").length;
+  const unpaid = enrollments.filter((e) => e.status !== "paid").length;
 
   return (
     <div>
       <DashHero
         eyebrow="Finance"
-        title="Fees, payments & enrollments"
-        description="Confirm payments and student logins are emailed automatically when payment clears."
+        title="Enrollments awaiting fees"
+        description="Nobody has paid yet. Charts cover attendance and programme mix — fee collection stays empty until money comes in."
         actions={
-          <>
-            <Link
-              href="/portal/accounts"
-              className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
-            >
-              Student accounts
-            </Link>
-            <Link
-              href="/portal/payments"
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:brightness-110"
-            >
-              <Wallet size={14} />
-              Record payment
-            </Link>
-          </>
+          <Link
+            href="/portal/accounts"
+            className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
+          >
+            Student accounts
+          </Link>
         }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
-          label="Confirmed revenue"
-          value={formatUGX(revenue)}
-          hint="Paid fees"
-          icon={Banknote}
-          tone="warm"
-        />
-        <StatCard
-          label="Pending invoices"
-          value={String(pending)}
-          hint="Awaiting payment"
+          label="Unpaid enrollments"
+          value={String(unpaid)}
+          hint="Awaiting first payment"
           icon={Bell}
-        />
-        <StatCard
-          label="Credentials emailed"
-          value={String(confirmed.filter((p) => p.credentialsSent).length)}
-          hint="Student accounts provisioned"
-          icon={GraduationCap}
-          tone="lime"
+          tone="warm"
         />
         <StatCard
           label="Student logins"
@@ -406,60 +477,34 @@ function AccountantDashboard() {
           icon={Users}
           tone="accent"
         />
+        <StatCard
+          label="Collected so far"
+          value="UGX 0"
+          hint="No payments yet"
+          icon={Banknote}
+        />
       </div>
 
-      <CourseMixSection subtitle="Programme structure tied to fee tracks and enrollment." />
+      <LiveInsightCharts />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card title="Fee tracks">
-          <div className="space-y-2">
-            {feeTracks.map((t) => (
-              <ListRow key={t.id}>
-                <div>
-                  <p className="text-sm font-semibold">{t.name}</p>
-                  <p className="text-xs text-muted">
-                    {t.durationMonths} months
-                    {t.includesInternship ? " · internship" : ""}
-                  </p>
-                </div>
-                <p className="text-sm font-bold text-accent">{formatUGX(t.total)}</p>
-              </ListRow>
-            ))}
-          </div>
-        </Card>
+      <CourseMixSection subtitle="Programme structure for enrolled learners." />
 
-        <Card title="Recent payments">
-          {payments.length === 0 ? (
-            <p className="text-sm text-muted">
-              No payments recorded yet.{" "}
-              <Link href="/portal/payments" className="font-semibold text-accent">
-                Record the first payment
-              </Link>
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {payments.slice(0, 6).map((p) => (
-                <li key={p.id}>
-                  <ListRow>
-                    <div>
-                      <p className="text-sm font-medium">{p.learnerName}</p>
-                      <p className="text-xs text-muted">
-                        {p.date} · {p.reference}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">{formatUGX(p.amount)}</p>
-                      <Badge variant={p.credentialsSent ? "success" : "warning"}>
-                        {p.credentialsSent ? "Login emailed" : "Pending email"}
-                      </Badge>
-                    </div>
-                  </ListRow>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
+      <Card title="Fee tracks (not yet collected)">
+        <div className="space-y-2">
+          {feeTracks.map((t) => (
+            <ListRow key={t.id}>
+              <div>
+                <p className="text-sm font-semibold">{t.name}</p>
+                <p className="text-xs text-muted">
+                  {t.durationMonths} months
+                  {t.includesInternship ? " · internship" : ""}
+                </p>
+              </div>
+              <p className="text-sm font-medium text-muted">Due {formatUGX(t.total)}</p>
+            </ListRow>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
@@ -513,6 +558,8 @@ function TutorDashboard({ name }: { name: string }) {
           icon={ClipboardCheck}
         />
       </div>
+
+      <LiveInsightCharts />
 
       <CourseMixSection subtitle="What learners cover across foundations, studio, and technical units." />
 
@@ -581,9 +628,6 @@ function StudentDashboard({
     learners.find((l) => l.email.toLowerCase() === email.toLowerCase());
   const myProjects = projects.filter((p) => p.learnerId === learner?.id);
   const myAttendance = attendance.filter((a) => a.learnerId === learner?.id);
-  const myPayments = getPayments().filter(
-    (p) => p.learnerEmail.toLowerCase() === email.toLowerCase()
-  );
   const breakdown = learner ? learnerProgressBreakdown(learner) : null;
 
   return (
@@ -629,41 +673,75 @@ function StudentDashboard({
           tone="lime"
         />
         <StatCard
-          label="Payments"
-          value={String(myPayments.length)}
-          hint="Linked to your email"
+          label="Fee status"
+          value="Unpaid"
+          hint="No payment recorded yet"
           icon={Wallet}
           tone="warm"
         />
       </div>
 
       {breakdown && (
-        <Card className="mb-6" title="How progress is calculated">
-          <p className="mb-3 text-xs text-muted">
-            Super Admin set this course to {breakdown.durationWeeks || "—"} week
-            {breakdown.durationWeeks === 1 ? "" : "s"}. Progress is the average of classes, tests, exams
-            {breakdown.final.required ? ", and the final exam" : ""}.
-          </p>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                ["Classes attended", breakdown.classes],
-                ["Tests", breakdown.tests],
-                ["Exams", breakdown.exams],
-                ["Final exam", breakdown.final],
-              ] as const
-            ).map(([label, row]) =>
-              row.required > 0 ? (
-                <li key={label} className="flex items-center justify-between text-sm">
-                  <span>{label}</span>
-                  <span className="font-medium">
-                    {row.done}/{row.required}
-                  </span>
-                </li>
-              ) : null
-            )}
-          </ul>
-        </Card>
+        <div className="mb-6 grid gap-5 lg:grid-cols-12">
+          <ExpandableChart
+            title="Your progress radar"
+            hint="How far you are against Super Admin course targets"
+            className="lg:col-span-5"
+            details={[
+              {
+                label: "Classes",
+                value: `${breakdown.classes.done}/${breakdown.classes.required} (${ratio(breakdown.classes.done, breakdown.classes.required)}%)`,
+              },
+              {
+                label: "Tests",
+                value: `${breakdown.tests.done}/${breakdown.tests.required} (${ratio(breakdown.tests.done, breakdown.tests.required)}%)`,
+              },
+              {
+                label: "Exams",
+                value: `${breakdown.exams.done}/${breakdown.exams.required} (${ratio(breakdown.exams.done, breakdown.exams.required)}%)`,
+              },
+              {
+                label: "Final exam",
+                value: `${breakdown.final.done}/${breakdown.final.required} (${ratio(breakdown.final.done, breakdown.final.required)}%)`,
+              },
+              { label: "Overall", value: `${breakdown.percent}%` },
+            ]}
+          >
+            <ProgressRadarChart
+              classes={ratio(breakdown.classes.done, breakdown.classes.required)}
+              tests={ratio(breakdown.tests.done, breakdown.tests.required)}
+              exams={ratio(breakdown.exams.done, breakdown.exams.required)}
+              final={ratio(breakdown.final.done, breakdown.final.required)}
+            />
+          </ExpandableChart>
+          <Card className="lg:col-span-7" title="How progress is calculated">
+            <p className="mb-3 text-xs text-muted">
+              Super Admin set this course to {breakdown.durationWeeks || "—"} week
+              {breakdown.durationWeeks === 1 ? "" : "s"}. Progress is the average of classes, tests,
+              exams
+              {breakdown.final.required ? ", and the final exam" : ""}.
+            </p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  ["Classes attended", breakdown.classes],
+                  ["Tests", breakdown.tests],
+                  ["Exams", breakdown.exams],
+                  ["Final exam", breakdown.final],
+                ] as const
+              ).map(([label, row]) =>
+                row.required > 0 ? (
+                  <li key={label} className="flex items-center justify-between text-sm">
+                    <span>{label}</span>
+                    <span className="font-medium">
+                      {row.done}/{row.required}
+                    </span>
+                  </li>
+                ) : null
+              )}
+            </ul>
+          </Card>
+        </div>
       )}
 
       <CourseMixSection subtitle="Your programme units — foundations through professional practice." />
