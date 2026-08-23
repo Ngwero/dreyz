@@ -192,11 +192,11 @@ export const resources: Resource[] = [
 ];
 
 export const schedule: ScheduleItem[] = [
-  { id: "SCH001", title: "Live Q&A: Space Planning", course: "Space Planning and Layout", date: "2025-07-03", time: "14:00", type: "live", instructor: "Elena Vasquez" },
-  { id: "SCH002", title: "Workshop: Colour Palettes", course: "Colour Theory and Colour Psychology", date: "2025-07-05", time: "10:00", type: "workshop", instructor: "Sophie Laurent" },
-  { id: "SCH003", title: "Project Review Session", course: "Commercial Interior Design", date: "2025-07-08", time: "16:00", type: "review", instructor: "Marcus Webb" },
-  { id: "SCH004", title: "SketchUp Live Demo", course: "SketchUp and 3D Visualization", date: "2025-07-10", time: "11:00", type: "live", instructor: "Yuki Tanaka" },
-  { id: "SCH005", title: "Hospitality Design Masterclass", course: "Hospitality Interior Design", date: "2025-07-12", time: "15:00", type: "workshop", instructor: "Isabella Romano" },
+  { id: "SCH001", title: "Live Q&A: Space Planning", course: "Space Planning and Layout", date: "2026-08-24", time: "14:00", type: "live", instructor: "Elena Vasquez" },
+  { id: "SCH002", title: "Workshop: Colour Palettes", course: "Colour Theory and Colour Psychology", date: "2026-08-25", time: "10:00", type: "workshop", instructor: "Sophie Laurent" },
+  { id: "SCH003", title: "Project Review Session", course: "Commercial Interior Design", date: "2026-08-26", time: "16:00", type: "review", instructor: "Marcus Webb" },
+  { id: "SCH004", title: "SketchUp Live Demo", course: "SketchUp and 3D Visualization", date: "2026-08-27", time: "11:00", type: "live", instructor: "Yuki Tanaka" },
+  { id: "SCH005", title: "Hospitality Design Masterclass", course: "Hospitality Interior Design", date: "2026-08-28", time: "15:00", type: "workshop", instructor: "Isabella Romano" },
 ];
 
 export const attendance: AttendanceRecord[] = [

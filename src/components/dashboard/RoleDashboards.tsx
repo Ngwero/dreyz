@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  Download,
   ArrowUpRight,
   BookOpen,
   MapPin,
@@ -21,10 +20,8 @@ import {
 import { StatCard } from "@/components/ui/StatCard";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/PageElements";
 import { formatNumber, formatUGX } from "@/lib/utils";
 import {
-  scheduleDownloads,
   courseStats,
   performanceByLevel,
   schoolInfo,
@@ -182,6 +179,77 @@ function ratio(done: number, required: number) {
   return Math.round(Math.min(1, done / required) * 100);
 }
 
+function sessionStamp(s: { date: string; time: string }) {
+  return `${s.date}T${s.time}`;
+}
+
+function UpcomingSessionsPanel({ limit = 5 }: { limit?: number }) {
+  const tick = useLiveTick();
+  void tick;
+  const today = new Date().toISOString().slice(0, 10);
+  const all = [...scheduleStore.getAll()].sort((a, b) =>
+    sessionStamp(a).localeCompare(sessionStamp(b))
+  );
+  const upcoming = all.filter((s) => s.date >= today);
+  const sessions = (upcoming.length ? upcoming : all).slice(0, limit);
+  const next = sessions[0];
+
+  return (
+    <section className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-12">
+      {next && (
+        <Card className="overflow-hidden lg:col-span-4" noPadding>
+          <div className="bg-gradient-to-br from-[#082878] to-[#1b7eef] px-5 py-5 text-white">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+              Next session
+            </p>
+            <p className="mt-3 font-display text-xl font-semibold leading-snug">{next.title}</p>
+            <p className="mt-2 text-sm text-white/80">{next.course}</p>
+            <p className="mt-4 text-sm font-medium">
+              {next.date} · {next.time}
+            </p>
+            <p className="mt-1 text-xs text-white/70">{next.instructor}</p>
+            <Badge className="mt-4 border-0 bg-white/15 text-white" variant="accent">
+              {next.type}
+            </Badge>
+          </div>
+        </Card>
+      )}
+      <Card
+        className={next ? "lg:col-span-8" : "lg:col-span-12"}
+        title="Upcoming sessions"
+        action={
+          <Link href="/portal/schedule" className="text-xs font-semibold text-accent">
+            Full timetable
+          </Link>
+        }
+      >
+        {sessions.length === 0 ? (
+          <p className="text-sm text-muted">No sessions on the timetable yet.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {sessions.map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">{s.title}</p>
+                  <p className="truncate text-xs text-muted">
+                    {s.course} · {s.instructor}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-semibold tabular-nums text-foreground">
+                    {s.date}
+                  </p>
+                  <p className="text-[11px] text-muted">{s.time}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </section>
+  );
+}
+
 function LiveInsightCharts({
   showRoles = false,
 }: {
@@ -209,7 +277,7 @@ function LiveInsightCharts({
       <ExpandableChart
         title="Attendance pulse"
         hint="Present, late, and absent marks school-wide"
-        className="lg:col-span-6"
+        className={showRoles ? "lg:col-span-5" : "lg:col-span-6"}
         details={[
           { label: "Present", value: `${present} (${present + late + absent ? Math.round((present / (present + late + absent)) * 100) : 0}%)`, color: "#082878" },
           { label: "Late", value: `${late} (${present + late + absent ? Math.round((late / (present + late + absent)) * 100) : 0}%)`, color: "#ff8c00" },
@@ -219,23 +287,11 @@ function LiveInsightCharts({
       >
         <AttendancePulseChart present={present} late={late} absent={absent} />
       </ExpandableChart>
-      <ExpandableChart
-        title="Attendance mix"
-        hint="How marks split across the school"
-        className="lg:col-span-6"
-        details={attendanceBars.map((row) => ({
-          label: row.name,
-          value: String(row.value),
-          color: row.color,
-        }))}
-      >
-        <GradientBarChart data={attendanceBars} valueLabel="Marks" />
-      </ExpandableChart>
-      {showRoles && (
+      {showRoles ? (
         <ExpandableChart
           title="People on the portal"
           hint="Accounts by role"
-          className="lg:col-span-12"
+          className="lg:col-span-7"
           details={roleBars.map((row) => ({
             label: row.name,
             value: `${row.value} accounts`,
@@ -243,6 +299,19 @@ function LiveInsightCharts({
           }))}
         >
           <PeoplePortalChart data={roleBars} />
+        </ExpandableChart>
+      ) : (
+        <ExpandableChart
+          title="Attendance mix"
+          hint="How marks split across the school"
+          className="lg:col-span-6"
+          details={attendanceBars.map((row) => ({
+            label: row.name,
+            value: String(row.value),
+            color: row.color,
+          }))}
+        >
+          <GradientBarChart data={attendanceBars} valueLabel="Marks" />
         </ExpandableChart>
       )}
     </div>
@@ -328,6 +397,8 @@ function SuperAdminDashboard() {
         </div>
       </div>
 
+      <UpcomingSessionsPanel />
+
       <LiveInsightCharts showRoles />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
@@ -351,22 +422,6 @@ function SuperAdminDashboard() {
             >
               Manage accounts <ArrowUpRight size={14} className="ml-1" />
             </Link>
-          </Card>
-
-          <Card title="Class schedules">
-            <div className="space-y-2">
-              {scheduleDownloads.map((item) => (
-                <ListRow key={item.month}>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{item.month}</p>
-                    <p className="text-xs text-muted">{item.sessions} sessions</p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Download size={13} />
-                  </Button>
-                </ListRow>
-              ))}
-            </div>
           </Card>
 
           <Card title="School">
@@ -559,29 +614,13 @@ function TutorDashboard({ name }: { name: string }) {
         />
       </div>
 
+      <UpcomingSessionsPanel />
+
       <LiveInsightCharts />
 
       <CourseMixSection subtitle="What learners cover across foundations, studio, and technical units." />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card title="Upcoming sessions">
-          <ul className="space-y-2">
-            {upcoming.map((s) => (
-              <li key={s.id}>
-                <ListRow>
-                  <div>
-                    <p className="text-sm font-semibold">{s.title}</p>
-                    <p className="text-xs text-muted">
-                      {s.date} · {s.time}
-                    </p>
-                  </div>
-                  <Badge variant="accent">{s.type}</Badge>
-                </ListRow>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        <Card title="Assessments due">
+      <Card title="Assessments due">
           <ul className="space-y-2">
             {assessments.slice(0, 4).map((a) => (
               <li key={a.id}>
@@ -601,8 +640,7 @@ function TutorDashboard({ name }: { name: string }) {
           >
             View all <ArrowUpRight size={14} />
           </Link>
-        </Card>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -621,7 +659,6 @@ function StudentDashboard({
   const learners = learnersStore.getAll();
   const projects = projectsStore.getAll();
   const attendance = attendanceStore.getAll();
-  const schedule = scheduleStore.getAll();
   const resources = resourcesStore.getAll();
   const learner =
     learners.find((l) => l.id === learnerId) ??
@@ -680,6 +717,8 @@ function StudentDashboard({
           tone="warm"
         />
       </div>
+
+      <UpcomingSessionsPanel />
 
       {breakdown && (
         <div className="mb-6 grid gap-5 lg:grid-cols-12">
@@ -746,31 +785,7 @@ function StudentDashboard({
 
       <CourseMixSection subtitle="Your programme units — foundations through professional practice." />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card title="Next classes">
-          <ul className="space-y-2">
-            {schedule.slice(0, 3).map((s) => (
-              <li key={s.id}>
-                <ListRow>
-                  <div>
-                    <p className="text-sm font-semibold">{s.title}</p>
-                    <p className="text-xs text-muted">
-                      {s.date} · {s.time} · {s.instructor}
-                    </p>
-                  </div>
-                  <CalendarDays size={16} className="shrink-0 text-muted" />
-                </ListRow>
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/portal/schedule"
-            className="mt-4 inline-flex items-center text-sm font-semibold text-accent"
-          >
-            Full schedule <ArrowUpRight size={14} className="ml-1" />
-          </Link>
-        </Card>
-        <Card title="Resources for you">
+      <Card title="Resources for you">
           <ul className="space-y-2">
             {resources.slice(0, 4).map((r) => (
               <li key={r.id}>
@@ -788,7 +803,6 @@ function StudentDashboard({
             Browse resources <ArrowUpRight size={14} className="ml-1" />
           </Link>
         </Card>
-      </div>
     </div>
   );
 }
