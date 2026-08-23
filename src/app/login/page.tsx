@@ -64,6 +64,8 @@ function LoginForm() {
   const [classOptionId, setClassOptionId] = useState(
     classOptions[0]?.id ?? "weekday"
   );
+  const [paymentAmount, setPaymentAmount] = useState("350000");
+  const [paymentKind, setPaymentKind] = useState<"registration" | "tuition">("registration");
   const [resetCode, setResetCode] = useState("");
   const [otpDigits, setOtpDigits] = useState<string[]>(() =>
     Array(OTP_LENGTH).fill("")
@@ -311,6 +313,8 @@ function LoginForm() {
             password,
             feeTrackId,
             classOptionId,
+            paymentAmount: Number(paymentAmount.replace(/[^\d]/g, "")) || 0,
+            paymentKind,
           }),
         });
         const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
@@ -708,6 +712,44 @@ function LoginForm() {
                         </select>
                       </div>
                     </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="pay-kind" className={labelClass}>
+                          First payment
+                        </label>
+                        <select
+                          id="pay-kind"
+                          value={paymentKind}
+                          onChange={(e) =>
+                            setPaymentKind(e.target.value as "registration" | "tuition")
+                          }
+                          className={fieldClass}
+                        >
+                          <option value="registration" className="bg-[#082878] text-white">
+                            Registration
+                          </option>
+                          <option value="tuition" className="bg-[#082878] text-white">
+                            Tuition
+                          </option>
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="pay-amount" className={labelClass}>
+                          Amount (UGX)
+                        </label>
+                        <input
+                          id="pay-amount"
+                          inputMode="numeric"
+                          value={paymentAmount}
+                          onChange={(e) => setPaymentAmount(e.target.value)}
+                          className={fieldClass}
+                          placeholder="350000"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs leading-relaxed text-white/80">
+                      Pay from UGX 350,000 registration. Learner access opens at UGX 1,000,000 total paid. Staff can also confirm cash or bank later.
+                    </p>
                     <div>
                       <label htmlFor="signup-password" className={labelClass}>
                         Password

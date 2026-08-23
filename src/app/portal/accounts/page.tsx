@@ -253,6 +253,11 @@ export default function AccountsPage() {
   const onReset = (u: PortalUser) => {
     try {
       const result = resetUserPassword(u.id);
+      void fetch("/api/accounts/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: u.id, email: u.email, resetPassword: true }),
+      });
       setNotice(
         `Password reset for ${u.name}. Emailed to ${u.email}. Temporary password: ${result.password}`
       );
@@ -459,7 +464,13 @@ export default function AccountsPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      updateUserStatus(u.id, u.status === "active" ? "inactive" : "active");
+                      const next = u.status === "active" ? "inactive" : "active";
+                      updateUserStatus(u.id, next);
+                      void fetch("/api/accounts/update", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: u.id, status: next }),
+                      });
                       bump();
                     }}
                   >

@@ -12,18 +12,29 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Plus, Trash2 } from "lucide-react";
-import { assessmentsStore, useStoreList, uid, type Assessment } from "@/lib/store";
+import {
+  assessmentsStore,
+  gradesStore,
+  learnersStore,
+  uid,
+  useStoreList,
+  type Assessment,
+} from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function AssessmentsPage() {
   const { user } = useAuth();
   const [assessments, refresh] = useStoreList(assessmentsStore.getAll, assessmentsStore.key);
+  const [grades, refreshGrades] = useStoreList(gradesStore.getAll, gradesStore.key);
+  const [learners] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [marking, setMarking] = useState<Assessment | null>(null);
+  const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     title: "",
     course: "",
-    type: "quiz" as Assessment["type"],
+    type: "test" as Assessment["type"],
     date: new Date().toISOString().slice(0, 10),
     maxScore: 100,
   });
@@ -65,7 +76,7 @@ export default function AssessmentsPage() {
     <div>
       <PageHeader
         title="Assessments"
-        description="Quizzes, projects, and final evaluations across all courses."
+        description="Tests, exams, and the final exam. Marks here count toward the Super Admin course progress targets."
         action={
           canEdit ? (
             <Button size="sm" onClick={() => setOpen(true)}>
@@ -102,24 +113,52 @@ export default function AssessmentsPage() {
             <TableCell>
               <Badge
                 variant={
-                  assessment.type === "quiz"
+                  assessment.type === "test" || assessment.type === "quiz"
                     ? "info"
-                    : assessment.type === "project"
+                    : assessment.type === "exam"
                       ? "accent"
-                      : "default"
+                      : assessment.type === "final"
+                        ? "default"
+                        : "accent"
                 }
               >
                 {assessment.type}
               </Badge>
             </TableCell>
             <TableCell className="text-muted">{assessment.date}</TableCell>
-            <TableCell>{assessment.submissions}</TableCell>
+            <TableCell>
+              {user?.role === "student"
+                ? (() => {
+                    const mine = grades.find(
+                      (g) =>
+                        g.assessmentId === assessment.id &&
+                        g.learnerId === user.learnerId
+                    );
+                    return mine ? `${mine.score}/${mine.maxScore}` : "Not marked";
+                  })()
+                : assessment.submissions}
+            </TableCell>
             <TableCell>{assessment.maxScore}</TableCell>
             <TableCell>
               <div className="flex gap-1">
                 <Button size="sm" variant="outline" onClick={() => bumpSubmission(assessment)}>
                   {user?.role === "student" ? "Submit" : "+1 submit"}
                 </Button>
+                {canEdit && (
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setMarking(assessment);
+                    const next: Record<string, string> = {};
+                    for (const l of learnersStore.getAll()) {
+                      const g = gradesStore
+                        .getAll()
+                        .find((row) => row.assessmentId === assessment.id && row.learnerId === l.id);
+                      next[l.id] = g ? String(g.score) : "";
+                    }
+                    setScoreDrafts(next);
+                  }}>
+                    Enter marks
+                  </Button>
+                )}
                 {canEdit && (
                   <Button
                     size="sm"
@@ -149,9 +188,11 @@ export default function AssessmentsPage() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Type">
               <select className={fieldClass} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as Assessment["type"] })}>
-                <option value="quiz">quiz</option>
+                <option value="test">test</option>
+                <option value="exam">exam</option>
+                <option value="final">final exam</option>
+                <option value="quiz">quiz (counts as a test)</option>
                 <option value="project">project</option>
-                <option value="final">final</option>
               </select>
             </Field>
             <Field label="Max score">
@@ -166,6 +207,76 @@ export default function AssessmentsPage() {
             <Button type="submit">Create</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!marking}
+        title={marking ? `Marks · ${marking.title}` : "Marks"}
+        onClose={() => setMarking(null)}
+      >
+        {marking && (
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {learners.map((learner) => (
+              <div key={learner.id} className="flex items-center gap-3">
+                <p className="min-w-0 flex-1 truncate text-sm">{learner.name}</p>
+                <input
+                  type="number"
+                  min={0}
+                  max={marking.maxScore}
+                  className={`${fieldClass} w-24`}
+                  value={scoreDrafts[learner.id] ?? ""}
+                  onChange={(e) =>
+                    setScoreDrafts((prev) => ({ ...prev, [learner.id]: e.target.value }))
+                  }
+                />
+              </div>
+            ))}
+            <div className="flex justify-end gap-2 pt-3">
+              <Button type="button" variant="outline" onClick={() => setMarking(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!marking) return;
+                  const rows = learners
+                    .map((learner) => {
+                      const raw = scoreDrafts[learner.id];
+                      if (raw === undefined || raw === "") return null;
+                      const score = Number(raw);
+                      if (Number.isNaN(score)) return null;
+                      const existing = grades.find(
+                        (g) => g.assessmentId === marking.id && g.learnerId === learner.id
+                      );
+                      return {
+                        id: existing?.id ?? uid("GRD"),
+                        assessmentId: marking.id,
+                        learnerId: learner.id,
+                        learnerName: learner.name,
+                        title: marking.title,
+                        course: marking.course,
+                        type: marking.type,
+                        score,
+                        maxScore: marking.maxScore,
+                        date: new Date().toISOString().slice(0, 10),
+                      };
+                    })
+                    .filter((row) => row !== null);
+                  gradesStore.upsertMany(rows);
+                  assessmentsStore.upsert({
+                    ...marking,
+                    submissions: rows.length,
+                  });
+                  refresh();
+                  refreshGrades();
+                  setMarking(null);
+                }}
+              >
+                Save marks
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

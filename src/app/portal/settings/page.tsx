@@ -68,9 +68,13 @@ export default function SettingsPage() {
               <label className="text-sm font-medium text-foreground">School Name</label>
               <input
                 value={settings.name}
-                onChange={(e) => setSettings({ ...settings, name: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                readOnly
+                disabled
+                className="mt-1 w-full cursor-not-allowed rounded-xl border border-border bg-surface/70 px-4 py-2.5 text-sm text-muted outline-none"
               />
+              <p className="mt-1 text-xs text-muted">
+                School name is locked so staff cannot change the live school identity by accident.
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium text-foreground">Tagline</label>

@@ -163,6 +163,26 @@ export function welcomeAccountHtml(opts: {
   return welcomeStaffHtml(opts);
 }
 
+export function enrollmentAlertHtml(opts: {
+  studentName: string;
+  email: string;
+  phone?: string;
+  programme?: string;
+  amount?: number;
+}) {
+  return `
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;color:#082878">
+      <p style="margin:0 0 12px;font-size:16px"><strong>New student registration</strong></p>
+      <p style="margin:0 0 8px;font-size:15px">${opts.studentName} created a portal account.</p>
+      <p style="margin:0 0 4px;font-size:14px">Email: ${opts.email}</p>
+      ${opts.phone ? `<p style="margin:0 0 4px;font-size:14px">Phone: ${opts.phone}</p>` : ""}
+      ${opts.programme ? `<p style="margin:0 0 4px;font-size:14px">Programme: ${opts.programme}</p>` : ""}
+      ${typeof opts.amount === "number" ? `<p style="margin:0 0 4px;font-size:14px">Declared payment: UGX ${opts.amount.toLocaleString()}</p>` : ""}
+      <p style="margin:16px 0 0;font-size:13px;color:#5b6f94">Confirm the payment in Billing to activate learner access (UGX 1,000,000 threshold).</p>
+    </div>
+  `;
+}
+
 export async function sendMail(opts: {
   to: string;
   subject: string;

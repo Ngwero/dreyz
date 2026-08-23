@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Modal, Field, fieldClass } from "@/components/ui/Modal";
-import { Plus, Download, Trash2, UserPlus } from "lucide-react";
+import { Plus, Download, Trash2, UserPlus, Pencil } from "lucide-react";
 import {
   learnersStore,
   useStoreList,
@@ -21,12 +21,14 @@ import {
 } from "@/lib/store";
 import { createAccount, getAllUsers } from "@/lib/auth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { computeLearnerProgress } from "@/lib/academics";
 
 export default function LearnersPage() {
   const { user } = useAuth();
   const [learners, refresh] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Learner | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -56,6 +58,20 @@ export default function LearnersPage() {
 
   const onAdd = (e: FormEvent) => {
     e.preventDefault();
+    if (editing) {
+      learnersStore.upsert({
+        ...editing,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim(),
+        course: form.course.trim(),
+        status: form.status,
+      });
+      setEditing(null);
+      refresh();
+      setOpen(false);
+      return;
+    }
     const learner: Learner = {
       id: uid("DRY"),
       name: form.name.trim(),
@@ -141,7 +157,7 @@ export default function LearnersPage() {
         l.email,
         l.phone,
         l.course,
-        String(l.progress),
+        String(computeLearnerProgress(l)),
         l.status,
         l.enrollmentDate,
       ]),
@@ -193,7 +209,9 @@ export default function LearnersPage() {
           ...(canEdit ? [{ key: "actions", label: "" }] : []),
         ]}
       >
-        {filtered.map((learner) => (
+        {filtered.map((learner) => {
+          const progress = computeLearnerProgress(learner);
+          return (
           <TableRow key={learner.id}>
             <TableCell className="font-mono text-xs text-muted">{learner.id}</TableCell>
             <TableCell>
@@ -213,10 +231,10 @@ export default function LearnersPage() {
                 <div className="h-2 w-20 overflow-hidden rounded-full bg-surface">
                   <div
                     className="h-full rounded-full bg-navy"
-                    style={{ width: `${learner.progress}%` }}
+                    style={{ width: `${progress}%` }}
                   />
                 </div>
-                <span className="text-xs font-medium">{learner.progress}%</span>
+                <span className="text-xs font-medium">{progress}%</span>
               </div>
             </TableCell>
             <TableCell>
@@ -245,6 +263,24 @@ export default function LearnersPage() {
                   )}
                   <Button
                     size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditing(learner);
+                      setForm({
+                        name: learner.name,
+                        email: learner.email,
+                        phone: learner.phone,
+                        course: learner.course,
+                        status: learner.status,
+                        createLogin: false,
+                      });
+                      setOpen(true);
+                    }}
+                  >
+                    <Pencil size={13} /> Edit
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="ghost"
                     onClick={() => {
                       learnersStore.remove(learner.id);
@@ -257,14 +293,22 @@ export default function LearnersPage() {
               </TableCell>
             )}
           </TableRow>
-        ))}
+          );
+        })}
       </DataTable>
 
       {filtered.length === 0 && (
         <p className="mt-4 text-sm text-muted">No learners match your search.</p>
       )}
 
-      <Modal open={open} title="Add learner" onClose={() => setOpen(false)}>
+      <Modal
+        open={open}
+        title={editing ? "Edit learner" : "Add learner"}
+        onClose={() => {
+          setOpen(false);
+          setEditing(null);
+        }}
+      >
         <form onSubmit={onAdd} className="space-y-3">
           <Field label="Full name">
             <input required className={fieldClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -297,7 +341,7 @@ export default function LearnersPage() {
           )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit">Save learner</Button>
+            <Button type="submit">{editing ? "Save changes" : "Save learner"}</Button>
           </div>
         </form>
       </Modal>

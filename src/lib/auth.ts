@@ -114,6 +114,8 @@ function writeJson(key: string, value: unknown) {
   if (!isBrowser()) return;
   localStorage.setItem(key, JSON.stringify(value));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key } }));
+  window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key } }));
+  void import("./store").then((mod) => mod.queueCloudPush());
 }
 
 export function getAllUsers(): PortalUser[] {
@@ -593,6 +595,22 @@ export function confirmPaymentAndProvision(
     studentUserId: user.id,
   };
   pushPayment(payment);
+
+  const paidTotal = getPayments()
+    .filter(
+      (p) =>
+        p.learnerEmail.toLowerCase() === user.email &&
+        p.status === "confirmed"
+    )
+    .reduce((s, p) => s + p.amount, 0);
+  upsertLearnerFromPayment({
+    id: learnerId,
+    name: user.name,
+    email: user.email,
+    phone: user.phone ?? "",
+    course: track?.name ?? "Professional Interior Design Programme",
+    status: paidTotal >= 1_000_000 ? "active" : "paused",
+  });
 
   const email: CredentialEmail = {
     id: `MAIL-${Date.now().toString(36).toUpperCase()}`,

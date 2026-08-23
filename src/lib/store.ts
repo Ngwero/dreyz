@@ -5,6 +5,7 @@ import type {
   Assessment,
   AttendanceRecord,
   Course,
+  Grade,
   Instructor,
   Learner,
   Module,
@@ -26,6 +27,7 @@ import {
   schedule as seedSchedule,
   schoolInfo as seedSchoolInfo,
 } from "./data";
+import { normalizeCourse } from "./course-structure";
 
 function isBrowser() {
   return typeof window !== "undefined";
@@ -42,10 +44,87 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
+const STORE_KEYS = [
+  "dreyz_learners",
+  "dreyz_attendance",
+  "dreyz_notices",
+  "dreyz_schedule",
+  "dreyz_courses",
+  "dreyz_modules",
+  "dreyz_instructors",
+  "dreyz_assessments",
+  "dreyz_projects",
+  "dreyz_resources",
+  "dreyz_grades",
+  "dreyz_settings",
+  "dreyz_users",
+  "dreyz_payments",
+] as const;
+
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let hydrated = false;
+
+function collectSnapshot() {
+  if (!isBrowser()) return {};
+  const data: Record<string, unknown> = {};
+  for (const key of STORE_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      data[key] = JSON.parse(raw);
+    } catch {
+      /* skip */
+    }
+  }
+  return data;
+}
+
+function applySnapshot(data: Record<string, unknown>) {
+  if (!isBrowser() || !data) return;
+  for (const [key, value] of Object.entries(data)) {
+    if (!STORE_KEYS.includes(key as (typeof STORE_KEYS)[number])) continue;
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+  window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: "*" } }));
+  window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: "*" } }));
+}
+
+export function queueCloudPush() {
+  if (!isBrowser()) return;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    void fetch("/api/school-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: collectSnapshot() }),
+    }).catch(() => {
+      /* offline */
+    });
+  }, 500);
+}
+
+export async function hydrateSchoolData() {
+  if (!isBrowser() || hydrated) return;
+  hydrated = true;
+  try {
+    const res = await fetch("/api/school-data", { cache: "no-store" });
+    const json = (await res.json()) as { ok?: boolean; data?: Record<string, unknown> };
+    if (res.ok && json.ok && json.data && Object.keys(json.data).length > 0) {
+      applySnapshot(json.data);
+    } else {
+      queueCloudPush();
+    }
+  } catch {
+    /* keep local copy */
+  }
+}
+
 function writeJson(key: string, value: unknown) {
   if (!isBrowser()) return;
   localStorage.setItem(key, JSON.stringify(value));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key } }));
+  window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key } }));
+  queueCloudPush();
 }
 
 function uid(prefix: string) {
@@ -95,12 +174,16 @@ export const learnersStore = createListStore("dreyz_learners", seedLearners);
 export const attendanceStore = createListStore("dreyz_attendance", seedAttendance);
 export const noticesStore = createListStore("dreyz_notices", seedNotices);
 export const scheduleStore = createListStore("dreyz_schedule", seedSchedule);
-export const coursesStore = createListStore("dreyz_courses", seedCourses);
+export const coursesStore = createListStore(
+  "dreyz_courses",
+  seedCourses.map(normalizeCourse)
+);
 export const modulesStore = createListStore("dreyz_modules", seedModules);
 export const instructorsStore = createListStore("dreyz_instructors", seedInstructors);
 export const assessmentsStore = createListStore("dreyz_assessments", seedAssessments);
 export const projectsStore = createListStore("dreyz_projects", seedProjects);
 export const resourcesStore = createListStore("dreyz_resources", seedResources);
+export const gradesStore = createListStore<Grade>("dreyz_grades", []);
 
 export type SchoolSettings = {
   name: string;
@@ -257,18 +340,21 @@ export function useStoreList<T extends { id: string }>(
   const refresh = useCallback(() => setItems(getAll()), [getAll]);
 
   useEffect(() => {
+    void hydrateSchoolData().then(refresh);
     refresh();
     const onStorage = (e: StorageEvent) => {
-      if (!e.key || e.key === storeKey) refresh();
+      if (!e.key || e.key === storeKey || e.key === "*") refresh();
     };
     const onCustom = (e: Event) => {
       const detail = (e as CustomEvent).detail as { key?: string } | undefined;
-      if (!detail?.key || detail.key === storeKey) refresh();
+      if (!detail?.key || detail.key === "*" || detail.key === storeKey) refresh();
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener("dreyz-store", onCustom);
+    window.addEventListener("dreyz-store", onCustom);
     return () => {
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener("dreyz-store", onCustom);
       window.removeEventListener("dreyz-store", onCustom);
     };
   }, [refresh, storeKey]);
@@ -276,15 +362,17 @@ export function useStoreList<T extends { id: string }>(
   return [items, refresh];
 }
 
-/** Bump whenever any Dreyz store (or user accounts) changes */
 export function useLiveTick() {
   const [tick, setTick] = useState(0);
   useEffect(() => {
+    void hydrateSchoolData().then(() => setTick((t) => t + 1));
     const bump = () => setTick((t) => t + 1);
     window.addEventListener("storage", bump);
     window.addEventListener("dreyz-store", bump);
+    window.addEventListener("dreyz-store", bump);
     return () => {
       window.removeEventListener("storage", bump);
+      window.removeEventListener("dreyz-store", bump);
       window.removeEventListener("dreyz-store", bump);
     };
   }, []);
@@ -297,6 +385,7 @@ export type {
   Assessment,
   AttendanceRecord,
   Course,
+  Grade,
   Instructor,
   Learner,
   Module,

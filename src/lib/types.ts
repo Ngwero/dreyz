@@ -26,6 +26,16 @@ export interface Course {
   category: string;
   level: "Beginner" | "Intermediate" | "Advanced";
   duration: string;
+  /** Planned length in weeks — required before the course can be active. */
+  durationWeeks?: number;
+  /** Classes a student must attend toward progress. */
+  classCount?: number;
+  /** Number of tests that count toward progress. */
+  testCount?: number;
+  /** Number of exams that count toward progress. */
+  examCount?: number;
+  /** Whether a final exam is required for the course. */
+  hasFinalExam?: boolean;
   enrolled: number;
   capacity: number;
   instructor: string;
@@ -40,6 +50,9 @@ export interface Module {
   lessons: number;
   duration: string;
   order: number;
+  classCount?: number;
+  quizzes?: number;
+  projects?: number;
 }
 
 export interface Resource {
@@ -49,6 +62,9 @@ export interface Resource {
   type: "PDF" | "CAD" | "Video" | "Template" | "Texture";
   files: number;
   downloads: number;
+  fileUrl?: string;
+  paid?: boolean;
+  price?: number;
 }
 
 export interface ScheduleItem {
@@ -74,10 +90,23 @@ export interface Assessment {
   id: string;
   title: string;
   course: string;
-  type: "quiz" | "project" | "final";
+  type: "test" | "exam" | "final" | "quiz" | "project";
   date: string;
   maxScore: number;
   submissions: number;
+}
+
+export interface Grade {
+  id: string;
+  assessmentId: string;
+  learnerId: string;
+  learnerName: string;
+  title: string;
+  course: string;
+  type: Assessment["type"];
+  score: number;
+  maxScore: number;
+  date: string;
 }
 
 export interface Notice {

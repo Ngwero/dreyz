@@ -18,6 +18,7 @@ import { isPasswordAcceptable } from "@/lib/password-strength";
 import { ROLE_LABELS } from "@/lib/roles";
 import { classOptions, enrollments, feeTracks, schoolInfo } from "@/lib/data";
 import { formatUGX } from "@/lib/utils";
+import { feesForStudent, computeLearnerProgress } from "@/lib/academics";
 import {
   attendanceStore,
   instructorsStore,
@@ -64,6 +65,8 @@ export default function MyAccountPage() {
     : instructors.find((i) => i.email.toLowerCase() === profile.email.toLowerCase());
   const track = feeTracks.find((t) => t.id === profile.feeTrackId);
   const klass = classOptions.find((c) => c.id === profile.classOptionId);
+  const fees = feesForStudent(profile.email, profile.feeTrackId);
+  const liveProgress = learner ? computeLearnerProgress(learner) : 0;
   const myPayments = getPayments().filter(
     (p) => p.learnerEmail.toLowerCase() === profile.email.toLowerCase()
   );
@@ -215,7 +218,7 @@ export default function MyAccountPage() {
             <Card title="Programme">
               <dl className="space-y-3 text-sm">
                 <Row label="Course" value={learner?.course ?? track?.name ?? "Professional Interior Design Programme"} />
-                <Row label="Progress" value={`${learner?.progress ?? 0}%`} />
+                <Row label="Progress" value={`${liveProgress}%`} />
                 <Row
                   label="Class"
                   value={
@@ -224,7 +227,13 @@ export default function MyAccountPage() {
                       : "Assigned at admissions"
                   }
                 />
-                <Row label="Fees" value={track ? formatUGX(track.total) : "See billing"} />
+                <Row label="Fees" value={formatUGX(fees.total)} />
+                <Row label="Paid" value={formatUGX(fees.paid)} />
+                <Row label="Balance" value={formatUGX(fees.balance)} />
+                <Row
+                  label="Learner access"
+                  value={fees.isLearner ? "Active (threshold met)" : "Pending — pay UGX 1,000,000 to activate"}
+                />
                 <Row label="Attendance marks" value={String(myAttendance.length)} />
                 <Row label="Projects submitted" value={String(myProjects.length)} />
               </dl>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendMail, welcomeStudentHtml } from "@/lib/mail";
+import { sendMail, welcomeStudentHtml, enrollmentAlertHtml } from "@/lib/mail";
 import { portalLoginUrl } from "@/lib/portal-url";
 import { classOptions, feeTracks, schoolInfo } from "@/lib/data";
 
@@ -59,6 +59,9 @@ export async function POST(request: Request) {
 
     const learnerId = `DRY${Date.now().toString(36).toUpperCase().slice(-5)}`;
 
+    const paymentAmount = Number(body.paymentAmount ?? 0) || 0;
+    const paymentKind = String(body.paymentKind ?? "registration").trim() || "registration";
+
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
@@ -100,6 +103,8 @@ export async function POST(request: Request) {
     const track = feeTracks.find((t) => t.id === feeTrackId);
     const klass = classOptions.find((c) => c.id === classOptionId);
 
+    const learnerActive = paymentAmount >= 1_000_000;
+
     await admin.from("learners").upsert(
       {
         id: learnerId,
@@ -109,10 +114,28 @@ export async function POST(request: Request) {
         course: track?.name ?? "Interior Design",
         enrollment_date: new Date().toISOString().slice(0, 10),
         progress: 0,
-        status: "active",
+        status: learnerActive ? "active" : "paused",
       },
       { onConflict: "id" }
     );
+
+    if (paymentAmount > 0) {
+      await admin.from("payments").insert({
+        id: `PAY${Date.now().toString(36).toUpperCase()}`,
+        learner_name: name,
+        learner_email: email,
+        phone,
+        fee_track_id: feeTrackId,
+        class_option_id: classOptionId,
+        amount: paymentAmount,
+        method: "mobile_money",
+        reference: `${paymentKind}-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 10),
+        status: "confirmed",
+        credentials_sent: true,
+        student_user_id: userId,
+      });
+    }
 
     const loginUrl = portalLoginUrl();
     const extras = [
@@ -153,6 +176,27 @@ export async function POST(request: Request) {
         extras,
       }),
     });
+
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("role", "super_admin")
+      .eq("status", "active");
+    for (const adminRow of admins ?? []) {
+      if (!adminRow.email || adminRow.email.toLowerCase() === email) continue;
+      await sendMail({
+        to: adminRow.email,
+        subject: `New student signup: ${name}`,
+        text: `${name} (${email}) registered for ${track?.name ?? "Interior Design"}. Declared payment: UGX ${paymentAmount.toLocaleString()} (${paymentKind}).`,
+        html: enrollmentAlertHtml({
+          studentName: name,
+          email,
+          phone: phone ?? undefined,
+          programme: track?.name,
+          amount: paymentAmount || undefined,
+        }),
+      }).catch(() => undefined);
+    }
 
     return NextResponse.json({
       ok: true,

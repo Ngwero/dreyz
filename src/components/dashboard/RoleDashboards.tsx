@@ -40,6 +40,8 @@ import { ROLE_LABELS, roleHomeEyebrow } from "@/lib/roles";
 import {
   assessmentsStore,
   attendanceStore,
+  coursesStore,
+  gradesStore,
   instructorsStore,
   learnersStore,
   noticesStore,
@@ -48,6 +50,7 @@ import {
   scheduleStore,
   useLiveTick,
 } from "@/lib/store";
+import { liveCourseMix, livePerformanceByLevel, learnerProgressBreakdown } from "@/lib/academics";
 
 function DashHero({
   eyebrow,
@@ -100,10 +103,18 @@ function ListRow({
 }
 
 function CourseMixSection({
-  subtitle = "How the professional programme is structured across units.",
+  subtitle = "Live mix of units and scores from courses and recorded marks — not demo accounts.",
 }: {
   subtitle?: string;
 }) {
+  const tick = useLiveTick();
+  void tick;
+  const courses = coursesStore.getAll();
+  const grades = gradesStore.getAll();
+  const mix = liveCourseMix(courses);
+  const performance = livePerformanceByLevel(courses, grades);
+  const unitTotal = mix.reduce((s, r) => s + r.value, 0) || programme.courseworkUnits;
+
   return (
     <section className="mb-6">
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -122,10 +133,17 @@ function CourseMixSection({
       </div>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Card title="Unit breakdown">
-          <CourseDonutChart data={courseStats} total={programme.courseworkUnits} />
+          <CourseDonutChart
+            data={mix.length ? mix : courseStats}
+            total={unitTotal}
+          />
         </Card>
         <Card title="Performance by level">
-          <PerformanceChart data={performanceByLevel} />
+          <PerformanceChart
+            data={
+              performance.some((p) => p.score > 0) ? performance : performanceByLevel
+            }
+          />
         </Card>
       </div>
     </section>
@@ -566,6 +584,7 @@ function StudentDashboard({
   const myPayments = getPayments().filter(
     (p) => p.learnerEmail.toLowerCase() === email.toLowerCase()
   );
+  const breakdown = learner ? learnerProgressBreakdown(learner) : null;
 
   return (
     <div>
@@ -587,8 +606,12 @@ function StudentDashboard({
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Course progress"
-          value={`${learner?.progress ?? 0}%`}
-          hint={learner?.course ?? "Programme"}
+          value={`${breakdown?.percent ?? 0}%`}
+          hint={
+            breakdown
+              ? `${breakdown.classes.done}/${breakdown.classes.required} classes · ${breakdown.tests.done}/${breakdown.tests.required} tests`
+              : (learner?.course ?? "Programme")
+          }
           icon={GraduationCap}
           tone="accent"
         />
@@ -613,6 +636,35 @@ function StudentDashboard({
           tone="warm"
         />
       </div>
+
+      {breakdown && (
+        <Card className="mb-6" title="How progress is calculated">
+          <p className="mb-3 text-xs text-muted">
+            Super Admin set this course to {breakdown.durationWeeks || "—"} week
+            {breakdown.durationWeeks === 1 ? "" : "s"}. Progress is the average of classes, tests, exams
+            {breakdown.final.required ? ", and the final exam" : ""}.
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                ["Classes attended", breakdown.classes],
+                ["Tests", breakdown.tests],
+                ["Exams", breakdown.exams],
+                ["Final exam", breakdown.final],
+              ] as const
+            ).map(([label, row]) =>
+              row.required > 0 ? (
+                <li key={label} className="flex items-center justify-between text-sm">
+                  <span>{label}</span>
+                  <span className="font-medium">
+                    {row.done}/{row.required}
+                  </span>
+                </li>
+              ) : null
+            )}
+          </ul>
+        </Card>
+      )}
 
       <CourseMixSection subtitle="Your programme units — foundations through professional practice." />
 

@@ -27,6 +27,9 @@ export default function ResourcesPage() {
     category: "Materials",
     type: "PDF" as Resource["type"],
     files: 1,
+    paid: false,
+    price: 0,
+    file: null as File | null,
   });
 
   const canUpload = user?.role === "super_admin" || user?.role === "tutor";
@@ -42,8 +45,19 @@ export default function ResourcesPage() {
     );
   }, [resources, query]);
 
-  const onUpload = (e: FormEvent) => {
+  const onUpload = async (e: FormEvent) => {
     e.preventDefault();
+    let fileUrl: string | undefined;
+    if (form.file) {
+      const data = new FormData();
+      data.append("file", form.file);
+      const res = await fetch("/api/resources/upload", { method: "POST", body: data });
+      const json = (await res.json()) as { ok?: boolean; url?: string; error?: string };
+      if (!res.ok || !json.ok || !json.url) {
+        return;
+      }
+      fileUrl = json.url;
+    }
     resourcesStore.upsert({
       id: uid("RES"),
       title: form.title.trim(),
@@ -51,6 +65,9 @@ export default function ResourcesPage() {
       type: form.type,
       files: Number(form.files) || 1,
       downloads: 0,
+      fileUrl,
+      paid: form.paid,
+      price: form.paid ? Number(form.price) || 0 : 0,
     });
     refresh();
     setOpen(false);
@@ -59,7 +76,14 @@ export default function ResourcesPage() {
   const onDownload = (resource: Resource) => {
     resourcesStore.upsert({ ...resource, downloads: resource.downloads + 1 });
     refresh();
-    // Demo download content
+    if (resource.fileUrl) {
+      const a = document.createElement("a");
+      a.href = resource.fileUrl;
+      a.download = `${resource.title.replace(/\s+/g, "-").toLowerCase()}`;
+      a.target = "_blank";
+      a.click();
+      return;
+    }
     const blob = new Blob(
       [`Dreyz Interior Resource\n${resource.title}\nType: ${resource.type}\n`],
       { type: "text/plain" }
@@ -108,6 +132,9 @@ export default function ResourcesPage() {
               </div>
               <h3 className="mt-4 font-semibold text-foreground">{resource.title}</h3>
               <p className="mt-1 text-sm text-muted">{resource.category}</p>
+              <p className="mt-1 text-xs font-medium text-accent">
+                {resource.paid ? `Payable · UGX ${resource.price?.toLocaleString() ?? 0}` : "Included with tuition"}
+              </p>
               <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
                 <div className="text-xs text-muted">
                   <span className="font-medium text-foreground">{resource.files}</span> files ·{" "}
@@ -161,7 +188,34 @@ export default function ResourcesPage() {
               <input type="number" min={1} className={fieldClass} value={form.files} onChange={(e) => setForm({ ...form, files: Number(e.target.value) })} />
             </Field>
           </div>
-          <p className="text-xs text-muted">Demo upload — metadata is saved; download increments the counter.</p>
+          <Field label="Handout file (PDF or similar)">
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.zip,.png,.jpg"
+              className={fieldClass}
+              onChange={(e) => setForm({ ...form, file: e.target.files?.[0] ?? null })}
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.paid}
+              onChange={(e) => setForm({ ...form, paid: e.target.checked })}
+            />
+            This resource is payable (not included in tuition)
+          </label>
+          {form.paid && (
+            <Field label="Price (UGX)">
+              <input
+                type="number"
+                min={0}
+                className={fieldClass}
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+              />
+            </Field>
+          )}
+          <p className="text-xs text-muted">Files are stored for learners to download. Toggle payable for extra books.</p>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit">Save resource</Button>

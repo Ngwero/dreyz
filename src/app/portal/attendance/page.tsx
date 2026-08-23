@@ -26,6 +26,7 @@ import {
 } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { cn } from "@/lib/utils";
+import { attendanceSummary } from "@/lib/academics";
 
 type Mark = AttendanceRecord["status"];
 
@@ -112,6 +113,7 @@ export default function AttendancePage() {
   const present = filtered.filter((a) => a.status === "present").length;
   const absent = filtered.filter((a) => a.status === "absent").length;
   const late = filtered.filter((a) => a.status === "late").length;
+  const studentStats = attendanceSummary(scoped);
 
   const bulkCounts = useMemo(() => {
     const counts = { present: 0, late: 0, absent: 0 };
@@ -214,6 +216,20 @@ export default function AttendancePage() {
           <p className="mt-1 text-2xl font-bold text-red-600">{absent}</p>
         </Card>
       </div>
+
+      {user?.role === "student" && (
+        <Card className="mb-8" title="Your attendance record">
+          <p className="text-sm text-muted">
+            {studentStats.present} present · {studentStats.late} late · {studentStats.absent} absent
+            {studentStats.total ? ` · ${studentStats.total} sessions` : ""}
+          </p>
+          <p className="mt-2 text-sm">
+            Strikes (absence or two lates):{" "}
+            <span className="font-semibold text-foreground">{studentStats.strikes}</span>
+            . Four absences can lead to suspension — speak with your tutor if you need to catch up.
+          </p>
+        </Card>
+      )}
 
       {canMark && (
         <Card
