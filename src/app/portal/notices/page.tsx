@@ -20,10 +20,7 @@ export default function NoticesPage() {
     category: "General",
   });
 
-  const canPost =
-    user?.role === "super_admin" ||
-    user?.role === "accountant" ||
-    user?.role === "tutor";
+  const canPost = user?.role === "super_admin" || user?.role === "accountant";
 
   const onPost = (e: FormEvent) => {
     e.preventDefault();

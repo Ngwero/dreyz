@@ -8,6 +8,7 @@ import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Plus, Calendar, Clock, User, Trash2 } from "lucide-react";
 import {
   scheduleStore,
+  coursesStore,
   useStoreList,
   uid,
   downloadIcs,
@@ -19,11 +20,13 @@ const typeColors = {
   live: "info" as const,
   workshop: "accent" as const,
   review: "success" as const,
+  physical: "warning" as const,
 };
 
 export default function SchedulePage() {
   const { user } = useAuth();
   const [items, refresh] = useStoreList(scheduleStore.getAll, scheduleStore.key);
+  const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -34,7 +37,7 @@ export default function SchedulePage() {
     instructor: user?.name ?? "",
   });
 
-  const canEdit = user?.role === "super_admin" || user?.role === "tutor";
+  const canEdit = user?.role === "super_admin";
 
   const onAdd = (e: FormEvent) => {
     e.preventDefault();
@@ -55,7 +58,7 @@ export default function SchedulePage() {
     <div>
       <PageHeader
         title="Course Schedule"
-        description="Live sessions, workshops, and project review calendars."
+        description="Live, physical, workshop, and project review sessions."
         action={
           canEdit ? (
             <Button size="sm" onClick={() => setOpen(true)}>
@@ -122,7 +125,19 @@ export default function SchedulePage() {
             <input required className={fieldClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </Field>
           <Field label="Course">
-            <input required className={fieldClass} value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} />
+            <select
+              required
+              className={fieldClass}
+              value={form.course}
+              onChange={(e) => setForm({ ...form, course: e.target.value })}
+            >
+              <option value="">Select course</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.title}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Date">
@@ -135,6 +150,7 @@ export default function SchedulePage() {
           <Field label="Type">
             <select className={fieldClass} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as ScheduleItem["type"] })}>
               <option value="live">live</option>
+              <option value="physical">physical</option>
               <option value="workshop">workshop</option>
               <option value="review">review</option>
             </select>

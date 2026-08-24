@@ -9,18 +9,18 @@ import { brand } from "./NeutraHeader";
 
 const heroFrames = [
   {
-    src: "/gallery/kitchen-hero/slot-main.jpg",
-    alt: "Dreyz students measuring and reading plans on a site visit",
+    src: "/gallery/campus-15.jpg",
+    alt: "Dreyz Interior Design School Class of 2026 graduates",
     className: "hero-frame hero-frame--main",
   },
   {
-    src: "/gallery/campus-15.jpg",
-    alt: "Dreyz Interior Design School Class of 2026 graduates",
+    src: "/gallery/studio/graduate.jpg",
+    alt: "A Dreyz graduate in studio",
     className: "hero-frame hero-frame--top",
   },
   {
     src: "/gallery/campus-18.jpg",
-    alt: "A Dreyz instructor explaining electrical fittings to students on a site visit",
+    alt: "A Dreyz instructor explaining fittings to students on a site visit",
     className: "hero-frame hero-frame--bot",
   },
 ];

@@ -26,7 +26,6 @@ import {
   performanceByLevel,
   schoolInfo,
   programme,
-  enrollments,
   feeTracks,
 } from "@/lib/data";
 import { ExpandableChart } from "@/components/dashboard/ExpandableChart";
@@ -59,6 +58,8 @@ import {
   livePerformanceByLevel,
   learnerProgressBreakdown,
   attendanceSummary,
+  schoolFeeTotals,
+  feesForStudent,
 } from "@/lib/academics";
 
 function DashHero({
@@ -329,6 +330,7 @@ function SuperAdminDashboard() {
   const featuredProjects = projects.filter((p) => p.status === "featured");
   const recentNotices = notices.slice(0, 4);
   const { present } = attendanceSummary(attendanceStore.getAll());
+  const fees = schoolFeeTotals(learners);
 
   return (
     <div>
@@ -395,6 +397,22 @@ function SuperAdminDashboard() {
             tone="warm"
           />
         </div>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card>
+          <p className="text-sm text-muted">Fees expected</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{formatUGX(fees.expected)}</p>
+          <p className="mt-1 text-xs text-muted">From enrolled learners</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-muted">Amount paid</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-600">{formatUGX(fees.paid)}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-muted">Balance due</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-amber-600">{formatUGX(fees.balance)}</p>
+        </Card>
       </div>
 
       <UpcomingSessionsPanel />
@@ -499,14 +517,16 @@ function AccountantDashboard() {
   const tick = useLiveTick();
   void tick;
   const users = getAllUsers().filter((u) => u.role === "student");
-  const unpaid = enrollments.filter((e) => e.status !== "paid").length;
+  const learners = learnersStore.getAll();
+  const fees = schoolFeeTotals(learners);
+  const unpaid = learners.filter((l) => feesForStudent(l.email, undefined, l.paidAmount, l.feeDue).balance > 0).length;
 
   return (
     <div>
       <DashHero
         eyebrow="Finance"
         title="Enrollments awaiting fees"
-        description="Nobody has paid yet. Charts cover attendance and programme mix — fee collection stays empty until money comes in."
+        description="Fees expected, collected, and still due across enrolled learners."
         actions={
           <Link
             href="/portal/accounts"
@@ -534,8 +554,8 @@ function AccountantDashboard() {
         />
         <StatCard
           label="Collected so far"
-          value="UGX 0"
-          hint="No payments yet"
+          value={formatUGX(fees.paid)}
+          hint={`Expected ${formatUGX(fees.expected)} · due ${formatUGX(fees.balance)}`}
           icon={Banknote}
         />
       </div>
@@ -666,6 +686,9 @@ function StudentDashboard({
   const myProjects = projects.filter((p) => p.learnerId === learner?.id);
   const myAttendance = attendance.filter((a) => a.learnerId === learner?.id);
   const breakdown = learner ? learnerProgressBreakdown(learner) : null;
+  const myFees = learner
+    ? feesForStudent(learner.email, undefined, learner.paidAmount, learner.feeDue)
+    : null;
 
   return (
     <div>
@@ -711,8 +734,18 @@ function StudentDashboard({
         />
         <StatCard
           label="Fee status"
-          value="Unpaid"
-          hint="No payment recorded yet"
+          value={
+            !myFees || myFees.paid <= 0
+              ? "Unpaid"
+              : myFees.balance <= 0
+                ? "Paid"
+                : "Part paid"
+          }
+          hint={
+            myFees
+              ? `${formatUGX(myFees.paid)} paid · ${formatUGX(myFees.balance)} due`
+              : "No payment recorded yet"
+          }
           icon={Wallet}
           tone="warm"
         />

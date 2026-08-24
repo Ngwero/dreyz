@@ -32,7 +32,7 @@ export default function ResourcesPage() {
     file: null as File | null,
   });
 
-  const canUpload = user?.role === "super_admin" || user?.role === "tutor";
+  const canUpload = user?.role === "super_admin";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

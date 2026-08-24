@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
   DataTable,
@@ -11,20 +11,61 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { enrollments } from "@/lib/data";
+import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { formatUGX } from "@/lib/utils";
-import { Download } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { getPayments } from "@/lib/auth";
-import { exportCsv } from "@/lib/store";
+import {
+  deletePayment,
+  getPayments,
+  recordManualFee,
+  updatePayment,
+} from "@/lib/auth";
+import type { Enrollment, PaymentRecord } from "@/lib/types";
+import {
+  enrollmentsStore,
+  exportCsv,
+  uid,
+  useStoreList,
+  learnersStore,
+} from "@/lib/store";
+import { schoolFeeTotals } from "@/lib/academics";
 import Link from "next/link";
+
+type Row = {
+  id: string;
+  source: "payment" | "enrollment";
+  learnerName: string;
+  email: string;
+  course: string;
+  date: string;
+  amount: number;
+  status: "paid" | "pending" | "refunded";
+};
 
 export default function EnrollmentsPage() {
   const { user } = useAuth();
-  const [payments, setPayments] = useState(() =>
+  const [payments, setPayments] = useState<PaymentRecord[]>(() =>
     typeof window !== "undefined" ? getPayments() : []
   );
+  const [enrollments, refreshEnrollments] = useStoreList(
+    enrollmentsStore.getAll,
+    enrollmentsStore.key
+  );
+  const [learners] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [form, setForm] = useState({
+    learnerName: "",
+    email: "",
+    course: "4-Month Main Course",
+    date: new Date().toISOString().slice(0, 10),
+    amount: 0,
+    status: "paid" as Row["status"],
+  });
+
+  const canEdit = user?.role === "super_admin";
 
   useEffect(() => {
     const refresh = () => setPayments(getPayments());
@@ -37,30 +78,30 @@ export default function EnrollmentsPage() {
     };
   }, []);
 
-  const merged = useMemo(
+  const merged: Row[] = useMemo(
     () => [
       ...payments.map((p) => ({
         id: p.id,
+        source: "payment" as const,
         learnerName: p.learnerName,
         email: p.learnerEmail,
         course: p.feeTrackId,
         date: p.date,
         amount: p.amount,
-        status: "paid" as const,
-        credentialsSent: p.credentialsSent,
+        status: p.status === "confirmed" ? ("paid" as const) : p.status === "failed" ? ("refunded" as const) : ("pending" as const),
       })),
       ...enrollments.map((e) => ({
         id: e.id,
+        source: "enrollment" as const,
         learnerName: e.learnerName,
         email: e.learnerEmail ?? "",
         course: e.course,
         date: e.date,
         amount: e.amount,
         status: e.status,
-        credentialsSent: e.credentialsSent ?? e.status === "paid",
       })),
     ],
-    [payments]
+    [payments, enrollments]
   );
 
   const roleFiltered =
@@ -83,24 +124,86 @@ export default function EnrollmentsPage() {
     );
   }, [roleFiltered, query]);
 
-  const totalRevenue = rows
-    .filter((e) => e.status === "paid")
-    .reduce((sum, e) => sum + e.amount, 0);
+  const totals = schoolFeeTotals(learners);
   const pending = rows.filter((e) => e.status === "pending").length;
 
   const onExport = () => {
     exportCsv("enrollments.csv", [
-      ["ID", "Learner", "Course", "Date", "Amount", "Status", "Login emailed"],
-      ...rows.map((r) => [
-        r.id,
-        r.learnerName,
-        r.course,
-        r.date,
-        String(r.amount),
-        r.status,
-        r.credentialsSent ? "yes" : "no",
-      ]),
+      ["ID", "Learner", "Course", "Date", "Amount", "Status"],
+      ...rows.map((r) => [r.id, r.learnerName, r.course, r.date, String(r.amount), r.status]),
     ]);
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({
+      learnerName: "",
+      email: "",
+      course: "4-Month Main Course",
+      date: new Date().toISOString().slice(0, 10),
+      amount: 0,
+      status: "paid",
+    });
+    setOpen(true);
+  };
+
+  const openEdit = (row: Row) => {
+    setEditing(row);
+    setForm({
+      learnerName: row.learnerName,
+      email: row.email,
+      course: row.course,
+      date: row.date,
+      amount: row.amount,
+      status: row.status,
+    });
+    setOpen(true);
+  };
+
+  const onSave = (e: FormEvent) => {
+    e.preventDefault();
+    const amount = Number(form.amount) || 0;
+    if (editing?.source === "payment") {
+      updatePayment(editing.id, {
+        learnerName: form.learnerName.trim(),
+        learnerEmail: form.email.trim().toLowerCase(),
+        amount,
+        date: form.date,
+        status: form.status === "paid" ? "confirmed" : form.status === "pending" ? "pending" : "failed",
+        feeTrackId: form.course,
+      });
+      setPayments(getPayments());
+    } else {
+      const record: Enrollment = {
+        id: editing?.id ?? uid("ENR"),
+        learnerName: form.learnerName.trim(),
+        learnerEmail: form.email.trim().toLowerCase(),
+        course: form.course.trim(),
+        date: form.date,
+        amount,
+        status: form.status,
+      };
+      enrollmentsStore.upsert(record);
+      recordManualFee({
+        learnerName: record.learnerName,
+        learnerEmail: record.learnerEmail ?? "",
+        amount: record.status === "paid" ? amount : 0,
+      });
+      refreshEnrollments();
+      setPayments(getPayments());
+    }
+    setOpen(false);
+  };
+
+  const onDelete = (row: Row) => {
+    if (!confirm("Delete this billing record?")) return;
+    if (row.source === "payment") {
+      deletePayment(row.id);
+      setPayments(getPayments());
+    } else {
+      enrollmentsStore.remove(row.id);
+      refreshEnrollments();
+    }
   };
 
   return (
@@ -110,11 +213,16 @@ export default function EnrollmentsPage() {
         description={
           user?.role === "student"
             ? "Your fee payments and enrollment status."
-            : "Track course enrollments, payments, and revenue. Confirming a payment emails the student their login."
+            : "Expected fees, amounts paid, and balances. Super Admin can edit records, including manual enrolments."
         }
         action={
           user?.role === "super_admin" || user?.role === "accountant" ? (
             <div className="flex gap-2">
+              {canEdit && (
+                <Button size="sm" onClick={openCreate}>
+                  <Plus size={14} /> Add record
+                </Button>
+              )}
               <Link href="/portal/payments">
                 <Button size="sm">Record payment</Button>
               </Link>
@@ -132,20 +240,17 @@ export default function EnrollmentsPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
-          <p className="text-sm text-muted">
-            {user?.role === "student" ? "Amount paid" : "Recent revenue"}
-          </p>
-          <p className="mt-1 text-2xl font-bold">{formatUGX(totalRevenue)}</p>
+          <p className="text-sm text-muted">Fees expected</p>
+          <p className="mt-1 text-2xl font-bold">{formatUGX(totals.expected)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-muted">
-            {user?.role === "student" ? "Records" : "Total enrollments"}
-          </p>
-          <p className="mt-1 text-2xl font-bold">{rows.length}</p>
+          <p className="text-sm text-muted">Amount paid</p>
+          <p className="mt-1 text-2xl font-bold text-emerald-600">{formatUGX(totals.paid)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-muted">Pending payments</p>
-          <p className="mt-1 text-2xl font-bold text-amber-600">{pending}</p>
+          <p className="text-sm text-muted">Balance due</p>
+          <p className="mt-1 text-2xl font-bold text-amber-600">{formatUGX(totals.balance)}</p>
+          <p className="mt-1 text-xs text-muted">{pending} pending records</p>
         </Card>
       </div>
 
@@ -168,22 +273,16 @@ export default function EnrollmentsPage() {
           { key: "date", label: "Date" },
           { key: "amount", label: "Amount" },
           { key: "status", label: "Status" },
-          { key: "login", label: "Login email" },
+          ...(canEdit ? [{ key: "actions", label: "" }] : []),
         ]}
       >
         {rows.map((enrollment) => (
-          <TableRow key={enrollment.id}>
-            <TableCell className="font-mono text-xs text-muted">
-              {enrollment.id}
-            </TableCell>
+          <TableRow key={`${enrollment.source}-${enrollment.id}`}>
+            <TableCell className="font-mono text-xs text-muted">{enrollment.id}</TableCell>
             <TableCell className="font-medium">{enrollment.learnerName}</TableCell>
-            <TableCell className="max-w-[200px] truncate">
-              {enrollment.course}
-            </TableCell>
+            <TableCell className="max-w-[200px] truncate">{enrollment.course}</TableCell>
             <TableCell className="text-muted">{enrollment.date}</TableCell>
-            <TableCell className="font-medium">
-              {formatUGX(enrollment.amount)}
-            </TableCell>
+            <TableCell className="font-medium">{formatUGX(enrollment.amount)}</TableCell>
             <TableCell>
               <Badge
                 variant={
@@ -197,22 +296,62 @@ export default function EnrollmentsPage() {
                 {enrollment.status}
               </Badge>
             </TableCell>
-            <TableCell>
-              {enrollment.status === "paid" ? (
-                <Badge variant={enrollment.credentialsSent ? "success" : "warning"}>
-                  {enrollment.credentialsSent ? "Sent" : "Pending"}
-                </Badge>
-              ) : (
-                <span className="text-xs text-muted">—</span>
-              )}
-            </TableCell>
+            {canEdit && (
+              <TableCell>
+                <div className="flex justify-end gap-1">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(enrollment)}>
+                    <Pencil size={13} /> Edit
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => onDelete(enrollment)}>
+                    <Trash2 size={13} />
+                  </Button>
+                </div>
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </DataTable>
 
       {rows.length === 0 && (
-        <p className="mt-4 text-sm text-muted">No billing records to show.</p>
+        <p className="mt-4 text-sm text-muted">No billing records yet. Add a manual enrolment or record a payment.</p>
       )}
+
+      <Modal
+        open={open}
+        title={editing ? "Edit billing record" : "Add billing record"}
+        onClose={() => setOpen(false)}
+      >
+        <form onSubmit={onSave} className="space-y-3">
+          <Field label="Learner name">
+            <input required className={fieldClass} value={form.learnerName} onChange={(e) => setForm({ ...form, learnerName: e.target.value })} />
+          </Field>
+          <Field label="Email">
+            <input required type="email" className={fieldClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </Field>
+          <Field label="Course / track">
+            <input required className={fieldClass} value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Date">
+              <input type="date" className={fieldClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            </Field>
+            <Field label="Amount (UGX)">
+              <input type="number" min={0} className={fieldClass} value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
+            </Field>
+          </div>
+          <Field label="Status">
+            <select className={fieldClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Row["status"] })}>
+              <option value="paid">paid</option>
+              <option value="pending">pending</option>
+              <option value="refunded">refunded</option>
+            </select>
+          </Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

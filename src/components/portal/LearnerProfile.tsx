@@ -74,7 +74,7 @@ export function LearnerProfile({
       u.learnerId === learner.id ||
       u.email.toLowerCase() === learner.email.toLowerCase()
   );
-  const fees = feesForStudent(learner.email, account?.feeTrackId);
+  const fees = feesForStudent(learner.email, account?.feeTrackId, learner.paidAmount, learner.feeDue);
   const track = feeTracks.find((t) => t.id === account?.feeTrackId) ?? feeTracks[0];
   const klass = classOptions.find((c) => c.id === account?.classOptionId);
   const progress = learnerProgressBreakdown(learner);
@@ -202,11 +202,11 @@ export function LearnerProfile({
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
               Fees
             </p>
-            <p className="mt-3 text-sm font-semibold text-orange-600 dark:text-orange-400">
-              Not paid
+            <p className="mt-3 text-sm font-semibold text-foreground">
+              {fees.paid > 0 ? (fees.balance <= 0 ? "Paid in full" : "Part paid") : "Not paid"}
             </p>
             <p className="mt-1 text-xs text-muted">
-              Programme due {formatUGX(fees.total)}. No payment has been recorded for this learner.
+              Expected {formatUGX(fees.total)} · paid {formatUGX(fees.paid)} · balance {formatUGX(fees.balance)}
             </p>
           </section>
           <section className="rounded-2xl border border-border p-4">

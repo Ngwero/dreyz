@@ -487,6 +487,64 @@ function pushPayment(payment: PaymentRecord) {
   writeJson(PAYMENTS_KEY, list);
 }
 
+export function updatePayment(id: string, patch: Partial<PaymentRecord>) {
+  const list = getPayments();
+  const i = list.findIndex((p) => p.id === id);
+  if (i < 0) return;
+  list[i] = { ...list[i], ...patch, id: list[i].id };
+  writeJson(PAYMENTS_KEY, list);
+  return list[i];
+}
+
+export function deletePayment(id: string) {
+  writeJson(
+    PAYMENTS_KEY,
+    getPayments().filter((p) => p.id !== id)
+  );
+}
+
+export function recordManualFee(input: {
+  learnerName: string;
+  learnerEmail: string;
+  phone?: string;
+  amount: number;
+  feeTrackId?: string;
+  classOptionId?: string;
+}) {
+  const email = input.learnerEmail.trim().toLowerCase();
+  const list = getPayments();
+  const key = `MANUAL-${email}`;
+  const existing = list.find((p) => p.reference === key);
+  if (input.amount <= 0) {
+    if (existing) deletePayment(existing.id);
+    return;
+  }
+  if (existing) {
+    updatePayment(existing.id, {
+      amount: input.amount,
+      learnerName: input.learnerName,
+      phone: input.phone ?? existing.phone,
+      status: "confirmed",
+      date: new Date().toISOString().slice(0, 10),
+    });
+    return;
+  }
+  pushPayment({
+    id: `PAY-${Date.now().toString(36).toUpperCase()}`,
+    learnerName: input.learnerName,
+    learnerEmail: email,
+    phone: input.phone ?? "",
+    feeTrackId: input.feeTrackId ?? "4-month",
+    classOptionId: input.classOptionId ?? "weekday",
+    amount: input.amount,
+    method: "cash",
+    reference: key,
+    date: new Date().toISOString().slice(0, 10),
+    status: "confirmed",
+    credentialsSent: false,
+  });
+}
+
 export function buildCredentialEmail(opts: {
   name: string;
   email: string;

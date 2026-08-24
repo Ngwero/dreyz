@@ -32,6 +32,7 @@ const emptyForm = {
   testCount: 1,
   examCount: 1,
   hasFinalExam: true,
+  enrolled: 0,
   capacity: 100,
   instructor: "",
   status: "draft" as Course["status"],
@@ -86,6 +87,7 @@ export default function CoursesPage() {
       testCount: course.testCount ?? 0,
       examCount: course.examCount ?? 0,
       hasFinalExam: course.hasFinalExam ?? true,
+      enrolled: course.enrolled,
       capacity: course.capacity,
       instructor: course.instructor,
       status: course.status,
@@ -107,7 +109,7 @@ export default function CoursesPage() {
       testCount: Number(form.testCount) || 0,
       examCount: Number(form.examCount) || 0,
       hasFinalExam: form.hasFinalExam,
-      enrolled: editing?.enrolled ?? 0,
+      enrolled: Number(form.enrolled) || 0,
       capacity: Number(form.capacity) || 100,
       instructor: form.instructor.trim() || "Staff",
       status: form.status,
@@ -356,6 +358,15 @@ export default function CoursesPage() {
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
+            <Field label="Enrolled">
+              <input
+                type="number"
+                min={0}
+                className={fieldClass}
+                value={form.enrolled}
+                onChange={(e) => setForm({ ...form, enrolled: Number(e.target.value) })}
+              />
+            </Field>
             <Field label="Capacity">
               <input
                 type="number"

@@ -8,6 +8,10 @@ export interface Learner {
   progress: number;
   status: "active" | "completed" | "paused";
   avatar?: string;
+  /** Amount already paid (manual enrolment or RukaPay). */
+  paidAmount?: number;
+  /** Programme fee due for this learner. */
+  feeDue?: number;
 }
 
 export interface Instructor {
@@ -75,7 +79,7 @@ export interface ScheduleItem {
   course: string;
   date: string;
   time: string;
-  type: "live" | "workshop" | "review";
+  type: "live" | "workshop" | "review" | "physical";
   instructor: string;
 }
 

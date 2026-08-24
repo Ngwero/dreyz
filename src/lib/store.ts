@@ -5,6 +5,7 @@ import type {
   Assessment,
   AttendanceRecord,
   Course,
+  Enrollment,
   Grade,
   Instructor,
   Learner,
@@ -56,6 +57,7 @@ const STORE_KEYS = [
   "dreyz_projects",
   "dreyz_resources",
   "dreyz_grades",
+  "dreyz_enrollments",
   "dreyz_settings",
   "dreyz_users",
   "dreyz_payments",
@@ -184,6 +186,7 @@ export const assessmentsStore = createListStore("dreyz_assessments", seedAssessm
 export const projectsStore = createListStore("dreyz_projects", seedProjects);
 export const resourcesStore = createListStore("dreyz_resources", seedResources);
 export const gradesStore = createListStore<Grade>("dreyz_grades", []);
+export const enrollmentsStore = createListStore<Enrollment>("dreyz_enrollments", []);
 
 export type SchoolSettings = {
   name: string;
@@ -249,6 +252,8 @@ export function upsertLearnerFromPayment(input: {
     enrollmentDate: existing?.enrollmentDate ?? new Date().toISOString().slice(0, 10),
     progress: existing?.progress ?? 0,
     status: input.status ?? existing?.status ?? "active",
+    paidAmount: existing?.paidAmount,
+    feeDue: existing?.feeDue,
   });
 }
 
@@ -277,6 +282,37 @@ export function saveBulkAttendance(
     else all.unshift(record);
   }
   attendanceStore.replaceAll(all);
+}
+
+export function allCourseTitles() {
+  const titles = new Set<string>();
+  for (const c of coursesStore.getAll()) if (c.title) titles.add(c.title);
+  for (const l of learnersStore.getAll()) if (l.course) titles.add(l.course);
+  for (const s of scheduleStore.getAll()) if (s.course) titles.add(s.course);
+  return [...titles].sort((a, b) => a.localeCompare(b));
+}
+
+export function datesInRange(from: string, to: string) {
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return [from];
+  const dates: string[] = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    dates.push(`${y}-${m}-${day}`);
+  }
+  return dates;
+}
+
+export function monthRange(yearMonth: string) {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return {
+    from: `${yearMonth}-01`,
+    to: `${yearMonth}-${String(last).padStart(2, "0")}`,
+  };
 }
 
 export function upsertInstructorFromAccount(input: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
   DataTable,
@@ -18,9 +18,13 @@ import {
   learnersStore,
   saveBulkAttendance,
   scheduleStore,
+  coursesStore,
   useStoreList,
   uid,
   exportCsv,
+  allCourseTitles,
+  datesInRange,
+  monthRange,
   type AttendanceRecord,
   type Learner,
 } from "@/lib/store";
@@ -41,6 +45,7 @@ export default function AttendancePage() {
   const [records, refresh] = useStoreList(attendanceStore.getAll, attendanceStore.key);
   const [learners] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [sessions] = useStoreList(scheduleStore.getAll, scheduleStore.key);
+  const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -51,20 +56,33 @@ export default function AttendancePage() {
   });
 
   const today = new Date().toISOString().slice(0, 10);
+  const thisMonth = today.slice(0, 7);
   const courseOptions = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(allCourseTitles());
+    for (const c of courses) if (c.title) set.add(c.title);
     for (const l of learners) if (l.course) set.add(l.course);
     for (const s of sessions) if (s.course) set.add(s.course);
-    return Array.from(set);
-  }, [learners, sessions]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [courses, learners, sessions]);
 
   const [bulkDate, setBulkDate] = useState(today);
+  const [bulkEnd, setBulkEnd] = useState(today);
+  const [bulkMonth, setBulkMonth] = useState(thisMonth);
+  const [periodMode, setPeriodMode] = useState<"day" | "month">("day");
   const [bulkCourse, setBulkCourse] = useState("");
   const [bulkQuery, setBulkQuery] = useState("");
   const [marks, setMarks] = useState<Record<string, Mark>>({});
   const [bulkNotice, setBulkNotice] = useState("");
 
   const canMark = user?.role === "super_admin" || user?.role === "tutor";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("dreyz_attendance_reset_v2")) return;
+    attendanceStore.replaceAll([]);
+    localStorage.setItem("dreyz_attendance_reset_v2", "1");
+    refresh();
+  }, [refresh]);
 
   const roster = useMemo(
     () => learners.filter((l) => l.status === "active"),
@@ -158,22 +176,48 @@ export default function AttendancePage() {
     setMarks((prev) => ({ ...prev, ...next }));
   };
 
+  const periodDates = useMemo(() => {
+    if (periodMode === "month") {
+      const range = monthRange(bulkMonth);
+      return datesInRange(range.from, range.to);
+    }
+    return datesInRange(bulkDate, bulkEnd || bulkDate);
+  }, [periodMode, bulkMonth, bulkDate, bulkEnd]);
+
   const saveBulk = () => {
     if (!bulkRoster.length) return;
-    saveBulkAttendance(
+    const entries = periodDates.flatMap((date) =>
       bulkRoster.map((learner) => ({
         learnerId: learner.id,
         learnerName: learner.name,
         course: selectedCourse,
-        date: bulkDate,
+        date,
         status: markFor(learner),
       }))
     );
+    saveBulkAttendance(entries);
     setMarks({});
     refresh();
     setBulkNotice(
-      `Saved ${bulkRoster.length} marks for ${selectedCourse} on ${bulkDate} — ${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent.`
+      `Saved ${bulkRoster.length} learners × ${periodDates.length} day${periodDates.length === 1 ? "" : "s"} for ${selectedCourse} — ${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent.`
     );
+  };
+
+  const resetAttendance = (scope: "all" | "period") => {
+    if (!canMark) return;
+    if (scope === "all") {
+      if (!confirm("Clear every attendance mark in the school?")) return;
+      attendanceStore.replaceAll([]);
+    } else {
+      if (!confirm(`Clear attendance for ${selectedCourse} from ${periodDates[0]} to ${periodDates[periodDates.length - 1]}?`)) return;
+      const dates = new Set(periodDates);
+      attendanceStore.replaceAll(
+        records.filter((r) => !(r.course === selectedCourse && dates.has(r.date)))
+      );
+    }
+    setMarks({});
+    refresh();
+    setBulkNotice(scope === "all" ? "All attendance marks were cleared." : "Attendance for this period was cleared.");
   };
 
   const onExport = () => {
@@ -242,7 +286,7 @@ export default function AttendancePage() {
           }
         >
           <p className="mb-4 text-sm text-muted">
-            Mark the whole class for one session. Existing marks for the same date and course are updated instead of duplicated.
+            Mark the class for one day or a full month. Existing marks for the same date and course are updated instead of duplicated.
           </p>
 
           {bulkNotice && (
@@ -253,19 +297,60 @@ export default function AttendancePage() {
 
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
-              Session date
-              <input
-                type="date"
+              Period
+              <select
                 className={`${fieldClass} mt-1.5`}
-                value={bulkDate}
-                onChange={(e) => {
-                  setBulkDate(e.target.value);
-                  setMarks({});
-                }}
-              />
+                value={periodMode}
+                onChange={(e) => setPeriodMode(e.target.value as "day" | "month")}
+              >
+                <option value="day">One day / date range</option>
+                <option value="month">Full month</option>
+              </select>
             </label>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted sm:col-span-1 lg:col-span-2">
-              Course / session
+            {periodMode === "month" ? (
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+                Month
+                <input
+                  type="month"
+                  className={`${fieldClass} mt-1.5`}
+                  value={bulkMonth}
+                  onChange={(e) => {
+                    setBulkMonth(e.target.value);
+                    setMarks({});
+                  }}
+                />
+              </label>
+            ) : (
+              <>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+                  From
+                  <input
+                    type="date"
+                    className={`${fieldClass} mt-1.5`}
+                    value={bulkDate}
+                    onChange={(e) => {
+                      setBulkDate(e.target.value);
+                      if (e.target.value > bulkEnd) setBulkEnd(e.target.value);
+                      setMarks({});
+                    }}
+                  />
+                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+                  To
+                  <input
+                    type="date"
+                    className={`${fieldClass} mt-1.5`}
+                    value={bulkEnd}
+                    onChange={(e) => {
+                      setBulkEnd(e.target.value);
+                      setMarks({});
+                    }}
+                  />
+                </label>
+              </>
+            )}
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted sm:col-span-2">
+              Course
               <select
                 className={`${fieldClass} mt-1.5`}
                 value={selectedCourse}
@@ -303,8 +388,16 @@ export default function AttendancePage() {
               <X size={13} /> All absent
             </Button>
             <span className="ml-auto text-xs text-muted">
-              {bulkCounts.present} present · {bulkCounts.late} late · {bulkCounts.absent} absent
+              {periodDates.length} day{periodDates.length === 1 ? "" : "s"} · {bulkCounts.present} present · {bulkCounts.late} late · {bulkCounts.absent} absent
             </span>
+            <Button type="button" size="sm" variant="outline" onClick={() => resetAttendance("period")}>
+              Reset this period
+            </Button>
+            {user?.role === "super_admin" && (
+              <Button type="button" size="sm" variant="outline" onClick={() => resetAttendance("all")}>
+                Reset all scores
+              </Button>
+            )}
             <Button type="button" size="sm" onClick={saveBulk} disabled={!bulkRoster.length}>
               Save class roll
             </Button>
@@ -455,12 +548,19 @@ export default function AttendancePage() {
             </select>
           </Field>
           <Field label="Course">
-            <input
+            <select
               required
               className={fieldClass}
               value={form.course}
               onChange={(e) => setForm({ ...form, course: e.target.value })}
-            />
+            >
+              <option value="">Select course</option>
+              {courseOptions.map((course) => (
+                <option key={course} value={course}>
+                  {course}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Date">
             <input

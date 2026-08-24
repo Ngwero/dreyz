@@ -14,6 +14,7 @@ import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Plus, Trash2 } from "lucide-react";
 import {
   assessmentsStore,
+  coursesStore,
   gradesStore,
   learnersStore,
   uid,
@@ -27,6 +28,7 @@ export default function AssessmentsPage() {
   const [assessments, refresh] = useStoreList(assessmentsStore.getAll, assessmentsStore.key);
   const [grades, refreshGrades] = useStoreList(gradesStore.getAll, gradesStore.key);
   const [learners] = useStoreList(learnersStore.getAll, learnersStore.key);
+  const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [marking, setMarking] = useState<Assessment | null>(null);
@@ -39,7 +41,8 @@ export default function AssessmentsPage() {
     maxScore: 100,
   });
 
-  const canEdit = user?.role === "super_admin" || user?.role === "tutor";
+  const canCreate = user?.role === "super_admin";
+  const canMark = user?.role === "super_admin" || user?.role === "tutor";
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return assessments;
@@ -67,7 +70,7 @@ export default function AssessmentsPage() {
   };
 
   const bumpSubmission = (a: Assessment) => {
-    if (!canEdit && user?.role !== "student") return;
+    if (!canCreate && user?.role !== "student") return;
     assessmentsStore.upsert({ ...a, submissions: a.submissions + 1 });
     refresh();
   };
@@ -78,7 +81,7 @@ export default function AssessmentsPage() {
         title="Assessments"
         description="Tests, exams, and the final exam. Marks here count toward the Super Admin course progress targets."
         action={
-          canEdit ? (
+          canCreate ? (
             <Button size="sm" onClick={() => setOpen(true)}>
               <Plus size={14} /> Create Assessment
             </Button>
@@ -141,14 +144,17 @@ export default function AssessmentsPage() {
             <TableCell>{assessment.maxScore}</TableCell>
             <TableCell>
               <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => bumpSubmission(assessment)}>
-                  {user?.role === "student" ? "Submit" : "+1 submit"}
-                </Button>
-                {canEdit && (
+                {user?.role === "student" && (
+                  <Button size="sm" variant="outline" onClick={() => bumpSubmission(assessment)}>
+                    Submit
+                  </Button>
+                )}
+                {canMark && (
                   <Button size="sm" variant="outline" onClick={() => {
                     setMarking(assessment);
                     const next: Record<string, string> = {};
-                    for (const l of learnersStore.getAll()) {
+                    const roster = learnersStore.getAll();
+                    for (const l of roster) {
                       const g = gradesStore
                         .getAll()
                         .find((row) => row.assessmentId === assessment.id && row.learnerId === l.id);
@@ -159,7 +165,7 @@ export default function AssessmentsPage() {
                     Enter marks
                   </Button>
                 )}
-                {canEdit && (
+                {canCreate && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -183,7 +189,19 @@ export default function AssessmentsPage() {
             <input required className={fieldClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </Field>
           <Field label="Course">
-            <input required className={fieldClass} value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} />
+            <select
+              required
+              className={fieldClass}
+              value={form.course}
+              onChange={(e) => setForm({ ...form, course: e.target.value })}
+            >
+              <option value="">Select course</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.title}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Type">
@@ -215,22 +233,37 @@ export default function AssessmentsPage() {
         onClose={() => setMarking(null)}
       >
         {marking && (
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-            {learners.map((learner) => (
-              <div key={learner.id} className="flex items-center gap-3">
-                <p className="min-w-0 flex-1 truncate text-sm">{learner.name}</p>
-                <input
-                  type="number"
-                  min={0}
-                  max={marking.maxScore}
-                  className={`${fieldClass} w-24`}
-                  value={scoreDrafts[learner.id] ?? ""}
-                  onChange={(e) =>
-                    setScoreDrafts((prev) => ({ ...prev, [learner.id]: e.target.value }))
-                  }
-                />
-              </div>
-            ))}
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+            {learners.length === 0 ? (
+              <p className="text-sm text-muted">
+                No learners on the roster yet. Add students under Learners, then award marks here. Marks appear on the student portal as soon as you save.
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-muted">
+                  Type a score for each student (out of {marking.maxScore}). Leave blank to skip. Saved marks show on the student portal.
+                </p>
+                {learners.map((learner) => (
+                  <div key={learner.id} className="flex items-center gap-3">
+                    <p className="min-w-0 flex-1 truncate text-sm">
+                      {learner.name}
+                      <span className="ml-2 text-xs text-muted">{learner.id}</span>
+                    </p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={marking.maxScore}
+                      className={`${fieldClass} w-24`}
+                      placeholder="Mark"
+                      value={scoreDrafts[learner.id] ?? ""}
+                      onChange={(e) =>
+                        setScoreDrafts((prev) => ({ ...prev, [learner.id]: e.target.value }))
+                      }
+                    />
+                  </div>
+                ))}
+              </>
+            )}
             <div className="flex justify-end gap-2 pt-3">
               <Button type="button" variant="outline" onClick={() => setMarking(null)}>
                 Cancel

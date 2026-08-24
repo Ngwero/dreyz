@@ -240,15 +240,7 @@ export const projects: Project[] = [
   { id: "PRJ006", learnerId: "DRY004", learnerName: "David Chen", title: "3D Bedroom Visualization", course: "SketchUp and 3D Visualization", score: 87, status: "submitted" },
 ];
 
-export const enrollments: Enrollment[] = [
-  { id: "ENR001", learnerName: "Lucas Bergström", course: "6-Month Course + Internship", date: "2025-06-30", amount: 4400000, status: "pending", learnerEmail: "lucas.b@email.com", feeTrackId: "6-month", credentialsSent: false },
-  { id: "ENR002", learnerName: "David Chen", course: "4-Month Main Course", date: "2025-06-29", amount: 3350000, status: "pending", learnerEmail: "d.chen@email.com", feeTrackId: "4-month", credentialsSent: false },
-  { id: "ENR003", learnerName: "Sarah Williams", course: "4-Month Main Course", date: "2025-06-29", amount: 3350000, status: "pending", learnerEmail: "sarah.w@email.com", feeTrackId: "4-month", credentialsSent: false },
-  { id: "ENR004", learnerName: "Kenji Yamamoto", course: "6-Month Course + Internship", date: "2025-06-28", amount: 4400000, status: "pending", learnerEmail: "kenji.y@email.com", feeTrackId: "6-month", credentialsSent: false },
-  { id: "ENR005", learnerName: "Aisha Bello", course: "4-Month Main Course", date: "2025-06-27", amount: 3350000, status: "pending", learnerEmail: "aisha.b@email.com", feeTrackId: "4-month", credentialsSent: false },
-  { id: "ENR006", learnerName: "Grace Nakato", course: "4-Month Main Course", date: "2025-06-08", amount: 3350000, status: "pending", learnerEmail: "grace.n@email.com", feeTrackId: "4-month", credentialsSent: false },
-  { id: "ENR007", learnerName: "Amara Okafor", course: "6-Month Course + Internship", date: "2025-09-12", amount: 4400000, status: "pending", learnerEmail: "amara.o@email.com", feeTrackId: "6-month", credentialsSent: false },
-];
+export const enrollments: Enrollment[] = [];
 
 export const courseStats = [
   { name: "Foundations", value: 18, color: "#061a4a" },

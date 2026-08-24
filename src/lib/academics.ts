@@ -14,22 +14,41 @@ export type FeeSnapshot = {
   isLearner: boolean;
 };
 
-export function feesForStudent(email: string, feeTrackId?: string): FeeSnapshot {
+export function feesForStudent(
+  email: string,
+  feeTrackId?: string,
+  learnerPaid?: number,
+  learnerDue?: number
+): FeeSnapshot {
   const track = feeTracks.find((t) => t.id === feeTrackId);
-  const total = track?.total ?? feeTracks[0]?.total ?? 3_350_000;
-  const paid = getPayments()
+  const total = learnerDue && learnerDue > 0 ? learnerDue : track?.total ?? feeTracks[0]?.total ?? 3_350_000;
+  const fromPayments = getPayments()
     .filter(
       (p) =>
         p.learnerEmail.toLowerCase() === email.toLowerCase() &&
         p.status === "confirmed"
     )
     .reduce((sum, p) => sum + p.amount, 0);
+  const paid = Math.max(fromPayments, learnerPaid ?? 0);
   return {
     total,
     paid,
     balance: Math.max(0, total - paid),
     isLearner: paid >= LEARNER_ACTIVATION_UGX,
   };
+}
+
+export function schoolFeeTotals(learners: { email: string; paidAmount?: number; feeDue?: number }[]) {
+  return learners.reduce(
+    (acc, learner) => {
+      const snap = feesForStudent(learner.email, undefined, learner.paidAmount, learner.feeDue);
+      acc.expected += snap.total;
+      acc.paid += snap.paid;
+      acc.balance += snap.balance;
+      return acc;
+    },
+    { expected: 0, paid: 0, balance: 0 }
+  );
 }
 
 export function attendanceSummary(records: AttendanceRecord[]) {

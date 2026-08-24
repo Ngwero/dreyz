@@ -14,19 +14,22 @@ import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Plus, Download, Trash2, UserPlus, Pencil, Eye } from "lucide-react";
 import {
   learnersStore,
+  coursesStore,
   useStoreList,
   uid,
   exportCsv,
   type Learner,
 } from "@/lib/store";
-import { createAccount, getAllUsers } from "@/lib/auth";
+import { createAccount, getAllUsers, recordManualFee } from "@/lib/auth";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { computeLearnerProgress } from "@/lib/academics";
+import { computeLearnerProgress, feesForStudent } from "@/lib/academics";
 import { LearnerProfile } from "@/components/portal/LearnerProfile";
+import { formatUGX } from "@/lib/utils";
 
 export default function LearnersPage() {
   const { user } = useAuth();
   const [learners, refresh] = useStoreList(learnersStore.getAll, learnersStore.key);
+  const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Learner | null>(null);
@@ -37,11 +40,13 @@ export default function LearnersPage() {
     course: "Professional Interior Design Programme",
     status: "active" as Learner["status"],
     createLogin: true,
+    paidAmount: 0,
+    feeDue: 3350000,
   });
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<Learner | null>(null);
 
-  const canEdit = user?.role === "super_admin" || user?.role === "accountant" || user?.role === "tutor";
+  const canEdit = user?.role === "super_admin" || user?.role === "accountant";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -61,13 +66,22 @@ export default function LearnersPage() {
   const onAdd = (e: FormEvent) => {
     e.preventDefault();
     if (editing) {
-      learnersStore.upsert({
+      const next: Learner = {
         ...editing,
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim(),
         course: form.course.trim(),
         status: form.status,
+        paidAmount: Number(form.paidAmount) || 0,
+        feeDue: Number(form.feeDue) || 0,
+      };
+      learnersStore.upsert(next);
+      recordManualFee({
+        learnerName: next.name,
+        learnerEmail: next.email,
+        phone: next.phone,
+        amount: next.paidAmount ?? 0,
       });
       setEditing(null);
       refresh();
@@ -83,8 +97,16 @@ export default function LearnersPage() {
       enrollmentDate: new Date().toISOString().slice(0, 10),
       progress: 0,
       status: form.status,
+      paidAmount: Number(form.paidAmount) || 0,
+      feeDue: Number(form.feeDue) || 0,
     };
     learnersStore.upsert(learner);
+    recordManualFee({
+      learnerName: learner.name,
+      learnerEmail: learner.email,
+      phone: learner.phone,
+      amount: learner.paidAmount ?? 0,
+    });
     if (form.createLogin && canManageAccounts) {
       try {
         const result = createAccount({
@@ -110,6 +132,8 @@ export default function LearnersPage() {
       course: "Professional Interior Design Programme",
       status: "active",
       createLogin: true,
+      paidAmount: 0,
+      feeDue: 3350000,
     });
   };
 
@@ -214,6 +238,17 @@ export default function LearnersPage() {
       >
         {filtered.map((learner) => {
           const progress = computeLearnerProgress(learner);
+          const account = getAllUsers().find(
+            (u) =>
+              u.learnerId === learner.id ||
+              u.email.toLowerCase() === learner.email.toLowerCase()
+          );
+          const fees = feesForStudent(
+            learner.email,
+            account?.feeTrackId,
+            learner.paidAmount,
+            learner.feeDue
+          );
           return (
           <TableRow key={learner.id}>
             <TableCell className="font-mono text-xs text-muted">{learner.id}</TableCell>
@@ -245,8 +280,20 @@ export default function LearnersPage() {
               </div>
             </TableCell>
             <TableCell>
-              <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Not paid</p>
-              <p className="text-[11px] text-muted">No payment yet</p>
+              <p
+                className={`text-xs font-medium ${
+                  fees.paid <= 0
+                    ? "text-orange-600 dark:text-orange-400"
+                    : fees.balance <= 0
+                      ? "text-emerald-600"
+                      : "text-foreground"
+                }`}
+              >
+                {fees.paid <= 0 ? "Not paid" : fees.balance <= 0 ? "Paid" : "Part paid"}
+              </p>
+              <p className="text-[11px] text-muted">
+                {formatUGX(fees.paid)} / {formatUGX(fees.total)}
+              </p>
             </TableCell>
             <TableCell>
               <button type="button" onClick={() => cycleStatus(learner)} disabled={!canEdit}>
@@ -287,6 +334,8 @@ export default function LearnersPage() {
                         course: learner.course,
                         status: learner.status,
                         createLogin: false,
+                        paidAmount: learner.paidAmount ?? 0,
+                        feeDue: learner.feeDue ?? 3350000,
                       });
                       setOpen(true);
                     }}
@@ -336,8 +385,45 @@ export default function LearnersPage() {
             <input required className={fieldClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </Field>
           <Field label="Course">
-            <input required className={fieldClass} value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} />
+            <select
+              required
+              className={fieldClass}
+              value={form.course}
+              onChange={(e) => setForm({ ...form, course: e.target.value })}
+            >
+              <option value="Professional Interior Design Programme">
+                Professional Interior Design Programme
+              </option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.title}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
           </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Amount paid (UGX)">
+              <input
+                type="number"
+                min={0}
+                className={fieldClass}
+                value={form.paidAmount}
+                onChange={(e) => setForm({ ...form, paidAmount: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Fee due (UGX)">
+              <input
+                type="number"
+                min={0}
+                className={fieldClass}
+                value={form.feeDue}
+                onChange={(e) => setForm({ ...form, feeDue: Number(e.target.value) })}
+              />
+            </Field>
+          </div>
+          <p className="text-xs text-muted">
+            Manual amounts count toward fees even if the rest is paid later through RukaPay.
+          </p>
           <Field label="Status">
             <select className={fieldClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Learner["status"] })}>
               <option value="active">active</option>
