@@ -13,6 +13,7 @@ import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { modulesStore, coursesStore, useStoreList, uid, type Module } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 
 const emptyForm = {
   title: "",
@@ -94,6 +95,7 @@ export default function ModulesPage() {
     });
     refresh();
     closeModal();
+    showFlash("success", editing ? `${form.title.trim()} was updated.` : `${form.title.trim()} was added.`);
   };
 
   return (
@@ -154,6 +156,7 @@ export default function ModulesPage() {
                     onClick={() => {
                       modulesStore.remove(mod.id);
                       refresh();
+                      showFlash("success", `${mod.title} was deleted.`);
                     }}
                   >
                     <Trash2 size={14} />

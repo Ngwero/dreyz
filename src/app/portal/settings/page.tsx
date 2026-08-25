@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { AppearanceCard } from "@/components/theme/AppearanceCard";
 import { BrandLogo } from "@/components/theme/BrandLogo";
 import { getSettings, saveSettings, type SchoolSettings } from "@/lib/store";
+import { showFlash } from "@/lib/flash";
 import {
   getRukaPayConfig,
   saveRukaPayConfig,
@@ -30,6 +31,7 @@ export default function SettingsPage() {
     setSettings(next);
     saveSettings(next);
     setSaved(message);
+    showFlash("success", message);
     window.setTimeout(() => setSaved(""), 2500);
   };
 

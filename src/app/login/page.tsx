@@ -23,6 +23,7 @@ import {
 import { changePasswordByEmail } from "@/lib/auth";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrength";
 import { isPasswordAcceptable } from "@/lib/password-strength";
+import { showFlash } from "@/lib/flash";
 import { classOptions, feeTracks } from "@/lib/data";
 
 const OTP_LENGTH = 6;
@@ -47,7 +48,7 @@ type Step =
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, logout } = useAuth();
+  const { login, loginWithOtp, logout } = useAuth();
   const [step, setStep] = useState<Step>("password");
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -125,15 +126,18 @@ function LoginForm() {
     setNotice("");
     if (!email.trim()) {
       setError("Enter your email first.");
+      showFlash("error", "Enter your email first.");
       return false;
     }
     const result = await requestLoginOtp(email);
     if (!result.ok) {
       setError(result.error);
+      showFlash("error", result.error);
       return false;
     }
     setResendIn(60);
     setNotice(result.message ?? "Code sent.");
+    showFlash("success", result.message ?? "Code sent.");
     return true;
   };
 
@@ -142,15 +146,18 @@ function LoginForm() {
     setNotice("");
     if (!email.trim()) {
       setError("Enter your email first.");
+      showFlash("error", "Enter your email first.");
       return false;
     }
     const result = await requestPasswordResetOtp(email);
     if (!result.ok) {
       setError(result.error);
+      showFlash("error", result.error);
       return false;
     }
     setResendIn(60);
     setNotice(result.message ?? "Reset code sent.");
+    showFlash("success", result.message ?? "Reset code sent.");
     return true;
   };
 
@@ -190,7 +197,13 @@ function LoginForm() {
         return;
       }
 
-      const signedIn = await login(email, password);
+      const signedIn = checked.hashedToken
+        ? await loginWithOtp(email, code, checked.hashedToken)
+        : checked.emailOtp
+          ? await loginWithOtp(email, checked.emailOtp)
+          : password
+            ? await login(email, password)
+            : await loginWithOtp(email, code);
       if (!signedIn.ok) {
         setOtpStatus("bad");
         setError(signedIn.error);
@@ -319,13 +332,16 @@ function LoginForm() {
         });
         const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
         if (!res.ok || !data.ok) {
-          setError(data.error ?? "Could not create account.");
+          const msg = data.error ?? "Could not create account.";
+          setError(msg);
+          showFlash("error", msg);
           return;
         }
-        setNotice(
+        const msg =
           data.message ??
-            "Welcome to Dreyz Interior — check your email for confirmation, then sign in."
-        );
+          "Welcome to Dreyz Interior — check your email for confirmation, then sign in.";
+        setNotice(msg);
+        showFlash("success", msg);
         setStep("password");
         setConfirmPassword("");
         setFullName("");
@@ -375,6 +391,7 @@ function LoginForm() {
         });
         if (!result.ok) {
           setError(result.error);
+          showFlash("error", result.error);
           return;
         }
         changePasswordByEmail(email, newPassword);
@@ -384,6 +401,7 @@ function LoginForm() {
         setResetCode("");
         setStep("password");
         setNotice("Password updated. Sign in with your new password.");
+        showFlash("success", "Password updated. Sign in with your new password.");
       } finally {
         setLoading(false);
       }
@@ -968,21 +986,45 @@ function LoginForm() {
               </button>
 
               {step === "password" && (
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => {
-                    setStep("create");
-                    setError("");
-                    setNotice("");
-                    setPassword("");
-                    setConfirmPassword("");
-                    setShowPassword(false);
-                  }}
-                  className="mt-3 flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3.5 text-sm font-semibold text-white transition hover:border-[#d8ff59]/35 hover:bg-white/[0.08] disabled:opacity-70 sm:min-h-11"
-                >
-                  Create account
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={loading || !email.trim()}
+                    onClick={() => {
+                      void (async () => {
+                        setLoading(true);
+                        try {
+                          const sent = await onSendLoginOtp();
+                          if (sent) {
+                            setStep("otp");
+                            resetOtp();
+                          }
+                        } finally {
+                          setLoading(false);
+                        }
+                      })();
+                    }}
+                    className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#d8ff59]/45 bg-[#d8ff59]/12 px-4 py-3.5 text-sm font-semibold text-[#d8ff59] transition hover:bg-[#d8ff59]/20 disabled:opacity-40 sm:min-h-11"
+                  >
+                    <Mail size={16} className="shrink-0" />
+                    Email me a login code
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setStep("create");
+                      setError("");
+                      setNotice("");
+                      setPassword("");
+                      setConfirmPassword("");
+                      setShowPassword(false);
+                    }}
+                    className="mt-3 flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3.5 text-sm font-semibold text-white transition hover:border-[#d8ff59]/35 hover:bg-white/[0.08] disabled:opacity-70 sm:min-h-11"
+                  >
+                    Create account
+                  </button>
+                </>
               )}
             </form>
 

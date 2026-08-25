@@ -81,6 +81,21 @@ export async function supabaseVerifyOtp(
   return loadSessionForUser(data.user.id);
 }
 
+export async function supabaseVerifyOtpHash(hashedToken: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    token_hash: hashedToken.trim(),
+    type: "email",
+  });
+  if (error || !data.user) {
+    return {
+      ok: false as const,
+      error: error?.message ?? "Could not start a portal session from that code.",
+    };
+  }
+  return loadSessionForUser(data.user.id);
+}
+
 export async function supabaseUpdatePassword(password: string) {
   const supabase = createClient();
   if (password.length < 6) {

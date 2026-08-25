@@ -23,6 +23,7 @@ import {
   type Assessment,
 } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 import { getAllUsers } from "@/lib/auth";
 
 type MarkStudent = { id: string; name: string; course: string };
@@ -73,6 +74,7 @@ export default function AssessmentsPage() {
     });
     refresh();
     setOpen(false);
+    showFlash("success", `${form.title.trim()} was created.`);
   };
 
   const bumpSubmission = (a: Assessment) => {
@@ -179,6 +181,7 @@ export default function AssessmentsPage() {
     refresh();
     refreshGrades();
     setMarking(null);
+    showFlash("success", `Marks saved for ${marking.title} (${rows.length} student${rows.length === 1 ? "" : "s"}).`);
   };
 
   return (
@@ -267,6 +270,7 @@ export default function AssessmentsPage() {
                     onClick={() => {
                       assessmentsStore.remove(assessment.id);
                       refresh();
+                      showFlash("success", `${assessment.title} was deleted.`);
                     }}
                   >
                     <Trash2 size={14} />

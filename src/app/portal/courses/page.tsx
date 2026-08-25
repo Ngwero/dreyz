@@ -14,8 +14,9 @@ import { Card } from "@/components/ui/Card";
 import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Pencil, Plus, Trash2, Users } from "lucide-react";
 import { programme } from "@/lib/data";
-import { coursesStore, useStoreList, uid, type Course } from "@/lib/store";
+import { coursesStore, useStoreList, uid, saveCourseAndPropagate, type Course } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 import {
   courseStructureSummary,
   durationLabel,
@@ -116,14 +117,16 @@ export default function CoursesPage() {
       price: editing?.price ?? 0,
     };
     if (draft.status === "active" && !isCourseReadyToActivate(draft)) {
-      setFormError(
-        "Set duration, class count, tests, exams, and whether there is a final exam before activating this course."
-      );
+      const msg =
+        "Set duration, class count, tests, exams, and whether there is a final exam before activating this course.";
+      setFormError(msg);
+      showFlash("error", msg);
       return;
     }
-    coursesStore.upsert(draft);
+    saveCourseAndPropagate(draft, editing);
     refresh();
     closeModal();
+    showFlash("success", editing ? `${draft.title} was updated everywhere.` : `${draft.title} was created.`);
   };
 
   return (
@@ -249,6 +252,7 @@ export default function CoursesPage() {
                     onClick={() => {
                       coursesStore.remove(course.id);
                       refresh();
+                      showFlash("success", `${course.title} was deleted.`);
                     }}
                   >
                     <Trash2 size={14} />

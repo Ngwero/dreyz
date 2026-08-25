@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { feeTracks } from "@/lib/data";
-import type { Learner, PaymentRecord } from "@/lib/types";
+import { normalizeCourse } from "@/lib/course-structure";
+import type { Course, Learner, PaymentRecord } from "@/lib/types";
 
 function asNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -166,10 +167,43 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
       .eq("id", learner.id);
   }
 
+  const coursesById = new Map<string, Course>();
+  const takeCourse = (row: Record<string, unknown>) => {
+    if (!row?.id) return;
+    const id = String(row.id);
+    const mapped = normalizeCourse({
+      id,
+      title: String(row.title ?? ""),
+      category: String(row.category ?? "Foundations"),
+      level: (row.level as Course["level"]) || "Beginner",
+      duration: String(row.duration ?? ""),
+      durationWeeks: asNumber(row.durationWeeks ?? row.duration_weeks),
+      classCount: asNumber(row.classCount ?? row.class_count),
+      testCount: asNumber(row.testCount ?? row.test_count),
+      examCount: asNumber(row.examCount ?? row.exam_count),
+      hasFinalExam: Boolean(row.hasFinalExam ?? row.has_final_exam),
+      enrolled: asNumber(row.enrolled),
+      capacity: asNumber(row.capacity, 100),
+      instructor: String(row.instructor ?? "Staff"),
+      status: (row.status as Course["status"]) || "draft",
+      price: asNumber(row.price),
+    });
+    const prev = coursesById.get(id);
+    coursesById.set(id, prev ? { ...prev, ...mapped } : mapped);
+  };
+  const { data: dbCourses } = await admin.from("courses").select("*");
+  for (const row of (dbCourses ?? []) as Record<string, unknown>[]) {
+    takeCourse(row);
+  }
+  for (const row of (snapshot.dreyz_courses as Record<string, unknown>[] | undefined) ?? []) {
+    takeCourse(row);
+  }
+
   return {
     ...snapshot,
     dreyz_learners: learners,
     dreyz_payments: payments,
+    dreyz_courses: [...coursesById.values()].sort((a, b) => a.title.localeCompare(b.title)),
   };
 }
 
@@ -216,6 +250,31 @@ export async function persistSnapshotRecords(snapshot: Record<string, unknown>) 
         status: mapped.status,
         credentials_sent: mapped.credentialsSent,
         student_user_id: mapped.studentUserId ?? null,
+      },
+      { onConflict: "id" }
+    );
+  }
+
+  const courses = (snapshot.dreyz_courses as Record<string, unknown>[] | undefined) ?? [];
+  for (const row of courses) {
+    if (!row.id || !row.title) continue;
+    await admin.from("courses").upsert(
+      {
+        id: String(row.id),
+        title: String(row.title),
+        category: String(row.category ?? "") || null,
+        level: String(row.level ?? "Beginner"),
+        duration: String(row.duration ?? "") || null,
+        duration_weeks: asNumber(row.durationWeeks ?? row.duration_weeks),
+        class_count: asNumber(row.classCount ?? row.class_count),
+        test_count: asNumber(row.testCount ?? row.test_count),
+        exam_count: asNumber(row.examCount ?? row.exam_count),
+        has_final_exam: Boolean(row.hasFinalExam ?? row.has_final_exam),
+        enrolled: asNumber(row.enrolled),
+        capacity: asNumber(row.capacity, 100),
+        instructor: String(row.instructor ?? "") || null,
+        status: String(row.status ?? "draft"),
+        price: asNumber(row.price),
       },
       { onConflict: "id" }
     );

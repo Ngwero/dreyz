@@ -8,6 +8,7 @@ import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Plus, Trash2 } from "lucide-react";
 import { noticesStore, useStoreList, uid, type Notice } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 
 export default function NoticesPage() {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ export default function NoticesPage() {
     refresh();
     setOpen(false);
     setForm({ title: "", content: "", priority: "medium", category: "General" });
+    showFlash("success", "Notice posted.");
   };
 
   return (
@@ -81,6 +83,7 @@ export default function NoticesPage() {
                   onClick={() => {
                     noticesStore.remove(notice.id);
                     refresh();
+                    showFlash("success", "Notice removed.");
                   }}
                 >
                   <Trash2 size={14} />

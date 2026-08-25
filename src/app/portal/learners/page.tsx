@@ -22,6 +22,7 @@ import {
 } from "@/lib/store";
 import { createAccount, getAllUsers, recordManualFee } from "@/lib/auth";
 import { provisionPortalAccount } from "@/lib/auth-client";
+import { showFlash } from "@/lib/flash";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { computeLearnerProgress, feesForStudent } from "@/lib/academics";
 import { LearnerProfile } from "@/components/portal/LearnerProfile";
@@ -64,7 +65,9 @@ export default function LearnersPage() {
     setPendingDelete(null);
     setConfirmName("");
     refresh();
-    setNotice(`${pendingDelete.name} was removed from the roster.`);
+    const msg = `${pendingDelete.name} was removed from the roster.`;
+    setNotice(msg);
+    showFlash("success", msg);
   };
 
   const filtered = useMemo(() => {
@@ -106,6 +109,7 @@ export default function LearnersPage() {
       setEditing(null);
       refresh();
       setOpen(false);
+      showFlash("success", `${next.name} was updated.`);
       return;
     }
     const firstPay = Number(form.paidAmount) || 0;
@@ -138,16 +142,16 @@ export default function LearnersPage() {
         learnerId: learner.id,
       });
       if (!live.ok) {
-        setNotice(
-          `Learner saved. Live portal login was not created: ${live.error} Use Grant login after the network is back.`
-        );
-      } else if (live.alreadyExists) {
-        setNotice(`Learner saved. ${live.message}`);
+        const msg = `Learner saved. Live portal login was not created: ${live.error} Use Email live login after the network is back.`;
+        setNotice(msg);
+        showFlash("error", msg);
       } else {
-        setNotice(
-          `Learner saved. Portal login emailed to ${learner.email}. Temporary password: ${live.password ?? "—"}`
-        );
+        const msg = `Learner saved. Login emailed to ${learner.email}${live.password ? `. Temporary password: ${live.password}` : "."}`;
+        setNotice(msg);
+        showFlash("success", msg);
       }
+    } else {
+      showFlash("success", `${learner.name} was added to the roster.`);
     }
     refresh();
     setOpen(false);
@@ -174,6 +178,7 @@ export default function LearnersPage() {
     });
     if (!live.ok) {
       setNotice(live.error);
+      showFlash("error", live.error);
       return;
     }
     try {
@@ -187,11 +192,9 @@ export default function LearnersPage() {
     } catch {
       /* already on this device */
     }
-    setNotice(
-      live.alreadyExists
-        ? `${learner.name} already has a live login at ${learner.email}. They should sign in with that email or use Forgot password.`
-        : `Live portal login emailed to ${learner.email}. Temporary password: ${live.password ?? "—"}. They can sign in on dreyzschool.com now.`
-    );
+    const msg = `Login emailed to ${learner.email}. Temporary password: ${live.password ?? "—"}. They can sign in on dreyzschool.com now.`;
+    setNotice(msg);
+    showFlash("success", msg);
     refresh();
   };
 
@@ -368,7 +371,7 @@ export default function LearnersPage() {
                     <Eye size={13} /> Profile
                   </Button>
                   {canManageAccounts && (
-                    <Button size="sm" variant="outline" onClick={() => grantLogin(learner)}>
+                    <Button size="sm" onClick={() => void grantLogin(learner)}>
                       <UserPlus size={13} /> Email live login
                     </Button>
                   )}

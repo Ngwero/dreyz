@@ -53,15 +53,68 @@ export async function POST(request: Request) {
 
     const { data: existingProfile } = await admin
       .from("profiles")
-      .select("id")
+      .select("id, name, role, phone, fee_track_id, class_option_id, specialty")
       .eq("email", email)
       .maybeSingle();
 
+    const resendIfExists = Boolean(body.resendIfExists);
+
     if (existingProfile) {
-      return NextResponse.json(
-        { ok: false, error: "An account with this email already exists." },
-        { status: 409 }
+      if (!resendIfExists) {
+        return NextResponse.json(
+          { ok: false, error: "An account with this email already exists." },
+          { status: 409 }
+        );
+      }
+
+      const password = generatePassword();
+      const { error: pwError } = await admin.auth.admin.updateUserById(
+        existingProfile.id,
+        { password, email_confirm: true }
       );
+      if (pwError) {
+        return NextResponse.json({ ok: false, error: pwError.message }, { status: 500 });
+      }
+
+      const existingRole = (existingProfile.role as Role) || role;
+      const loginUrl = portalLoginUrl();
+      const label = roleLabel(existingRole);
+      const firstName = String(existingProfile.name || name).split(" ")[0] || "there";
+      await sendMail({
+        to: email,
+        subject:
+          existingRole === "student"
+            ? "Your Dreyz Interior Design School login"
+            : `Your Dreyz Interior ${label} login`,
+        text: [
+          `Hi ${firstName},`,
+          ``,
+          `Your portal login is ready.`,
+          ``,
+          `Portal: ${loginUrl}`,
+          `Email: ${email}`,
+          `Temporary password: ${password}`,
+          ``,
+          `Sign in and change your password from My Account.`,
+          ``,
+          `— Dreyz Interior Design School`,
+        ].join("\n"),
+        html: welcomeAccountHtml({
+          name: firstName,
+          roleLabel: label,
+          portalUrl: loginUrl,
+          email,
+          password,
+          extras: [],
+        }),
+      });
+
+      return NextResponse.json({
+        ok: true,
+        alreadyExists: true,
+        password,
+        message: `Login details emailed to ${email}`,
+      });
     }
 
     const password =

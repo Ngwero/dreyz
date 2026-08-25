@@ -15,6 +15,7 @@ import {
   type ScheduleItem,
 } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 
 const typeColors = {
   live: "info" as const,
@@ -52,6 +53,7 @@ export default function SchedulePage() {
     });
     refresh();
     setOpen(false);
+    showFlash("success", `${form.title.trim()} was added to the schedule.`);
   };
 
   return (
@@ -108,6 +110,7 @@ export default function SchedulePage() {
                     onClick={() => {
                       scheduleStore.remove(item.id);
                       refresh();
+                      showFlash("success", `${item.title} was removed.`);
                     }}
                   >
                     <Trash2 size={14} />

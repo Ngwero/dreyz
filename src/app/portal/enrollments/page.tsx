@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { formatUGX } from "@/lib/utils";
+import { showFlash } from "@/lib/flash";
 import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
@@ -195,6 +196,7 @@ export default function EnrollmentsPage() {
       setPayments(getPayments());
     }
     setOpen(false);
+    showFlash("success", editing ? "Billing record updated." : "Billing record saved.");
   };
 
   const onDelete = (row: Row) => {
@@ -206,6 +208,7 @@ export default function EnrollmentsPage() {
       enrollmentsStore.remove(row.id);
       refreshEnrollments();
     }
+    showFlash("success", "Billing record deleted.");
   };
 
   return (

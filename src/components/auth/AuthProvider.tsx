@@ -24,6 +24,7 @@ import {
   supabaseSignOut,
   supabaseUpdatePassword,
   supabaseVerifyOtp,
+  supabaseVerifyOtpHash,
 } from "@/lib/supabase/auth";
 
 type LoginResult = { ok: true } | { ok: false; error: string };
@@ -34,7 +35,11 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   sendOtp: (email: string) => Promise<OtpSendResult>;
-  loginWithOtp: (email: string, code: string) => Promise<LoginResult>;
+  loginWithOtp: (
+    email: string,
+    code: string,
+    hashedToken?: string
+  ) => Promise<LoginResult>;
   sendPasswordResetOtp: (email: string) => Promise<OtpSendResult>;
   verifyPasswordResetOtp: (email: string, code: string) => Promise<LoginResult>;
   completePasswordReset: (
@@ -143,20 +148,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { ok: true, message: result.message ?? "Code sent." };
   }, []);
 
-  const loginWithOtp = useCallback(async (email: string, code: string): Promise<LoginResult> => {
-    try {
-      const remote = await supabaseVerifyOtp(email, code, "email");
-      if (!remote.ok) {
-        return { ok: false, error: remote.error };
+  const loginWithOtp = useCallback(
+    async (email: string, code: string, hashedToken?: string): Promise<LoginResult> => {
+      loggingOutRef.current = false;
+      try {
+        const remote = hashedToken
+          ? await supabaseVerifyOtpHash(hashedToken)
+          : await supabaseVerifyOtp(email, code, "email");
+        if (!remote.ok) {
+          return { ok: false, error: remote.error };
+        }
+        setSession(remote.session);
+        setUser(remote.session);
+        setUsingSupabase(true);
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "Could not verify code." };
       }
-      setSession(remote.session);
-      setUser(remote.session);
-      setUsingSupabase(true);
-      return { ok: true };
-    } catch {
-      return { ok: false, error: "Could not verify code." };
-    }
-  }, []);
+    },
+    []
+  );
 
   const sendPasswordResetOtp = useCallback(async (email: string): Promise<OtpSendResult> => {
     const result = await requestPasswordResetOtp(email);

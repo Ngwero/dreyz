@@ -19,6 +19,7 @@ import { ROLE_LABELS } from "@/lib/roles";
 import { classOptions, enrollments, feeTracks, schoolInfo } from "@/lib/data";
 import { formatUGX } from "@/lib/utils";
 import { feesForStudent, computeLearnerProgress, awardedAttendance } from "@/lib/academics";
+import { showFlash } from "@/lib/flash";
 import {
   attendanceStore,
   instructorsStore,
@@ -100,8 +101,11 @@ export default function MyAccountPage() {
       });
       refresh();
       setMessage("Profile saved.");
+      showFlash("success", "Profile saved.");
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not save profile.");
+      const msg = err instanceof Error ? err.message : "Could not save profile.";
+      setMessage(msg);
+      showFlash("error", msg);
     }
   };
 
@@ -109,11 +113,14 @@ export default function MyAccountPage() {
     e.preventDefault();
     setMessage("");
     if (!isPasswordAcceptable(password)) {
-      setMessage("Password is too weak. Use 6+ characters with mixed case, numbers, or symbols.");
+      const msg = "Password is too weak. Use 6+ characters with mixed case, numbers, or symbols.";
+      setMessage(msg);
+      showFlash("error", msg);
       return;
     }
     if (password !== confirm) {
       setMessage("Passwords do not match.");
+      showFlash("error", "Passwords do not match.");
       return;
     }
     try {
@@ -121,9 +128,12 @@ export default function MyAccountPage() {
       setPassword("");
       setConfirm("");
       setMessage("Password updated. Use it next time you sign in.");
+      showFlash("success", "Password updated. Use it next time you sign in.");
       refresh();
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not update password.");
+      const msg = err instanceof Error ? err.message : "Could not update password.";
+      setMessage(msg);
+      showFlash("error", msg);
     }
   };
 

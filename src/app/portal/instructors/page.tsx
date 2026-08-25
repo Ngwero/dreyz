@@ -20,6 +20,7 @@ import {
   type Instructor,
 } from "@/lib/store";
 import { createAccount, getAllUsers, updateAccount, updateUserStatus } from "@/lib/auth";
+import { showFlash } from "@/lib/flash";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { InstructorProfile } from "@/components/portal/InstructorProfile";
 import { ActionMenu } from "@/components/ui/ActionMenu";
@@ -126,12 +127,16 @@ export default function InstructorsPage() {
           specialty: payload.specialty,
           instructorId: payload.id,
         });
-        setNotice(
-          `Tutor saved. Login emailed to ${result.user.email}. Temporary password: ${result.password}`
-        );
+        const msg = `Tutor saved. Login emailed to ${result.user.email}. Temporary password: ${result.password}`;
+        setNotice(msg);
+        showFlash("success", msg);
       } catch (err) {
-        setNotice(err instanceof Error ? err.message : "Tutor saved without a new login.");
+        const msg = err instanceof Error ? err.message : "Tutor saved without a new login.";
+        setNotice(msg);
+        showFlash("error", msg);
       }
+    } else {
+      showFlash("success", editing ? `${payload.name} was updated.` : `${payload.name} was added.`);
     }
     refresh();
     closeForm();
@@ -147,12 +152,14 @@ export default function InstructorsPage() {
         specialty: instructor.specialty,
         instructorId: instructor.id,
       });
-      setNotice(
-        `Tutor login created for ${instructor.name}. Emailed ${result.user.email}. Temporary password: ${result.password}`
-      );
+      const msg = `Tutor login created for ${instructor.name}. Emailed ${result.user.email}. Temporary password: ${result.password}`;
+      setNotice(msg);
+      showFlash("success", msg);
       refresh();
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "Could not create login.");
+      const msg = err instanceof Error ? err.message : "Could not create login.";
+      setNotice(msg);
+      showFlash("error", msg);
     }
   };
 
@@ -191,6 +198,10 @@ export default function InstructorsPage() {
     refreshCourses();
     setAssigning(null);
     setNotice(`Assigned ${selectedIds.length} course${selectedIds.length === 1 ? "" : "s"} to ${assigning.name}.`);
+    showFlash(
+      "success",
+      `Assigned ${selectedIds.length} course${selectedIds.length === 1 ? "" : "s"} to ${assigning.name}.`
+    );
   };
 
   const suspend = (instructor: Instructor) => {
@@ -200,6 +211,10 @@ export default function InstructorsPage() {
     const linked = portalUser(instructor);
     if (linked) updateUserStatus(linked.id, next === "suspended" ? "inactive" : "active");
     refresh();
+    showFlash(
+      "success",
+      next === "suspended" ? `${instructor.name} was suspended.` : `${instructor.name} was restored.`
+    );
   };
 
   return (
@@ -359,6 +374,7 @@ export default function InstructorsPage() {
                           if (!confirm(`Remove ${instructor.name} from the roster?`)) return;
                           instructorsStore.remove(instructor.id);
                           refresh();
+                          showFlash("success", `${instructor.name} was removed.`);
                         },
                       },
                     ]}

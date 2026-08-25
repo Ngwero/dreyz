@@ -14,6 +14,7 @@ import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Star, Plus, Pencil } from "lucide-react";
 import { projectsStore, learnersStore, coursesStore, useStoreList, uid, type Project } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -59,12 +60,14 @@ export default function ProjectsPage() {
     if (!canReview) return;
     projectsStore.upsert({ ...project, status });
     refresh();
+    showFlash("success", `${project.title} marked ${status}.`);
   };
 
   const setScore = (project: Project, score: number) => {
     if (!canReview) return;
     projectsStore.upsert({ ...project, score });
     refresh();
+    showFlash("success", `Score saved for ${project.title}.`);
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -82,6 +85,7 @@ export default function ProjectsPage() {
     refresh();
     setOpen(false);
     setEditing(null);
+    showFlash("success", editing ? `${form.title.trim()} was updated.` : `${form.title.trim()} was saved.`);
   };
 
   return (

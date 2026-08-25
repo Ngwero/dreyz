@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { FlashHost } from "@/components/ui/FlashHost";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -59,7 +60,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full overflow-x-hidden font-sans">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <FlashHost />
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

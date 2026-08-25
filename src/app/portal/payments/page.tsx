@@ -18,6 +18,7 @@ import {
   getPayments,
 } from "@/lib/auth";
 import { provisionPortalAccount } from "@/lib/auth-client";
+import { showFlash } from "@/lib/flash";
 import type { CredentialEmail, PaymentRecord } from "@/lib/types";
 import {
   Mail,
@@ -124,18 +125,20 @@ export default function PaymentsPage() {
       setOutbox(getEmailOutbox());
       setLastEmail(result.email);
       if (!live.ok) {
-        setRukaMsg(
-          `Payment saved, but the live login was not created: ${live.error} Open Learners and use Email live login.`
-        );
+        const msg = `Payment saved, but the live login was not created: ${live.error} Open Learners and use Email live login.`;
+        setRukaMsg(msg);
         setRukaMsgType("error");
+        showFlash("error", msg);
       } else if (live.alreadyExists) {
-        setRukaMsg("Payment saved. This student already has a live portal login.");
+        const msg = `Payment saved. Login emailed to ${form.learnerEmail}${live.password ? `. Temporary password: ${live.password}` : "."}`;
+        setRukaMsg(msg);
         setRukaMsgType("success");
+        showFlash("success", msg);
       } else {
-        setRukaMsg(
-          `Payment saved. Live login emailed to ${form.learnerEmail}. Temporary password: ${live.password ?? "—"}`
-        );
+        const msg = `Payment saved. Live login emailed to ${form.learnerEmail}. Temporary password: ${live.password ?? "—"}`;
+        setRukaMsg(msg);
         setRukaMsgType("success");
+        showFlash("success", msg);
       }
       resetForm();
     } finally {
@@ -152,12 +155,16 @@ export default function PaymentsPage() {
     if (res.success && res.beneficiary?.isValid) {
       setValidated(true);
       setValidatedName(res.beneficiary.name ?? "");
-      setRukaMsg(`Validated: ${res.beneficiary.name ?? "Account found"} (${res.beneficiary.provider})`);
+      const msg = `Validated: ${res.beneficiary.name ?? "Account found"} (${res.beneficiary.provider})`;
+      setRukaMsg(msg);
       setRukaMsgType("success");
+      showFlash("success", msg);
     } else {
       setValidated(false);
-      setRukaMsg(res.message || res.error || "Validation failed.");
+      const msg = res.message || res.error || "Validation failed.";
+      setRukaMsg(msg);
       setRukaMsgType("error");
+      showFlash("error", msg);
     }
     setRukaPending(false);
   };
@@ -168,6 +175,7 @@ export default function PaymentsPage() {
     if (!provider) {
       setRukaMsg("Enter a valid MTN or Airtel Uganda number.");
       setRukaMsgType("error");
+      showFlash("error", "Enter a valid MTN or Airtel Uganda number.");
       return;
     }
 
@@ -234,16 +242,28 @@ export default function PaymentsPage() {
             : `Payment collected, but live login failed: ${live.error}. Txn: ${res.transaction.transactionId}`
         );
         setRukaMsgType(live.ok ? "success" : "error");
+        showFlash(
+          live.ok ? "success" : "error",
+          live.ok
+            ? live.alreadyExists
+              ? `Payment collected. Login emailed to ${form.learnerEmail}${live.password ? `. Temporary password: ${live.password}` : "."}`
+              : `Payment collected. Live login emailed to ${form.learnerEmail}. Temporary password: ${live.password ?? "—"}`
+            : `Payment collected, but live login failed: ${live.error}`
+        );
         resetForm();
       } else {
-        setRukaMsg(`Collection initiated (${res.transaction.status}). Txn: ${res.transaction.transactionId}. Waiting for callback confirmation.`);
+        const pending = `Collection initiated (${res.transaction.status}). Txn: ${res.transaction.transactionId}. Waiting for callback confirmation.`;
+        setRukaMsg(pending);
         setRukaMsgType("info");
+        showFlash("success", pending);
       }
     } else {
       updateLocalTxn(partnerRef, { status: "failed" });
       setRukaTransactions(getAllLocalTxns());
-      setRukaMsg(res.message || res.error || "Collection failed.");
+      const failMsg = res.message || res.error || "Collection failed.";
+      setRukaMsg(failMsg);
       setRukaMsgType("error");
+      showFlash("error", failMsg);
     }
 
     setRukaPending(false);

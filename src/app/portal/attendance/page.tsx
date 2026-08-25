@@ -29,6 +29,7 @@ import {
   type Learner,
 } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 import { cn } from "@/lib/utils";
 import {
   ATTENDANCE_AWARD_MONTHS,
@@ -185,11 +186,11 @@ export default function AttendancePage() {
     refresh();
     setOpen(false);
     const { from, to } = attendanceAwardWindow(learner.enrollmentDate);
-    setBulkNotice(
-      counts
-        ? `Saved attendance for ${learner.name}.`
-        : `Saved, but ${form.date} is outside ${learner.name}'s ${ATTENDANCE_AWARD_MONTHS}-month window (${from} to ${to}) and will not count toward progress.`
-    );
+    const msg = counts
+      ? `Saved attendance for ${learner.name}.`
+      : `Saved, but ${form.date} is outside ${learner.name}'s ${ATTENDANCE_AWARD_MONTHS}-month window (${from} to ${to}) and will not count toward progress.`;
+    setBulkNotice(msg);
+    showFlash(counts ? "success" : "error", msg);
   };
 
   const setStatus = (record: AttendanceRecord, status: Mark) => {
@@ -239,11 +240,11 @@ export default function AttendancePage() {
     );
     setMarks({});
     refresh();
-    setBulkNotice(
-      `Awarded ${awardedEntries.length} mark${awardedEntries.length === 1 ? "" : "s"} in the first ${ATTENDANCE_AWARD_MONTHS} months from each learner's enrolment (${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent).${
-        skipped ? ` ${skipped} day${skipped === 1 ? "" : "s"} outside that window were not saved.` : ""
-      }`
-    );
+    const msg = `Awarded ${awardedEntries.length} mark${awardedEntries.length === 1 ? "" : "s"} in the first ${ATTENDANCE_AWARD_MONTHS} months from each learner's enrolment (${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent).${
+      skipped ? ` ${skipped} day${skipped === 1 ? "" : "s"} outside that window were not saved.` : ""
+    }`;
+    setBulkNotice(msg);
+    showFlash("success", msg);
   };
 
   const resetAttendance = (scope: "all" | "period") => {
@@ -260,7 +261,9 @@ export default function AttendancePage() {
     }
     setMarks({});
     refresh();
-    setBulkNotice(scope === "all" ? "All attendance marks were cleared." : "Attendance for this period was cleared.");
+    const msg = scope === "all" ? "All attendance marks were cleared." : "Attendance for this period was cleared.";
+    setBulkNotice(msg);
+    showFlash("success", msg);
   };
 
   const onExport = () => {

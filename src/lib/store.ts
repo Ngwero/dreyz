@@ -276,6 +276,26 @@ export function applyLearnerFeeTotals(email: string, paidAmount: number, feeDue?
   });
 }
 
+/** Save a course and copy its title onto learners, schedule, attendance, assessments, grades, projects, and enrollments. */
+export function saveCourseAndPropagate(course: Course, previous?: Course | null) {
+  const next = normalizeCourse(course);
+  coursesStore.upsert(next);
+  const oldTitle = previous?.title?.trim();
+  const newTitle = next.title.trim();
+  if (oldTitle && newTitle && oldTitle !== newTitle) {
+    const rename = <T extends { course: string }>(items: T[]) =>
+      items.map((item) => (item.course === oldTitle ? { ...item, course: newTitle } : item));
+    learnersStore.replaceAll(rename(learnersStore.getAll()));
+    scheduleStore.replaceAll(rename(scheduleStore.getAll()));
+    attendanceStore.replaceAll(rename(attendanceStore.getAll()));
+    assessmentsStore.replaceAll(rename(assessmentsStore.getAll()));
+    gradesStore.replaceAll(rename(gradesStore.getAll()));
+    projectsStore.replaceAll(rename(projectsStore.getAll()));
+    enrollmentsStore.replaceAll(rename(enrollmentsStore.getAll()));
+  }
+  return next;
+}
+
 export function saveBulkAttendance(
   entries: {
     learnerId: string;

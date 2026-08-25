@@ -28,18 +28,23 @@ export async function requestLoginOtp(email: string): Promise<AuthResult> {
 export async function verifyLoginOtp(
   email: string,
   code: string
-): Promise<AuthResult> {
+): Promise<AuthResult & { hashedToken?: string; emailOtp?: string }> {
   try {
     const res = await fetch("/api/auth/otp/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, code }),
     });
-    const data = (await res.json()) as { ok?: boolean; error?: string };
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      hashedToken?: string;
+      emailOtp?: string;
+    };
     if (!res.ok || !data.ok) {
       return { ok: false, error: data.error ?? "Invalid code." };
     }
-    return { ok: true };
+    return { ok: true, hashedToken: data.hashedToken, emailOtp: data.emailOtp };
   } catch {
     return { ok: false, error: "Network error while verifying code." };
   }
@@ -132,13 +137,14 @@ export async function provisionPortalAccount(input: ProvisionAccountInput): Prom
     const res = await fetch("/api/accounts/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, resendIfExists: true }),
     });
     const data = (await res.json()) as {
       ok?: boolean;
       error?: string;
       message?: string;
       password?: string;
+      alreadyExists?: boolean;
     };
     if (res.status === 409) {
       return {
@@ -152,6 +158,7 @@ export async function provisionPortalAccount(input: ProvisionAccountInput): Prom
     }
     return {
       ok: true,
+      alreadyExists: data.alreadyExists,
       password: data.password,
       message: data.message ?? `Welcome email sent to ${input.email}`,
     };

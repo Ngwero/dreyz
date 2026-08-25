@@ -24,6 +24,7 @@ import {
   updateUserStatus,
 } from "@/lib/auth";
 import { provisionPortalAccount } from "@/lib/auth-client";
+import { showFlash } from "@/lib/flash";
 import { exportCsv } from "@/lib/store";
 import { ROLE_LABELS } from "@/lib/roles";
 import { classOptions, feeTracks } from "@/lib/data";
@@ -64,6 +65,17 @@ export default function AccountsPage() {
   const [form, setForm] = useState<AccountForm>(emptyForm("student"));
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+
+  const ok = (message: string) => {
+    setError("");
+    setNotice(message);
+    showFlash("success", message);
+  };
+  const fail = (message: string) => {
+    setNotice("");
+    setError(message);
+    showFlash("error", message);
+  };
   const [saving, setSaving] = useState(false);
 
   const loadUsers = async () => {
@@ -202,11 +214,11 @@ export default function AccountsPage() {
       };
 
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "Could not create account.");
+        fail(data.error ?? "Could not create account.");
         return;
       }
 
-      setNotice(
+      ok(
         `Welcome to Dreyz Interior — confirmation emailed to ${form.email}. Temporary password: ${data.password ?? "—"}`
       );
       setOpen(null);
@@ -225,13 +237,13 @@ export default function AccountsPage() {
           classOptionId: form.classOptionId,
           specialty: form.specialty,
         });
-        setNotice(
+        ok(
           `Created ${ROLE_LABELS[result.user.role]} ${result.user.name}. Welcome email queued for ${result.user.email}. Temporary password: ${result.password}`
         );
         setOpen(null);
         bump();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not create account.");
+        fail(err instanceof Error ? err.message : "Could not create account.");
       }
     } finally {
       setSaving(false);
@@ -252,12 +264,12 @@ export default function AccountsPage() {
         classOptionId: form.role === "student" || editing.role === "student" ? form.classOptionId : undefined,
         specialty: form.role === "tutor" || editing.role === "tutor" ? form.specialty : undefined,
       });
-      setNotice(`Updated ${form.name}.`);
+      ok(`Updated ${form.name}.`);
       setOpen(null);
       bump();
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update account.");
+      fail(err instanceof Error ? err.message : "Could not update account.");
     }
   };
 
@@ -269,23 +281,42 @@ export default function AccountsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: u.id, email: u.email, resetPassword: true }),
       });
-      setNotice(
+      ok(
         `Password reset for ${u.name}. Emailed to ${u.email}. Temporary password: ${result.password}`
       );
       bump();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Reset failed.");
+      fail(err instanceof Error ? err.message : "Reset failed.");
     }
   };
 
-  const onResend = (u: PortalUser) => {
+  const onResend = async (u: PortalUser) => {
+    setNotice("");
+    setError("");
     try {
       resendLoginEmail(u.id);
-      setNotice(`Login details re-sent to ${u.email}.`);
-      bump();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resend login.");
+    } catch {
+      /* local outbox optional */
     }
+    const live = await provisionPortalAccount({
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      role: u.role,
+      learnerId: u.learnerId,
+      instructorId: u.instructorId,
+      feeTrackId: u.feeTrackId,
+      classOptionId: u.classOptionId,
+      specialty: u.specialty,
+    });
+    if (!live.ok) {
+      fail(live.error);
+      return;
+    }
+    ok(
+      `Login emailed to ${u.email}${live.password ? `. Temporary password: ${live.password}` : "."}`
+    );
+    bump();
   };
 
   const onEnableLiveLogin = async (u: PortalUser) => {
@@ -303,14 +334,10 @@ export default function AccountsPage() {
       specialty: u.specialty,
     });
     if (!live.ok) {
-      setError(live.error);
+      fail(live.error);
       return;
     }
-    setNotice(
-      live.alreadyExists
-        ? `${u.email} already has a live login. They can sign in or use Forgot password.`
-        : `Live login emailed to ${u.email}. Temporary password: ${live.password ?? "—"}`
-    );
+    ok(`Login emailed to ${u.email}. Temporary password: ${live.password ?? "—"}`);
     bump();
   };
 
@@ -492,15 +519,13 @@ export default function AccountsPage() {
             </TableCell>
             <TableCell>
               <div className="flex flex-wrap justify-end gap-1">
-                {"liveLogin" in u && u.liveLogin === false && (
-                  <Button size="sm" onClick={() => onEnableLiveLogin(u)}>
-                    <UserPlus size={13} /> Email live login
-                  </Button>
-                )}
+                <Button size="sm" onClick={() => void onEnableLiveLogin(u)}>
+                  <UserPlus size={13} /> Email live login
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
                   <Pencil size={13} /> Edit
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => onResend(u)}>
+                <Button size="sm" variant="outline" onClick={() => void onResend(u)}>
                   <Mail size={13} /> Resend
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => onReset(u)}>
@@ -519,6 +544,11 @@ export default function AccountsPage() {
                         body: JSON.stringify({ id: u.id, status: next }),
                       });
                       bump();
+                      ok(
+                        next === "inactive"
+                          ? `${u.name} was deactivated.`
+                          : `${u.name} was activated.`
+                      );
                     }}
                   >
                     {u.status === "active" ? "Deactivate" : "Activate"}
@@ -532,6 +562,7 @@ export default function AccountsPage() {
                       if (window.confirm(`Remove ${u.name} from the portal?`)) {
                         deleteUser(u.id);
                         bump();
+                        ok(`${u.name} was removed.`);
                       }
                     }}
                   >

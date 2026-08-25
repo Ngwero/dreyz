@@ -8,6 +8,7 @@ import { Modal, Field, fieldClass } from "@/components/ui/Modal";
 import { Plus, Download, FileText, Box, Image, Video, Layout, Trash2 } from "lucide-react";
 import { resourcesStore, useStoreList, uid, type Resource } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { showFlash } from "@/lib/flash";
 
 const typeIcons = {
   PDF: FileText,
@@ -54,6 +55,7 @@ export default function ResourcesPage() {
       const res = await fetch("/api/resources/upload", { method: "POST", body: data });
       const json = (await res.json()) as { ok?: boolean; url?: string; error?: string };
       if (!res.ok || !json.ok || !json.url) {
+        showFlash("error", json.error ?? "Could not upload the file.");
         return;
       }
       fileUrl = json.url;
@@ -71,6 +73,7 @@ export default function ResourcesPage() {
     });
     refresh();
     setOpen(false);
+    showFlash("success", `${form.title.trim()} was uploaded.`);
   };
 
   const onDownload = (resource: Resource) => {
@@ -154,6 +157,7 @@ export default function ResourcesPage() {
                       onClick={() => {
                         resourcesStore.remove(resource.id);
                         refresh();
+                        showFlash("success", `${resource.title} was deleted.`);
                       }}
                     >
                       <Trash2 size={14} />
