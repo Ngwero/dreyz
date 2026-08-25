@@ -83,6 +83,7 @@ export default function RecentActivityPage() {
   }, [items, query, category]);
 
   if (!user) return null;
+  if (user.role !== "super_admin") return null;
 
   return (
     <div>

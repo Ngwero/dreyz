@@ -32,6 +32,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { startTour } from "@/components/tour/GuidedTour";
 import { portalTourKey } from "@/components/tour/PortalTour";
 import type { UserRole } from "@/lib/types";
+import { featureIdFromPath, getRolePages } from "@/lib/role-visibility";
+import { useLiveTick } from "@/lib/store";
 
 interface NavChild {
   label: string;
@@ -55,13 +57,15 @@ const P = "/portal";
 function navForRole(role: UserRole): NavSection[] {
   const overview: NavSection = {
     title: "Overview",
-    items: [
-      { label: "Dashboard", href: P, icon: <LayoutDashboard size={17} /> },
-      { label: "Recent activity", href: `${P}/activity`, icon: <History size={17} /> },
-    ],
+    items: [{ label: "Dashboard", href: P, icon: <LayoutDashboard size={17} /> }],
   };
 
   if (role === "super_admin") {
+    overview.items.push({
+      label: "Recent activity",
+      href: `${P}/activity`,
+      icon: <History size={17} />,
+    });
     return [
       overview,
       {
@@ -103,9 +107,9 @@ function navForRole(role: UserRole): NavSection[] {
         items: [
           { label: "Payments", href: `${P}/payments`, icon: <Wallet size={17} /> },
           { label: "Resources", href: `${P}/resources`, icon: <FolderOpen size={17} /> },
-          { label: "Notices", href: `${P}/notices`, icon: <Bell size={17} /> },
-          {
-            label: "Account",
+            { label: "Notices", href: `${P}/notices`, icon: <Bell size={17} /> },
+            {
+              label: "Account",
             icon: <CreditCard size={17} />,
             children: [
               { label: "Billing", href: `${P}/enrollments` },
@@ -193,6 +197,39 @@ function navForRole(role: UserRole): NavSection[] {
   ];
 }
 
+function navHrefVisible(role: UserRole, href: string): boolean {
+  if (role === "super_admin") return true;
+  const path = href.replace(/^\/portal/, "") || "/";
+  if (path === "/" || path === "/account") return true;
+  const id = featureIdFromPath(href);
+  if (!id) return false;
+  return getRolePages()[role][id] === true;
+}
+
+function filterNav(sections: NavSection[], role: UserRole): NavSection[] {
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items.flatMap((item) => {
+        if (item.children?.length) {
+          const children = item.children.filter((child) => navHrefVisible(role, child.href));
+          const selfOk = item.href ? navHrefVisible(role, item.href) : false;
+          if (!children.length && !selfOk) return [];
+          return [
+            {
+              ...item,
+              children: children.length ? children : undefined,
+              href: selfOk ? item.href : undefined,
+            },
+          ];
+        }
+        if (item.href && !navHrefVisible(role, item.href)) return [];
+        return [item];
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
 export function Sidebar({
   open = false,
   onClose,
@@ -203,11 +240,12 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const tick = useLiveTick();
   const [expanded, setExpanded] = useState<string[]>(["Learners", "Assessments", "Account"]);
 
   const navSections = useMemo(
-    () => (user ? navForRole(user.role) : []),
-    [user]
+    () => (user ? filterNav(navForRole(user.role), user.role) : []),
+    [user, tick]
   );
 
   const toggle = (label: string) => {

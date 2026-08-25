@@ -565,20 +565,12 @@ function AccountantDashboard() {
         title="Enrollments awaiting fees"
         description="Fees expected, collected, and still due across enrolled learners."
         actions={
-          <>
-            <Link
-              href="/portal/activity"
-              className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
-            >
-              Recent activity
-            </Link>
-            <Link
-              href="/portal/accounts"
-              className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
-            >
-              Student accounts
-            </Link>
-          </>
+          <Link
+            href="/portal/accounts"
+            className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
+          >
+            Student accounts
+          </Link>
         }
       />
 

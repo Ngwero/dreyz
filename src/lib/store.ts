@@ -61,6 +61,7 @@ const STORE_KEYS = [
   "dreyz_settings",
   "dreyz_users",
   "dreyz_payments",
+  "dreyz_role_pages",
 ] as const;
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;

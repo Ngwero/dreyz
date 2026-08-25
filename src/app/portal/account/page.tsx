@@ -497,6 +497,7 @@ export default function MyAccountPage() {
           )}
         </Card>
 
+        {profile.role === "super_admin" && (
         <Card
           title="Recent activity"
           action={
@@ -520,6 +521,7 @@ export default function MyAccountPage() {
             </ul>
           )}
         </Card>
+        )}
 
         <Card title="Shortcuts">
           <div className="flex flex-wrap gap-2">

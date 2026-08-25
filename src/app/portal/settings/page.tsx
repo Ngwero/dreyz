@@ -7,6 +7,8 @@ import { AppearanceCard } from "@/components/theme/AppearanceCard";
 import { BrandLogo } from "@/components/theme/BrandLogo";
 import { getSettings, saveSettings, type SchoolSettings } from "@/lib/store";
 import { showFlash } from "@/lib/flash";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { RolePagesSettings } from "@/components/settings/RolePagesSettings";
 import {
   getRukaPayConfig,
   saveRukaPayConfig,
@@ -14,6 +16,7 @@ import {
 import type { RukaPayConfig } from "@/lib/rukapay";
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
   const [rukaConfig, setRukaConfig] = useState<RukaPayConfig | null>(null);
   const [saved, setSaved] = useState("");
@@ -56,6 +59,8 @@ export default function SettingsPage() {
         title="Settings"
         description="Configure your Dreyz Interior Design School platform."
       />
+
+      {user?.role === "super_admin" && <RolePagesSettings />}
 
       {saved && (
         <p className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-300">
