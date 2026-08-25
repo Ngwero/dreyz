@@ -10,7 +10,7 @@ import {
   Button,
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { Plus, Star, Trash2, UserPlus, Pencil, Eye, BookOpen, Ban, RotateCcw } from "lucide-react";
 import {
   instructorsStore,
@@ -47,6 +47,7 @@ export default function InstructorsPage() {
   const [form, setForm] = useState(emptyForm);
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<Instructor | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Instructor | null>(null);
 
   const canEdit = user?.role === "super_admin";
   const filtered = useMemo(() => {
@@ -370,12 +371,7 @@ export default function InstructorsPage() {
                         label: "Remove tutor",
                         icon: <Trash2 size={14} />,
                         danger: true,
-                        onClick: () => {
-                          if (!confirm(`Remove ${instructor.name} from the roster?`)) return;
-                          instructorsStore.remove(instructor.id);
-                          refresh();
-                          showFlash("success", `${instructor.name} was removed.`);
-                        },
+                        onClick: () => setPendingDelete(instructor),
                       },
                     ]}
                   />
@@ -485,6 +481,20 @@ export default function InstructorsPage() {
           </Button>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Remove tutor"
+        description={`Remove ${pendingDelete?.name ?? "this tutor"} from the roster? This cannot be undone.`}
+        confirmLabel="Remove tutor"
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          instructorsStore.remove(pendingDelete.id);
+          refresh();
+          showFlash("success", `${pendingDelete.name} was removed.`);
+        }}
+      />
     </div>
   );
 }

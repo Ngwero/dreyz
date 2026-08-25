@@ -128,6 +128,7 @@ function navForRole(role: UserRole): NavSection[] {
           { label: "Enrollments", href: `${P}/enrollments`, icon: <CreditCard size={17} /> },
           { label: "Admissions fees", href: `${P}/admissions`, icon: <ClipboardList size={17} /> },
           { label: "Learners", href: `${P}/learners`, icon: <Users size={17} /> },
+          { label: "Resources", href: `${P}/resources`, icon: <FolderOpen size={17} /> },
         ],
       },
       {

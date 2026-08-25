@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { PageHeader, Button } from "@/components/ui/PageElements";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { Plus, Calendar, Clock, User, Trash2 } from "lucide-react";
 import {
   scheduleStore,
@@ -29,6 +29,7 @@ export default function SchedulePage() {
   const [items, refresh] = useStoreList(scheduleStore.getAll, scheduleStore.key);
   const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [open, setOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ScheduleItem | null>(null);
   const [form, setForm] = useState({
     title: "",
     course: "",
@@ -107,11 +108,7 @@ export default function SchedulePage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      scheduleStore.remove(item.id);
-                      refresh();
-                      showFlash("success", `${item.title} was removed.`);
-                    }}
+                    onClick={() => setPendingDelete(item)}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -167,6 +164,19 @@ export default function SchedulePage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete session"
+        description={`Remove “${pendingDelete?.title ?? ""}” from the schedule?`}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          scheduleStore.remove(pendingDelete.id);
+          refresh();
+          showFlash("success", `${pendingDelete.title} was removed.`);
+        }}
+      />
     </div>
   );
 }

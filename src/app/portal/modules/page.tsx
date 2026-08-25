@@ -9,7 +9,7 @@ import {
   SearchInput,
   Button,
 } from "@/components/ui/PageElements";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { modulesStore, coursesStore, useStoreList, uid, type Module } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -34,6 +34,7 @@ export default function ModulesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Module | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [pendingDelete, setPendingDelete] = useState<Module | null>(null);
 
   const canEdit = user?.role === "super_admin";
   const getCourseName = (courseId: string) =>
@@ -153,11 +154,7 @@ export default function ModulesPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      modulesStore.remove(mod.id);
-                      refresh();
-                      showFlash("success", `${mod.title} was deleted.`);
-                    }}
+                    onClick={() => setPendingDelete(mod)}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -258,6 +255,19 @@ export default function ModulesPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete module"
+        description={`Delete “${pendingDelete?.title ?? ""}”? This cannot be undone.`}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          modulesStore.remove(pendingDelete.id);
+          refresh();
+          showFlash("success", `${pendingDelete.title} was deleted.`);
+        }}
+      />
     </div>
   );
 }

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   createAccount,
@@ -65,6 +65,7 @@ export default function AccountsPage() {
   const [form, setForm] = useState<AccountForm>(emptyForm("student"));
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<PortalUser | null>(null);
 
   const ok = (message: string) => {
     setError("");
@@ -558,13 +559,7 @@ export default function AccountsPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      if (window.confirm(`Remove ${u.name} from the portal?`)) {
-                        deleteUser(u.id);
-                        bump();
-                        ok(`${u.name} was removed.`);
-                      }
-                    }}
+                    onClick={() => setPendingDelete(u)}
                   >
                     <Trash2 size={13} />
                   </Button>
@@ -719,6 +714,20 @@ export default function AccountsPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Remove portal account"
+        description={`Remove ${pendingDelete?.name ?? "this account"} (${pendingDelete?.email ?? ""}) from the portal? They will not be able to sign in.`}
+        confirmLabel="Remove account"
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          deleteUser(pendingDelete.id);
+          bump();
+          ok(`${pendingDelete.name} was removed.`);
+        }}
+      />
     </div>
   );
 }

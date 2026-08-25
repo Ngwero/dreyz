@@ -18,6 +18,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/learners",
     "/accounts",
     "/account",
+    "/activity",
     "/settings",
     "/notices",
   ],
@@ -33,6 +34,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/resources",
     "/notices",
     "/account",
+    "/activity",
   ],
   student: [
     "/",
@@ -43,6 +45,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/resources",
     "/notices",
     "/account",
+    "/activity",
     "/enrollments",
   ],
 };

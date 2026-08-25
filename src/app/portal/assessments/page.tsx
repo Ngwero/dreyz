@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { Plus, Trash2, X } from "lucide-react";
 import {
   assessmentsStore,
@@ -40,6 +40,7 @@ export default function AssessmentsPage() {
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [markQuery, setMarkQuery] = useState("");
   const [courseOnly, setCourseOnly] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Assessment | null>(null);
   const [form, setForm] = useState({
     title: "",
     course: "",
@@ -267,11 +268,7 @@ export default function AssessmentsPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      assessmentsStore.remove(assessment.id);
-                      refresh();
-                      showFlash("success", `${assessment.title} was deleted.`);
-                    }}
+                    onClick={() => setPendingDelete(assessment)}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -424,6 +421,18 @@ export default function AssessmentsPage() {
         </form>
       </Modal>
 
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete assessment"
+        description={`Delete “${pendingDelete?.title ?? ""}”? Marks for this assessment will stay on the grade list unless you remove them separately.`}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          assessmentsStore.remove(pendingDelete.id);
+          refresh();
+          showFlash("success", `${pendingDelete.title} was deleted.`);
+        }}
+      />
     </div>
   );
 }

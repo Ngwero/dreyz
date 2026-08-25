@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { feeTracks } from "@/lib/data";
 import { normalizeCourse } from "@/lib/course-structure";
-import type { Course, Learner, PaymentRecord } from "@/lib/types";
+import type { Course, Learner, Notice, PaymentRecord } from "@/lib/types";
 
 function asNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -93,11 +93,13 @@ function mapLearner(
 
 export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
   const admin = createAdminClient();
-  const [{ data: dbLearners }, { data: dbPayments }, { data: profiles }] = await Promise.all([
-    admin.from("learners").select("*"),
-    admin.from("payments").select("*"),
-    admin.from("profiles").select("email, name, phone, learner_id, fee_track_id, class_option_id, role"),
-  ]);
+  const [{ data: dbLearners }, { data: dbPayments }, { data: profiles }, { data: dbNotices }] =
+    await Promise.all([
+      admin.from("learners").select("*"),
+      admin.from("payments").select("*"),
+      admin.from("profiles").select("email, name, phone, learner_id, fee_track_id, class_option_id, role"),
+      admin.from("notices").select("id, title, content, date, priority, category"),
+    ]);
 
   const paymentsById = new Map<string, PaymentRecord>();
   for (const row of (snapshot.dreyz_payments as Record<string, unknown>[] | undefined) ?? []) {
@@ -199,11 +201,36 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
     takeCourse(row);
   }
 
+  const noticesById = new Map<string, Notice>();
+  for (const row of (snapshot.dreyz_notices as Record<string, unknown>[] | undefined) ?? []) {
+    if (!row.id || !row.title) continue;
+    noticesById.set(String(row.id), {
+      id: String(row.id),
+      title: String(row.title),
+      content: String(row.content ?? ""),
+      date: String(row.date ?? ""),
+      priority: (row.priority as Notice["priority"]) || "medium",
+      category: String(row.category ?? "General"),
+    });
+  }
+  for (const row of (dbNotices ?? []) as Record<string, unknown>[]) {
+    if (!row.id || !row.title) continue;
+    noticesById.set(String(row.id), {
+      id: String(row.id),
+      title: String(row.title),
+      content: String(row.content ?? ""),
+      date: String(row.date ?? ""),
+      priority: (row.priority as Notice["priority"]) || "medium",
+      category: String(row.category ?? "General"),
+    });
+  }
+
   return {
     ...snapshot,
     dreyz_learners: learners,
     dreyz_payments: payments,
     dreyz_courses: [...coursesById.values()].sort((a, b) => a.title.localeCompare(b.title)),
+    dreyz_notices: [...noticesById.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
   };
 }
 
@@ -275,6 +302,22 @@ export async function persistSnapshotRecords(snapshot: Record<string, unknown>) 
         instructor: String(row.instructor ?? "") || null,
         status: String(row.status ?? "draft"),
         price: asNumber(row.price),
+      },
+      { onConflict: "id" }
+    );
+  }
+
+  const notices = (snapshot.dreyz_notices as Record<string, unknown>[] | undefined) ?? [];
+  for (const row of notices) {
+    if (!row.id || !row.title) continue;
+    await admin.from("notices").upsert(
+      {
+        id: String(row.id),
+        title: String(row.title),
+        content: String(row.content ?? "") || null,
+        date: String(row.date ?? "") || null,
+        priority: String(row.priority ?? "medium"),
+        category: String(row.category ?? "General"),
       },
       { onConflict: "id" }
     );

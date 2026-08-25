@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { PageHeader, Button } from "@/components/ui/PageElements";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { Plus, Trash2 } from "lucide-react";
 import { noticesStore, useStoreList, uid, type Notice } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -14,6 +14,8 @@ export default function NoticesPage() {
   const { user } = useAuth();
   const [notices, refresh] = useStoreList(noticesStore.getAll, noticesStore.key);
   const [open, setOpen] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Notice | null>(null);
   const [form, setForm] = useState({
     title: "",
     content: "",
@@ -23,31 +25,72 @@ export default function NoticesPage() {
 
   const canPost = user?.role === "super_admin" || user?.role === "accountant";
 
-  const onPost = (e: FormEvent) => {
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/notices", { cache: "no-store" });
+        const data = (await res.json()) as { ok?: boolean; notices?: Notice[] };
+        if (res.ok && data.ok && data.notices?.length) {
+          noticesStore.upsertMany(data.notices);
+          refresh();
+        }
+      } catch {
+        /* keep local notices */
+      }
+    })();
+  }, [refresh]);
+
+  const onPost = async (e: FormEvent) => {
     e.preventDefault();
-    noticesStore.upsert({
+    const notice: Notice = {
       id: uid("NTC"),
       title: form.title.trim(),
       content: form.content.trim(),
       priority: form.priority,
       category: form.category.trim() || "General",
       date: new Date().toISOString().slice(0, 10),
-    });
+    };
+    noticesStore.upsert(notice);
     refresh();
     setOpen(false);
     setForm({ title: "", content: "", priority: "medium", category: "General" });
-    showFlash("success", "Notice posted.");
+    setPosting(true);
+    try {
+      const res = await fetch("/api/notices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(notice),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        emailed?: number;
+      };
+      if (!res.ok || !data.ok) {
+        showFlash(
+          "error",
+          `Notice is on the portal, but email was not sent: ${data.error ?? "mail failed"}`
+        );
+        return;
+      }
+      showFlash("success", data.message ?? `Notice posted and emailed to everyone.`);
+    } catch {
+      showFlash("error", "Notice is on the portal, but email could not be sent.");
+    } finally {
+      setPosting(false);
+    }
   };
 
   return (
     <div>
       <PageHeader
         title="Notices & Announcements"
-        description="Broadcast updates, workshops, and important announcements to learners."
+        description="Posted notices show for everyone in the portal and are emailed to all staff and learners."
         action={
           canPost ? (
-            <Button size="sm" onClick={() => setOpen(true)}>
-              <Plus size={14} /> Post Notice
+            <Button size="sm" onClick={() => setOpen(true)} disabled={posting}>
+              <Plus size={14} /> {posting ? "Sending…" : "Post Notice"}
             </Button>
           ) : undefined
         }
@@ -73,18 +116,14 @@ export default function NoticesPage() {
                   </Badge>
                   <Badge variant="info">{notice.category}</Badge>
                 </div>
-                <p className="mt-2 text-sm text-muted">{notice.content}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{notice.content}</p>
                 <p className="mt-3 text-xs text-muted">{notice.date}</p>
               </div>
               {canPost && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    noticesStore.remove(notice.id);
-                    refresh();
-                    showFlash("success", "Notice removed.");
-                  }}
+                  onClick={() => setPendingDelete(notice)}
                 >
                   <Trash2 size={14} />
                 </Button>
@@ -95,7 +134,10 @@ export default function NoticesPage() {
       </div>
 
       <Modal open={open} title="Post notice" onClose={() => setOpen(false)}>
-        <form onSubmit={onPost} className="space-y-3">
+        <form onSubmit={(e) => void onPost(e)} className="space-y-3">
+          <p className="text-sm text-muted">
+            Everyone in the portal will see this, and each person gets an email: “You have received this notice…”
+          </p>
           <Field label="Title">
             <input required className={fieldClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </Field>
@@ -116,10 +158,23 @@ export default function NoticesPage() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit">Publish</Button>
+            <Button type="submit" disabled={posting}>{posting ? "Sending…" : "Publish & email everyone"}</Button>
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete notice"
+        description={`Delete “${pendingDelete?.title ?? ""}”? Learners will no longer see it.`}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          noticesStore.remove(pendingDelete.id);
+          refresh();
+          showFlash("success", "Notice removed.");
+        }}
+      />
     </div>
   );
 }

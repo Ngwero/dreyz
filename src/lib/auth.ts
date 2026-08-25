@@ -154,6 +154,33 @@ export function getUserById(userId: string): PortalUser | undefined {
   return getAllUsers().find((u) => u.id === userId);
 }
 
+export function getUserByEmail(email: string): PortalUser | undefined {
+  const needle = email.trim().toLowerCase();
+  return getAllUsers().find((u) => u.email.toLowerCase() === needle);
+}
+
+/** Build a profile record from the signed-in session when the local roster has no row. */
+export function resolveSessionProfile(session: SessionUser): PortalUser {
+  const local =
+    getUserById(session.id) ?? getUserByEmail(session.email);
+  return {
+    id: session.id,
+    name: local?.name || session.name,
+    email: session.email,
+    password: local?.password ?? "",
+    role: session.role,
+    phone: local?.phone,
+    status: local?.status ?? "active",
+    learnerId: session.learnerId ?? local?.learnerId,
+    instructorId: session.instructorId ?? local?.instructorId,
+    feeTrackId: local?.feeTrackId,
+    classOptionId: local?.classOptionId,
+    specialty: local?.specialty,
+    lastLoginAt: local?.lastLoginAt,
+    createdAt: local?.createdAt ?? new Date().toISOString().slice(0, 10),
+  };
+}
+
 export function upsertUser(user: PortalUser) {
   saveExtraUser(user);
   const session = getSession();

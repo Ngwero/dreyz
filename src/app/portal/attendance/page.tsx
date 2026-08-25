@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { Check, Clock, Download, Plus, Users, X } from "lucide-react";
 import {
   attendanceStore,
@@ -80,6 +80,7 @@ export default function AttendancePage() {
   const [bulkQuery, setBulkQuery] = useState("");
   const [marks, setMarks] = useState<Record<string, Mark>>({});
   const [bulkNotice, setBulkNotice] = useState("");
+  const [pendingReset, setPendingReset] = useState<"all" | "period" | null>(null);
 
   const canMark = user?.role === "super_admin" || user?.role === "tutor";
 
@@ -250,10 +251,8 @@ export default function AttendancePage() {
   const resetAttendance = (scope: "all" | "period") => {
     if (!canMark) return;
     if (scope === "all") {
-      if (!confirm("Clear every attendance mark in the school?")) return;
       attendanceStore.replaceAll([]);
     } else {
-      if (!confirm(`Clear attendance for ${selectedCourse} from ${periodDates[0]} to ${periodDates[periodDates.length - 1]}?`)) return;
       const dates = new Set(periodDates);
       attendanceStore.replaceAll(
         records.filter((r) => !(r.course === selectedCourse && dates.has(r.date)))
@@ -437,11 +436,11 @@ export default function AttendancePage() {
             <span className="ml-auto text-xs text-muted">
               {periodDates.length} day{periodDates.length === 1 ? "" : "s"} · {bulkCounts.present} present · {bulkCounts.late} late · {bulkCounts.absent} absent
             </span>
-            <Button type="button" size="sm" variant="outline" onClick={() => resetAttendance("period")}>
+            <Button type="button" size="sm" variant="outline" onClick={() => setPendingReset("period")}>
               Reset this period
             </Button>
             {user?.role === "super_admin" && (
-              <Button type="button" size="sm" variant="outline" onClick={() => resetAttendance("all")}>
+              <Button type="button" size="sm" variant="outline" onClick={() => setPendingReset("all")}>
                 Reset all scores
               </Button>
             )}
@@ -651,6 +650,21 @@ export default function AttendancePage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={pendingReset !== null}
+        title={pendingReset === "all" ? "Clear all attendance" : "Clear this period"}
+        description={
+          pendingReset === "all"
+            ? "Clear every attendance mark in the school? This cannot be undone."
+            : `Clear attendance for ${selectedCourse} from ${periodDates[0] ?? "—"} to ${periodDates[periodDates.length - 1] ?? "—"}?`
+        }
+        confirmLabel="Clear marks"
+        onClose={() => setPendingReset(null)}
+        onConfirm={() => {
+          if (pendingReset) resetAttendance(pendingReset);
+        }}
+      />
     </div>
   );
 }

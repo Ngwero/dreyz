@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ ok: false, error: "Choose a file to upload." }, { status: 400 });
     }
-    if (file.size > 8 * 1024 * 1024) {
-      return NextResponse.json({ ok: false, error: "File must be under 8 MB." }, { status: 400 });
+    if (file.size > 25 * 1024 * 1024) {
+      return NextResponse.json({ ok: false, error: "File must be under 25 MB." }, { status: 400 });
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());

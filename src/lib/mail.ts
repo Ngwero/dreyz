@@ -183,6 +183,57 @@ export function enrollmentAlertHtml(opts: {
   `;
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export function noticeEmailHtml(opts: {
+  name: string;
+  title: string;
+  content: string;
+  category: string;
+  portalUrl: string;
+}) {
+  const name = escapeHtml(opts.name);
+  const title = escapeHtml(opts.title);
+  const category = escapeHtml(opts.category);
+  const body = escapeHtml(opts.content).replace(/\n/g, "<br/>");
+
+  return `
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:28px 24px;color:#082878;background:#ffffff">
+      <div style="text-align:left;margin-bottom:24px">
+        <img
+          src="cid:${LOGO_CID}"
+          alt="Dreyz Interior Design School"
+          width="96"
+          height="92"
+          style="display:block;width:96px;height:auto;border:0;outline:none;margin:0"
+        />
+      </div>
+      <p style="margin:0 0 12px;font-size:16px">Hi ${name},</p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
+        You have received this school notice from Dreyz Interior Design School.
+      </p>
+      <div style="margin:0 0 20px;padding:16px 18px;border-radius:12px;background:#f0f4ff;border:1px solid #d6e0ff">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#5b6f94">${category}</p>
+        <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#082878">${title}</p>
+        <p style="margin:0;font-size:15px;line-height:1.55;color:#082878">${body}</p>
+      </div>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.5">
+        Open the portal to read it with the rest of the school notices.
+      </p>
+      <p style="margin:0">
+        <a href="${opts.portalUrl}" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#082878;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600">View notice</a>
+      </p>
+      <p style="margin-top:28px;font-size:13px;color:#5b6f94">— Dreyz Interior Design School</p>
+    </div>
+  `;
+}
+
 export async function sendMail(opts: {
   to: string;
   subject: string;

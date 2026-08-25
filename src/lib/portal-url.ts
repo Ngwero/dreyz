@@ -20,3 +20,7 @@ export function portalLoginUrl(): string {
   }
   return `${PUBLIC_SITE_ORIGIN}/login`;
 }
+
+export function portalNoticesUrl(): string {
+  return portalLoginUrl().replace(/\/login\/?$/, "/portal/notices");
+}

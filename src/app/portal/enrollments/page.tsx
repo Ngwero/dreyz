@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { Modal, Field, fieldClass } from "@/components/ui/Modal";
+import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { formatUGX } from "@/lib/utils";
 import { showFlash } from "@/lib/flash";
 import { Download, Pencil, Plus, Trash2 } from "lucide-react";
@@ -56,6 +56,7 @@ export default function EnrollmentsPage() {
   const [learners] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState({
     learnerName: "",
@@ -200,7 +201,6 @@ export default function EnrollmentsPage() {
   };
 
   const onDelete = (row: Row) => {
-    if (!confirm("Delete this billing record?")) return;
     if (row.source === "payment") {
       deletePayment(row.id);
       setPayments(getPayments());
@@ -307,7 +307,7 @@ export default function EnrollmentsPage() {
                   <Button size="sm" variant="outline" onClick={() => openEdit(enrollment)}>
                     <Pencil size={13} /> Edit
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => onDelete(enrollment)}>
+                  <Button size="sm" variant="ghost" onClick={() => setPendingDelete(enrollment)}>
                     <Trash2 size={13} />
                   </Button>
                 </div>
@@ -357,6 +357,16 @@ export default function EnrollmentsPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete billing record"
+        description={`Delete the billing record for ${pendingDelete?.learnerName ?? "this learner"}? This cannot be undone.`}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) onDelete(pendingDelete);
+        }}
+      />
     </div>
   );
 }
