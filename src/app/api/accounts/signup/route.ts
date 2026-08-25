@@ -115,6 +115,8 @@ export async function POST(request: Request) {
         enrollment_date: new Date().toISOString().slice(0, 10),
         progress: 0,
         status: learnerActive ? "active" : "paused",
+        paid_amount: paymentAmount,
+        fee_due: track?.total ?? 3_350_000,
       },
       { onConflict: "id" }
     );

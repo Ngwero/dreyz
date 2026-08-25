@@ -29,6 +29,8 @@ type LearnerRow = {
   progress: number | null;
   status: Learner["status"];
   avatar: string | null;
+  paid_amount?: number | string | null;
+  fee_due?: number | string | null;
 };
 
 export async function fetchPayments(): Promise<PaymentRecord[]> {
@@ -92,7 +94,8 @@ export async function fetchLearners(): Promise<Learner[]> {
     enrollmentDate: row.enrollment_date ?? "",
     progress: row.progress ?? 0,
     status: row.status,
-    avatar: row.avatar ?? undefined,
+    paidAmount: row.paid_amount != null ? Number(row.paid_amount) : undefined,
+    feeDue: row.fee_due != null ? Number(row.fee_due) : undefined,
   }));
 }
 
@@ -108,6 +111,8 @@ export async function upsertLearner(learner: Learner) {
     progress: learner.progress,
     status: learner.status,
     avatar: learner.avatar ?? null,
+    paid_amount: learner.paidAmount ?? 0,
+    fee_due: learner.feeDue ?? 0,
   });
   return !error;
 }

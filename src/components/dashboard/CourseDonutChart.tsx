@@ -1,18 +1,24 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 
 interface CourseDonutChartProps {
   data: { name: string; value: number; color: string }[];
-  total: number;
+  total: number | string;
+  centerLabel?: string;
+  centerHint?: string;
 }
 
-export function CourseDonutChart({ data, total }: CourseDonutChartProps) {
+export function CourseDonutChart({
+  data,
+  total,
+  centerLabel = "Total",
+  centerHint = "Units",
+}: CourseDonutChartProps) {
   return (
     <div className="relative w-full">
-      <div className="relative mx-auto h-[220px] w-full">
-        <ResponsiveContainer width="100%" height={220} minWidth={0}>
-          <PieChart>
+      <div className="relative mx-auto h-[220px] w-[220px]">
+          <PieChart width={220} height={220}>
             <Pie
               data={data}
               cx="50%"
@@ -22,10 +28,7 @@ export function CourseDonutChart({ data, total }: CourseDonutChartProps) {
               paddingAngle={3}
               dataKey="value"
               nameKey="name"
-              isAnimationActive
-              animationBegin={40}
-              animationDuration={480}
-              animationEasing="ease-out"
+              isAnimationActive={false}
             >
               {data.map((entry) => (
                 <Cell
@@ -37,14 +40,13 @@ export function CourseDonutChart({ data, total }: CourseDonutChartProps) {
               ))}
             </Pie>
           </PieChart>
-        </ResponsiveContainer>
 
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-            Total
+            {centerLabel}
           </p>
           <p className="text-2xl font-semibold tabular-nums text-foreground">{total}</p>
-          <p className="text-xs text-muted">Units</p>
+          <p className="text-xs text-muted">{centerHint}</p>
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { AttendancePulseChart, ProgressRadarChart } from "@/components/dashboard/SchoolCharts";
+import { CourseDonutChart } from "@/components/dashboard/CourseDonutChart";
 import { formatUGX } from "@/lib/utils";
 import { classOptions, feeTracks } from "@/lib/data";
 import { getAllUsers } from "@/lib/auth";
@@ -126,6 +126,33 @@ export function LearnerProfile({
           </div>
         </div>
 
+        <section className="rounded-2xl border border-border p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+            Fees
+          </p>
+          {fees.total <= 0 && fees.paid <= 0 ? (
+            <p className="mt-6 text-sm text-muted">No fee amount set for this learner.</p>
+          ) : (
+            <>
+              <CourseDonutChart
+                total={`${Math.min(100, Math.round((fees.paid / Math.max(fees.total, 1)) * 100))}%`}
+                centerLabel={
+                  fees.paid <= 0 ? "Not paid" : fees.balance <= 0 ? "Paid in full" : "Part paid"
+                }
+                centerHint="of programme fee"
+                data={[
+                  { name: "Paid", value: Math.max(fees.paid, 0), color: "#082878" },
+                  { name: "Balance", value: Math.max(fees.balance, 0), color: "#d8ff59" },
+                ].filter((slice) => slice.value > 0)}
+              />
+              <p className="mt-2 text-center text-xs text-muted">
+                Expected {formatUGX(fees.total)} · paid {formatUGX(fees.paid)} · balance{" "}
+                {formatUGX(fees.balance)}
+              </p>
+            </>
+          )}
+        </section>
+
         <section className="rounded-2xl border border-border bg-surface/60 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
             What they are doing
@@ -177,48 +204,63 @@ export function LearnerProfile({
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
               Progress mix
             </p>
-            <ProgressRadarChart
-              classes={
-                progress.classes.required
-                  ? Math.min(100, Math.round((progress.classes.done / progress.classes.required) * 100))
-                  : 0
-              }
-              tests={
-                progress.tests.required
-                  ? Math.min(100, Math.round((progress.tests.done / progress.tests.required) * 100))
-                  : 0
-              }
-              exams={
-                progress.exams.required
-                  ? Math.min(100, Math.round((progress.exams.done / progress.exams.required) * 100))
-                  : 0
-              }
-              final={
-                progress.final.required
-                  ? Math.min(100, Math.round((progress.final.done / progress.final.required) * 100))
-                  : 0
-              }
-            />
+            {progress.classes.done +
+              progress.tests.done +
+              progress.exams.done +
+              progress.final.done ===
+            0 ? (
+              <p className="mt-6 text-sm text-muted">No classes, tests, or exams counted yet.</p>
+            ) : (
+              <CourseDonutChart
+                total={progress.percent}
+                centerLabel="Progress"
+                centerHint="percent"
+                data={[
+                  {
+                    name: "Classes",
+                    value: progress.classes.done,
+                    color: "#082878",
+                  },
+                  {
+                    name: "Tests",
+                    value: progress.tests.done,
+                    color: "#1b7eef",
+                  },
+                  {
+                    name: "Exams",
+                    value: progress.exams.done,
+                    color: "#d8ff59",
+                  },
+                  {
+                    name: "Final",
+                    value: progress.final.done,
+                    color: "#ff8c00",
+                  },
+                ].filter((slice) => slice.value > 0)}
+              />
+            )}
           </section>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <section className="rounded-2xl border border-border p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-              Fees
-            </p>
-            <p className="mt-3 text-sm font-semibold text-foreground">
-              {fees.paid > 0 ? (fees.balance <= 0 ? "Paid in full" : "Part paid") : "Not paid"}
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Expected {formatUGX(fees.total)} · paid {formatUGX(fees.paid)} · balance {formatUGX(fees.balance)}
-            </p>
-          </section>
-          <section className="rounded-2xl border border-border p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
               Attendance (first {ATTENDANCE_AWARD_MONTHS} months)
             </p>
-            <AttendancePulseChart present={att.present} late={att.late} absent={att.absent} />
+            {att.total === 0 ? (
+              <p className="mt-6 text-sm text-muted">No awarded attendance yet.</p>
+            ) : (
+              <CourseDonutChart
+                total={att.total}
+                centerLabel="Sessions"
+                centerHint="awarded"
+                data={[
+                  { name: "Present", value: att.present, color: "#082878" },
+                  { name: "Late", value: att.late, color: "#e8a317" },
+                  { name: "Absent", value: att.absent, color: "#c45c5c" },
+                ].filter((slice) => slice.value > 0)}
+              />
+            )}
             <div className="mt-2 grid grid-cols-4 gap-2 text-center">
               {[
                 ["Present", att.present],

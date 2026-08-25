@@ -47,8 +47,25 @@ export default function LearnersPage() {
   });
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<Learner | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Learner | null>(null);
+  const [confirmName, setConfirmName] = useState("");
 
   const canEdit = user?.role === "super_admin" || user?.role === "accountant";
+
+  const namesMatch = (typed: string, actual: string) =>
+    typed.trim().replace(/\s+/g, " ").toLowerCase() ===
+    actual.trim().replace(/\s+/g, " ").toLowerCase();
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    if (!namesMatch(confirmName, pendingDelete.name)) return;
+    learnersStore.remove(pendingDelete.id);
+    if (selected?.id === pendingDelete.id) setSelected(null);
+    setPendingDelete(null);
+    setConfirmName("");
+    refresh();
+    setNotice(`${pendingDelete.name} was removed from the roster.`);
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -380,8 +397,8 @@ export default function LearnersPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      learnersStore.remove(learner.id);
-                      refresh();
+                      setPendingDelete(learner);
+                      setConfirmName("");
                     }}
                   >
                     <Trash2 size={14} />
@@ -504,6 +521,55 @@ export default function LearnersPage() {
             <Button type="submit">{editing ? "Save changes" : "Save learner"}</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!pendingDelete}
+        title="Delete learner"
+        onClose={() => {
+          setPendingDelete(null);
+          setConfirmName("");
+        }}
+      >
+        {pendingDelete && (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              confirmDelete();
+            }}
+          >
+            <p className="text-sm text-foreground">
+              This permanently removes{" "}
+              <span className="font-semibold">{pendingDelete.name}</span> from the roster.
+              Type their full name to confirm.
+            </p>
+            <Field label="Full name">
+              <input
+                autoFocus
+                className={fieldClass}
+                placeholder={pendingDelete.name}
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+              />
+            </Field>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setPendingDelete(null);
+                  setConfirmName("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!namesMatch(confirmName, pendingDelete.name)}>
+                Delete learner
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

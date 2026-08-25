@@ -106,13 +106,16 @@ export function queueCloudPush() {
 }
 
 export async function hydrateSchoolData() {
-  if (!isBrowser() || hydrated) return;
+  if (!isBrowser()) return;
+  const mergeKey = "dreyz_live_merge_v3";
+  if (hydrated && localStorage.getItem(mergeKey)) return;
   hydrated = true;
   try {
     const res = await fetch("/api/school-data", { cache: "no-store" });
     const json = (await res.json()) as { ok?: boolean; data?: Record<string, unknown> };
     if (res.ok && json.ok && json.data && Object.keys(json.data).length > 0) {
       applySnapshot(json.data);
+      localStorage.setItem(mergeKey, "1");
     } else {
       queueCloudPush();
     }

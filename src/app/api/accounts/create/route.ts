@@ -131,9 +131,24 @@ export async function POST(request: Request) {
           enrollment_date: new Date().toISOString().slice(0, 10),
           progress: 0,
           status: "active",
+          paid_amount: 0,
+          fee_due: track?.total ?? 3_350_000,
         },
         { onConflict: "id" }
       );
+      const { data: existingPays } = await admin
+        .from("payments")
+        .select("amount, status")
+        .eq("learner_email", email);
+      const paid = (existingPays ?? [])
+        .filter((p) => p.status === "confirmed")
+        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      if (paid > 0) {
+        await admin
+          .from("learners")
+          .update({ paid_amount: paid, status: paid >= 1_000_000 ? "active" : "paused" })
+          .eq("id", learnerId);
+      }
     }
 
     const label = roleLabel(role);
