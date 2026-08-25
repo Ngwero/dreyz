@@ -10,6 +10,7 @@ import {
   BookOpen,
   Layers,
   FolderOpen,
+  History,
   Calendar,
   ClipboardCheck,
   FileText,
@@ -54,7 +55,10 @@ const P = "/portal";
 function navForRole(role: UserRole): NavSection[] {
   const overview: NavSection = {
     title: "Overview",
-    items: [{ label: "Dashboard", href: P, icon: <LayoutDashboard size={17} /> }],
+    items: [
+      { label: "Dashboard", href: P, icon: <LayoutDashboard size={17} /> },
+      { label: "Recent activity", href: `${P}/activity`, icon: <History size={17} /> },
+    ],
   };
 
   if (role === "super_admin") {
