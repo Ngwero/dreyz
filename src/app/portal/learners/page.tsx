@@ -21,6 +21,7 @@ import {
   type Learner,
 } from "@/lib/store";
 import { createAccount, getAllUsers, recordManualFee } from "@/lib/auth";
+import { provisionPortalAccount } from "@/lib/auth-client";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { computeLearnerProgress, feesForStudent } from "@/lib/academics";
 import { LearnerProfile } from "@/components/portal/LearnerProfile";
@@ -41,6 +42,7 @@ export default function LearnersPage() {
     status: "active" as Learner["status"],
     createLogin: true,
     paidAmount: 0,
+    addPayment: 0,
     feeDue: 3350000,
   });
   const [notice, setNotice] = useState("");
@@ -63,9 +65,10 @@ export default function LearnersPage() {
   const canManageAccounts =
     user?.role === "super_admin" || user?.role === "accountant";
 
-  const onAdd = (e: FormEvent) => {
+  const onAdd = async (e: FormEvent) => {
     e.preventDefault();
     if (editing) {
+      const extra = Number(form.addPayment) || 0;
       const next: Learner = {
         ...editing,
         name: form.name.trim(),
@@ -73,7 +76,6 @@ export default function LearnersPage() {
         phone: form.phone.trim(),
         course: form.course.trim(),
         status: form.status,
-        paidAmount: Number(form.paidAmount) || 0,
         feeDue: Number(form.feeDue) || 0,
       };
       learnersStore.upsert(next);
@@ -81,13 +83,15 @@ export default function LearnersPage() {
         learnerName: next.name,
         learnerEmail: next.email,
         phone: next.phone,
-        amount: next.paidAmount ?? 0,
+        amount: extra,
+        feeDue: next.feeDue,
       });
       setEditing(null);
       refresh();
       setOpen(false);
       return;
     }
+    const firstPay = Number(form.paidAmount) || 0;
     const learner: Learner = {
       id: uid("DRY"),
       name: form.name.trim(),
@@ -97,7 +101,7 @@ export default function LearnersPage() {
       enrollmentDate: new Date().toISOString().slice(0, 10),
       progress: 0,
       status: form.status,
-      paidAmount: Number(form.paidAmount) || 0,
+      paidAmount: firstPay,
       feeDue: Number(form.feeDue) || 0,
     };
     learnersStore.upsert(learner);
@@ -105,22 +109,27 @@ export default function LearnersPage() {
       learnerName: learner.name,
       learnerEmail: learner.email,
       phone: learner.phone,
-      amount: learner.paidAmount ?? 0,
+      amount: firstPay,
+      feeDue: learner.feeDue,
     });
     if (form.createLogin && canManageAccounts) {
-      try {
-        const result = createAccount({
-          name: learner.name,
-          email: learner.email,
-          phone: learner.phone,
-          role: "student",
-          learnerId: learner.id,
-        });
+      const live = await provisionPortalAccount({
+        name: learner.name,
+        email: learner.email,
+        phone: learner.phone,
+        role: "student",
+        learnerId: learner.id,
+      });
+      if (!live.ok) {
         setNotice(
-          `Learner saved. Portal login emailed to ${result.user.email}. Temporary password: ${result.password}`
+          `Learner saved. Live portal login was not created: ${live.error} Use Grant login after the network is back.`
         );
-      } catch (err) {
-        setNotice(err instanceof Error ? err.message : "Learner saved without a new login.");
+      } else if (live.alreadyExists) {
+        setNotice(`Learner saved. ${live.message}`);
+      } else {
+        setNotice(
+          `Learner saved. Portal login emailed to ${learner.email}. Temporary password: ${live.password ?? "—"}`
+        );
       }
     }
     refresh();
@@ -133,34 +142,41 @@ export default function LearnersPage() {
       status: "active",
       createLogin: true,
       paidAmount: 0,
+      addPayment: 0,
       feeDue: 3350000,
     });
   };
 
-  const grantLogin = (learner: Learner) => {
+  const grantLogin = async (learner: Learner) => {
+    const live = await provisionPortalAccount({
+      name: learner.name,
+      email: learner.email,
+      phone: learner.phone,
+      role: "student",
+      learnerId: learner.id,
+    });
+    if (!live.ok) {
+      setNotice(live.error);
+      return;
+    }
     try {
-      const result = createAccount({
+      createAccount({
         name: learner.name,
         email: learner.email,
         phone: learner.phone,
         role: "student",
         learnerId: learner.id,
       });
-      setNotice(
-        `Portal login created for ${learner.name}. Emailed ${result.user.email}. Temporary password: ${result.password}`
-      );
-      refresh();
-    } catch (err) {
-      setNotice(err instanceof Error ? err.message : "Could not create login.");
+    } catch {
+      /* already on this device */
     }
-  };
-
-  const hasPortal = (learner: Learner) =>
-    getAllUsers().some(
-      (u) =>
-        u.role === "student" &&
-        (u.learnerId === learner.id || u.email.toLowerCase() === learner.email.toLowerCase())
+    setNotice(
+      live.alreadyExists
+        ? `${learner.name} already has a live login at ${learner.email}. They should sign in with that email or use Forgot password.`
+        : `Live portal login emailed to ${learner.email}. Temporary password: ${live.password ?? "—"}. They can sign in on dreyzschool.com now.`
     );
+    refresh();
+  };
 
   const cycleStatus = (learner: Learner) => {
     if (!canEdit) return;
@@ -201,7 +217,24 @@ export default function LearnersPage() {
               <Download size={14} /> Export
             </Button>
             {canEdit && (
-              <Button size="sm" onClick={() => setOpen(true)}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditing(null);
+                  setForm({
+                    name: "",
+                    email: "",
+                    phone: "",
+                    course: "Professional Interior Design Programme",
+                    status: "active",
+                    createLogin: true,
+                    paidAmount: 0,
+                    addPayment: 0,
+                    feeDue: 3350000,
+                  });
+                  setOpen(true);
+                }}
+              >
                 <Plus size={14} /> Add Learner
               </Button>
             )}
@@ -292,7 +325,7 @@ export default function LearnersPage() {
                 {fees.paid <= 0 ? "Not paid" : fees.balance <= 0 ? "Paid" : "Part paid"}
               </p>
               <p className="text-[11px] text-muted">
-                {formatUGX(fees.paid)} / {formatUGX(fees.total)}
+                Paid {formatUGX(fees.paid)} · due {formatUGX(fees.total)} · balance {formatUGX(fees.balance)}
               </p>
             </TableCell>
             <TableCell>
@@ -317,9 +350,9 @@ export default function LearnersPage() {
                   <Button size="sm" variant="outline" onClick={() => setSelected(learner)}>
                     <Eye size={13} /> Profile
                   </Button>
-                  {canManageAccounts && !hasPortal(learner) && (
+                  {canManageAccounts && (
                     <Button size="sm" variant="outline" onClick={() => grantLogin(learner)}>
-                      <UserPlus size={13} /> Grant login
+                      <UserPlus size={13} /> Email live login
                     </Button>
                   )}
                   <Button
@@ -335,6 +368,7 @@ export default function LearnersPage() {
                         status: learner.status,
                         createLogin: false,
                         paidAmount: learner.paidAmount ?? 0,
+                        addPayment: 0,
                         feeDue: learner.feeDue ?? 3350000,
                       });
                       setOpen(true);
@@ -402,16 +436,28 @@ export default function LearnersPage() {
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Amount paid (UGX)">
-              <input
-                type="number"
-                min={0}
-                className={fieldClass}
-                value={form.paidAmount}
-                onChange={(e) => setForm({ ...form, paidAmount: Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="Fee due (UGX)">
+            {editing ? (
+              <Field label="Add payment (UGX)">
+                <input
+                  type="number"
+                  min={0}
+                  className={fieldClass}
+                  value={form.addPayment}
+                  onChange={(e) => setForm({ ...form, addPayment: Number(e.target.value) })}
+                />
+              </Field>
+            ) : (
+              <Field label="Amount paid (UGX)">
+                <input
+                  type="number"
+                  min={0}
+                  className={fieldClass}
+                  value={form.paidAmount}
+                  onChange={(e) => setForm({ ...form, paidAmount: Number(e.target.value) })}
+                />
+              </Field>
+            )}
+            <Field label="Programme fee due (UGX)">
               <input
                 type="number"
                 min={0}
@@ -421,8 +467,20 @@ export default function LearnersPage() {
               />
             </Field>
           </div>
+          {editing && (
+            <p className="text-xs text-muted">
+              Already paid {formatUGX(
+                feesForStudent(editing.email, undefined, editing.paidAmount, editing.feeDue).paid
+              )}
+              . Balance{" "}
+              {formatUGX(
+                feesForStudent(editing.email, undefined, editing.paidAmount, form.feeDue).balance
+              )}
+              . A new payment here is added on top of earlier RukaPay or cash installments.
+            </p>
+          )}
           <p className="text-xs text-muted">
-            Manual amounts count toward fees even if the rest is paid later through RukaPay.
+            Minimum UGX 1,000,000 activates the student account. Later cash or RukaPay payments reduce the remaining balance automatically.
           </p>
           <Field label="Status">
             <select className={fieldClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Learner["status"] })}>

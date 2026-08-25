@@ -58,6 +58,7 @@ import {
   livePerformanceByLevel,
   learnerProgressBreakdown,
   attendanceSummary,
+  awardedAttendance,
   schoolFeeTotals,
   feesForStudent,
 } from "@/lib/academics";
@@ -684,7 +685,10 @@ function StudentDashboard({
     learners.find((l) => l.id === learnerId) ??
     learners.find((l) => l.email.toLowerCase() === email.toLowerCase());
   const myProjects = projects.filter((p) => p.learnerId === learner?.id);
-  const myAttendance = attendance.filter((a) => a.learnerId === learner?.id);
+  const myAttendance = awardedAttendance(
+    attendance.filter((a) => a.learnerId === learner?.id),
+    learner?.enrollmentDate
+  );
   const breakdown = learner ? learnerProgressBreakdown(learner) : null;
   const myFees = learner
     ? feesForStudent(learner.email, undefined, learner.paidAmount, learner.feeDue)
@@ -722,7 +726,7 @@ function StudentDashboard({
         <StatCard
           label="Attendance records"
           value={String(myAttendance.length)}
-          hint="Your marks"
+          hint="First 6 months from enrolment"
           icon={ClipboardCheck}
         />
         <StatCard

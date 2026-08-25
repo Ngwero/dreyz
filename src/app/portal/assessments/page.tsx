@@ -10,8 +10,9 @@ import {
   Button,
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
 import { Modal, Field, fieldClass } from "@/components/ui/Modal";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import {
   assessmentsStore,
   coursesStore,
@@ -22,6 +23,9 @@ import {
   type Assessment,
 } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { getAllUsers } from "@/lib/auth";
+
+type MarkStudent = { id: string; name: string; course: string };
 
 export default function AssessmentsPage() {
   const { user } = useAuth();
@@ -33,6 +37,8 @@ export default function AssessmentsPage() {
   const [open, setOpen] = useState(false);
   const [marking, setMarking] = useState<Assessment | null>(null);
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
+  const [markQuery, setMarkQuery] = useState("");
+  const [courseOnly, setCourseOnly] = useState(false);
   const [form, setForm] = useState({
     title: "",
     course: "",
@@ -73,6 +79,106 @@ export default function AssessmentsPage() {
     if (!canCreate && user?.role !== "student") return;
     assessmentsStore.upsert({ ...a, submissions: a.submissions + 1 });
     refresh();
+  };
+
+  const markStudents = useMemo(() => {
+    const byId = new Map<string, MarkStudent>();
+    for (const learner of learners) {
+      byId.set(learner.id, {
+        id: learner.id,
+        name: learner.name,
+        course: learner.course,
+      });
+    }
+    for (const account of getAllUsers()) {
+      if (account.role !== "student") continue;
+      const id = account.learnerId || account.id;
+      const existing = byId.get(id);
+      if (existing) {
+        if (!existing.name) existing.name = account.name;
+        continue;
+      }
+      byId.set(id, {
+        id,
+        name: account.name,
+        course: account.specialty || "",
+      });
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [learners]);
+
+  const markingRoster = useMemo(() => {
+    if (!marking) return [];
+    const q = markQuery.trim().toLowerCase();
+    const course = marking.course.trim().toLowerCase();
+    return markStudents.filter((student) => {
+      if (courseOnly && course) {
+        const match =
+          student.course.toLowerCase() === course ||
+          student.course.toLowerCase().includes(course) ||
+          course.includes(student.course.toLowerCase());
+        if (!match) return false;
+      }
+      if (!q) return true;
+      return (
+        student.name.toLowerCase().includes(q) ||
+        student.id.toLowerCase().includes(q) ||
+        student.course.toLowerCase().includes(q)
+      );
+    });
+  }, [marking, markStudents, markQuery, courseOnly]);
+
+  const openMarks = (assessment: Assessment) => {
+    setMarking(assessment);
+    setMarkQuery("");
+    setCourseOnly(false);
+    const next: Record<string, string> = {};
+    const roster = markStudents.length ? markStudents : learnersStore.getAll().map((l) => ({
+      id: l.id,
+      name: l.name,
+      course: l.course,
+    }));
+    const saved = gradesStore.getAll();
+    for (const student of roster) {
+      const g = saved.find((row) => row.assessmentId === assessment.id && row.learnerId === student.id);
+      next[student.id] = g ? String(g.score) : "";
+    }
+    setScoreDrafts(next);
+  };
+
+  const saveMarks = () => {
+    if (!marking) return;
+    const rows = markStudents
+      .map((student) => {
+        const raw = scoreDrafts[student.id];
+        if (raw === undefined || raw === "") return null;
+        const score = Number(raw);
+        if (Number.isNaN(score)) return null;
+        const existing = grades.find(
+          (g) => g.assessmentId === marking.id && g.learnerId === student.id
+        );
+        return {
+          id: existing?.id ?? uid("GRD"),
+          assessmentId: marking.id,
+          learnerId: student.id,
+          learnerName: student.name,
+          title: marking.title,
+          course: marking.course,
+          type: marking.type,
+          score,
+          maxScore: marking.maxScore,
+          date: new Date().toISOString().slice(0, 10),
+        };
+      })
+      .filter((row) => row !== null);
+    gradesStore.upsertMany(rows);
+    assessmentsStore.upsert({
+      ...marking,
+      submissions: rows.length,
+    });
+    refresh();
+    refreshGrades();
+    setMarking(null);
   };
 
   return (
@@ -150,18 +256,7 @@ export default function AssessmentsPage() {
                   </Button>
                 )}
                 {canMark && (
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setMarking(assessment);
-                    const next: Record<string, string> = {};
-                    const roster = learnersStore.getAll();
-                    for (const l of roster) {
-                      const g = gradesStore
-                        .getAll()
-                        .find((row) => row.assessmentId === assessment.id && row.learnerId === l.id);
-                      next[l.id] = g ? String(g.score) : "";
-                    }
-                    setScoreDrafts(next);
-                  }}>
+                  <Button size="sm" variant="outline" onClick={() => openMarks(assessment)}>
                     Enter marks
                   </Button>
                 )}
@@ -182,6 +277,104 @@ export default function AssessmentsPage() {
           </TableRow>
         ))}
       </DataTable>
+
+      {canMark && marking && (
+        <Card
+          className="mt-8"
+          title={`Score students · ${marking.title}`}
+          action={
+            <button
+              type="button"
+              className="rounded-lg p-1.5 text-muted hover:bg-surface hover:text-foreground"
+              onClick={() => setMarking(null)}
+              aria-label="Close mark sheet"
+            >
+              <X size={16} />
+            </button>
+          }
+        >
+          <p className="mb-4 text-sm text-muted">
+            Student names appear below. Type a mark out of {marking.maxScore} next to each name, then save.
+            Saved marks show on the student portal.
+          </p>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="block min-w-0 flex-1 text-xs font-semibold uppercase tracking-wider text-muted">
+              Find student
+              <input
+                className={`${fieldClass} mt-1.5`}
+                placeholder="Name pops as you type…"
+                value={markQuery}
+                onChange={(e) => setMarkQuery(e.target.value)}
+                autoFocus
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={courseOnly}
+                onChange={(e) => setCourseOnly(e.target.checked)}
+              />
+              Only {marking.course || "this course"}
+            </label>
+          </div>
+          {markingRoster.length === 0 ? (
+            <p className="rounded-xl border border-border bg-surface px-4 py-6 text-sm text-muted">
+              No student names to score yet. Add learners under Learners, or grant a student portal login, then come back here.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-surface">
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+                      Student
+                    </th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+                      ID
+                    </th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+                      Course
+                    </th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+                      Mark / {marking.maxScore}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {markingRoster.map((student) => (
+                    <tr key={student.id} className="hover:bg-surface/70">
+                      <td className="px-4 py-3 font-medium text-foreground">{student.name}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted">{student.id}</td>
+                      <td className="px-4 py-3 text-muted">{student.course || "—"}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min={0}
+                          max={marking.maxScore}
+                          className={`${fieldClass} ml-auto w-28 text-right`}
+                          placeholder="Mark"
+                          value={scoreDrafts[student.id] ?? ""}
+                          onChange={(e) =>
+                            setScoreDrafts((prev) => ({ ...prev, [student.id]: e.target.value }))
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setMarking(null)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={saveMarks} disabled={markingRoster.length === 0}>
+              Save marks
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Modal open={open} title="Create assessment" onClose={() => setOpen(false)}>
         <form onSubmit={onCreate} className="space-y-3">
@@ -227,90 +420,6 @@ export default function AssessmentsPage() {
         </form>
       </Modal>
 
-      <Modal
-        open={!!marking}
-        title={marking ? `Marks · ${marking.title}` : "Marks"}
-        onClose={() => setMarking(null)}
-      >
-        {marking && (
-          <div className="max-h-[60vh] space-y-3 overflow-y-auto">
-            {learners.length === 0 ? (
-              <p className="text-sm text-muted">
-                No learners on the roster yet. Add students under Learners, then award marks here. Marks appear on the student portal as soon as you save.
-              </p>
-            ) : (
-              <>
-                <p className="text-xs text-muted">
-                  Type a score for each student (out of {marking.maxScore}). Leave blank to skip. Saved marks show on the student portal.
-                </p>
-                {learners.map((learner) => (
-                  <div key={learner.id} className="flex items-center gap-3">
-                    <p className="min-w-0 flex-1 truncate text-sm">
-                      {learner.name}
-                      <span className="ml-2 text-xs text-muted">{learner.id}</span>
-                    </p>
-                    <input
-                      type="number"
-                      min={0}
-                      max={marking.maxScore}
-                      className={`${fieldClass} w-24`}
-                      placeholder="Mark"
-                      value={scoreDrafts[learner.id] ?? ""}
-                      onChange={(e) =>
-                        setScoreDrafts((prev) => ({ ...prev, [learner.id]: e.target.value }))
-                      }
-                    />
-                  </div>
-                ))}
-              </>
-            )}
-            <div className="flex justify-end gap-2 pt-3">
-              <Button type="button" variant="outline" onClick={() => setMarking(null)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  if (!marking) return;
-                  const rows = learners
-                    .map((learner) => {
-                      const raw = scoreDrafts[learner.id];
-                      if (raw === undefined || raw === "") return null;
-                      const score = Number(raw);
-                      if (Number.isNaN(score)) return null;
-                      const existing = grades.find(
-                        (g) => g.assessmentId === marking.id && g.learnerId === learner.id
-                      );
-                      return {
-                        id: existing?.id ?? uid("GRD"),
-                        assessmentId: marking.id,
-                        learnerId: learner.id,
-                        learnerName: learner.name,
-                        title: marking.title,
-                        course: marking.course,
-                        type: marking.type,
-                        score,
-                        maxScore: marking.maxScore,
-                        date: new Date().toISOString().slice(0, 10),
-                      };
-                    })
-                    .filter((row) => row !== null);
-                  gradesStore.upsertMany(rows);
-                  assessmentsStore.upsert({
-                    ...marking,
-                    submissions: rows.length,
-                  });
-                  refresh();
-                  refreshGrades();
-                  setMarking(null);
-                }}
-              >
-                Save marks
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }

@@ -241,10 +241,14 @@ export function upsertLearnerFromPayment(input: {
   phone: string;
   course: string;
   status?: Learner["status"];
+  paidAmount?: number;
+  feeDue?: number;
 }) {
-  const existing = learnersStore.getAll().find((l) => l.id === input.id);
+  const existing =
+    learnersStore.getAll().find((l) => l.id === input.id) ??
+    learnersStore.getAll().find((l) => l.email.toLowerCase() === input.email.toLowerCase());
   learnersStore.upsert({
-    id: input.id,
+    id: existing?.id ?? input.id,
     name: input.name,
     email: input.email,
     phone: input.phone,
@@ -252,8 +256,20 @@ export function upsertLearnerFromPayment(input: {
     enrollmentDate: existing?.enrollmentDate ?? new Date().toISOString().slice(0, 10),
     progress: existing?.progress ?? 0,
     status: input.status ?? existing?.status ?? "active",
-    paidAmount: existing?.paidAmount,
-    feeDue: existing?.feeDue,
+    paidAmount: input.paidAmount ?? existing?.paidAmount,
+    feeDue: input.feeDue ?? existing?.feeDue,
+  });
+}
+
+/** Keep the roster paid/due figures in line with the payment ledger. */
+export function applyLearnerFeeTotals(email: string, paidAmount: number, feeDue?: number) {
+  const e = email.trim().toLowerCase();
+  const learner = learnersStore.getAll().find((l) => l.email.toLowerCase() === e);
+  if (!learner) return;
+  learnersStore.upsert({
+    ...learner,
+    paidAmount,
+    feeDue: feeDue && feeDue > 0 ? feeDue : learner.feeDue,
   });
 }
 

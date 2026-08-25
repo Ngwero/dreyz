@@ -23,6 +23,7 @@ import {
   updateAccount,
   updateUserStatus,
 } from "@/lib/auth";
+import { provisionPortalAccount } from "@/lib/auth-client";
 import { exportCsv } from "@/lib/store";
 import { ROLE_LABELS } from "@/lib/roles";
 import { classOptions, feeTracks } from "@/lib/data";
@@ -98,8 +99,18 @@ export default function AccountsPage() {
 
   const users = useMemo(() => {
     void tick;
-    const list = remoteUsers ?? getAllUsers();
-    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+    const remote = remoteUsers ?? [];
+    const liveEmails = new Set(remote.map((u) => u.email.toLowerCase()));
+    const listed: (PortalUser & { liveLogin: boolean })[] = remote.map((u) => ({
+      ...u,
+      liveLogin: true,
+    }));
+    for (const local of getAllUsers()) {
+      if (liveEmails.has(local.email.toLowerCase())) continue;
+      listed.push({ ...local, liveLogin: false });
+      liveEmails.add(local.email.toLowerCase());
+    }
+    return listed.sort((a, b) => a.name.localeCompare(b.name));
   }, [tick, remoteUsers]);
 
   if (user && user.role !== "super_admin" && user.role !== "accountant") {
@@ -277,6 +288,32 @@ export default function AccountsPage() {
     }
   };
 
+  const onEnableLiveLogin = async (u: PortalUser) => {
+    setNotice("");
+    setError("");
+    const live = await provisionPortalAccount({
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      role: u.role,
+      learnerId: u.learnerId,
+      instructorId: u.instructorId,
+      feeTrackId: u.feeTrackId,
+      classOptionId: u.classOptionId,
+      specialty: u.specialty,
+    });
+    if (!live.ok) {
+      setError(live.error);
+      return;
+    }
+    setNotice(
+      live.alreadyExists
+        ? `${u.email} already has a live login. They can sign in or use Forgot password.`
+        : `Live login emailed to ${u.email}. Temporary password: ${live.password ?? "—"}`
+    );
+    bump();
+  };
+
   const onExport = () => {
     exportCsv("accounts.csv", [
       ["Name", "Email", "Role", "Status", "Phone", "Created", "Last login"],
@@ -309,7 +346,7 @@ export default function AccountsPage() {
         title="Account management"
         description={
           isAdmin
-            ? "Create and manage Super Admin, Accountant, Tutor, and Student portal logins. New accounts get a Welcome to Dreyz Interior email with a temporary password."
+            ? "Create and manage Super Admin, Accountant, Tutor, and Student portal logins. Accounts created only on this computer show as This device only until you email a live login. Students sign in at dreyzschool.com with that email."
             : "Create and manage student portal accounts. Confirming a payment also provisions a student login."
         }
         action={
@@ -441,15 +478,25 @@ export default function AccountsPage() {
               <Badge variant="accent">{ROLE_LABELS[u.role]}</Badge>
             </TableCell>
             <TableCell>
-              <Badge variant={u.status === "active" ? "success" : "danger"}>
-                {u.status}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-1">
+                <Badge variant={u.status === "active" ? "success" : "danger"}>
+                  {u.status}
+                </Badge>
+                {"liveLogin" in u && u.liveLogin === false && (
+                  <Badge variant="warning">This device only</Badge>
+                )}
+              </div>
             </TableCell>
             <TableCell className="text-muted">
               {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
             </TableCell>
             <TableCell>
               <div className="flex flex-wrap justify-end gap-1">
+                {"liveLogin" in u && u.liveLogin === false && (
+                  <Button size="sm" onClick={() => onEnableLiveLogin(u)}>
+                    <UserPlus size={13} /> Email live login
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
                   <Pencil size={13} /> Edit
                 </Button>

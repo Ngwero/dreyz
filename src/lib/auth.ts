@@ -7,7 +7,11 @@ import type {
 } from "./types";
 import { feeTracks, classOptions, schoolInfo } from "./data";
 import { portalLoginUrl } from "./portal-url";
-import { upsertInstructorFromAccount, upsertLearnerFromPayment } from "./store";
+import {
+  applyLearnerFeeTotals,
+  upsertInstructorFromAccount,
+  upsertLearnerFromPayment,
+} from "./store";
 
 export const SESSION_COOKIE = "dreyz_session";
 export const USERS_KEY = "dreyz_users";
@@ -487,20 +491,39 @@ function pushPayment(payment: PaymentRecord) {
   writeJson(PAYMENTS_KEY, list);
 }
 
+export function confirmedPaidForEmail(email: string) {
+  const e = email.trim().toLowerCase();
+  return getPayments()
+    .filter((p) => p.learnerEmail.toLowerCase() === e && p.status === "confirmed")
+    .reduce((sum, p) => sum + p.amount, 0);
+}
+
+export function syncLearnerBalance(email: string, feeDue?: number) {
+  const e = email.trim().toLowerCase();
+  const paid = confirmedPaidForEmail(e);
+  const user = getAllUsers().find((u) => u.email.toLowerCase() === e);
+  const track = feeTracks.find((t) => t.id === user?.feeTrackId);
+  applyLearnerFeeTotals(e, paid, feeDue && feeDue > 0 ? feeDue : track?.total);
+  return paid;
+}
+
 export function updatePayment(id: string, patch: Partial<PaymentRecord>) {
   const list = getPayments();
   const i = list.findIndex((p) => p.id === id);
   if (i < 0) return;
   list[i] = { ...list[i], ...patch, id: list[i].id };
   writeJson(PAYMENTS_KEY, list);
+  syncLearnerBalance(list[i].learnerEmail);
   return list[i];
 }
 
 export function deletePayment(id: string) {
+  const current = getPayments().find((p) => p.id === id);
   writeJson(
     PAYMENTS_KEY,
     getPayments().filter((p) => p.id !== id)
   );
+  if (current) syncLearnerBalance(current.learnerEmail);
 }
 
 export function recordManualFee(input: {
@@ -510,39 +533,26 @@ export function recordManualFee(input: {
   amount: number;
   feeTrackId?: string;
   classOptionId?: string;
+  feeDue?: number;
 }) {
   const email = input.learnerEmail.trim().toLowerCase();
-  const list = getPayments();
-  const key = `MANUAL-${email}`;
-  const existing = list.find((p) => p.reference === key);
-  if (input.amount <= 0) {
-    if (existing) deletePayment(existing.id);
-    return;
-  }
-  if (existing) {
-    updatePayment(existing.id, {
-      amount: input.amount,
+  if (input.amount > 0) {
+    pushPayment({
+      id: `PAY-${Date.now().toString(36).toUpperCase()}`,
       learnerName: input.learnerName,
-      phone: input.phone ?? existing.phone,
-      status: "confirmed",
+      learnerEmail: email,
+      phone: input.phone ?? "",
+      feeTrackId: input.feeTrackId ?? "4-month",
+      classOptionId: input.classOptionId ?? "weekday",
+      amount: input.amount,
+      method: "cash",
+      reference: `MANUAL-${email}-${Date.now().toString(36).toUpperCase()}`,
       date: new Date().toISOString().slice(0, 10),
+      status: "confirmed",
+      credentialsSent: false,
     });
-    return;
   }
-  pushPayment({
-    id: `PAY-${Date.now().toString(36).toUpperCase()}`,
-    learnerName: input.learnerName,
-    learnerEmail: email,
-    phone: input.phone ?? "",
-    feeTrackId: input.feeTrackId ?? "4-month",
-    classOptionId: input.classOptionId ?? "weekday",
-    amount: input.amount,
-    method: "cash",
-    reference: key,
-    date: new Date().toISOString().slice(0, 10),
-    status: "confirmed",
-    credentialsSent: false,
-  });
+  return syncLearnerBalance(email, input.feeDue);
 }
 
 export function buildCredentialEmail(opts: {
@@ -672,7 +682,10 @@ export function confirmPaymentAndProvision(
     phone: user.phone ?? "",
     course: track?.name ?? "Professional Interior Design Programme",
     status: paidTotal >= 1_000_000 ? "active" : "paused",
+    paidAmount: paidTotal,
+    feeDue: track?.total,
   });
+  syncLearnerBalance(user.email, track?.total);
 
   const email: CredentialEmail = {
     id: `MAIL-${Date.now().toString(36).toUpperCase()}`,
@@ -700,6 +713,8 @@ export function confirmPaymentAndProvision(
         enrollmentDate: payment.date,
         progress: 0,
         status: "active",
+        paidAmount: paidTotal,
+        feeDue: track?.total,
       });
       void insertEmailOutbox(email);
     });

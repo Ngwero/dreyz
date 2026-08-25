@@ -29,7 +29,8 @@ export function feesForStudent(
         p.status === "confirmed"
     )
     .reduce((sum, p) => sum + p.amount, 0);
-  const paid = Math.max(fromPayments, learnerPaid ?? 0);
+  /** Ledger is source of truth; roster paidAmount is a fallback before the first payment is stored. */
+  const paid = fromPayments > 0 ? fromPayments : learnerPaid ?? 0;
   return {
     total,
     paid,
@@ -49,6 +50,42 @@ export function schoolFeeTotals(learners: { email: string; paidAmount?: number; 
     },
     { expected: 0, paid: 0, balance: 0 }
   );
+}
+
+/** Programme attendance that counts toward class progress (4 months + 2-month internship). */
+export const ATTENDANCE_AWARD_MONTHS = 6;
+
+export function addCalendarMonths(isoDate: string, months: number) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (!year || !month || !day) return isoDate;
+  const lastDay = new Date(year, month - 1 + months + 1, 0).getDate();
+  const out = new Date(year, month - 1 + months, Math.min(day, lastDay));
+  const y = out.getFullYear();
+  const m = String(out.getMonth() + 1).padStart(2, "0");
+  const d = String(out.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function attendanceAwardWindow(enrollmentDate?: string) {
+  const from =
+    enrollmentDate && /^\d{4}-\d{2}-\d{2}$/.test(enrollmentDate)
+      ? enrollmentDate
+      : "";
+  return { from, to: from ? addCalendarMonths(from, ATTENDANCE_AWARD_MONTHS) : "" };
+}
+
+/** Inclusive of enrolment day, exclusive of the same calendar day six months later. */
+export function attendanceCountsForAward(date: string, enrollmentDate?: string) {
+  if (!enrollmentDate || !/^\d{4}-\d{2}-\d{2}$/.test(enrollmentDate)) return true;
+  const { from, to } = attendanceAwardWindow(enrollmentDate);
+  return date >= from && date < to;
+}
+
+export function awardedAttendance(
+  records: AttendanceRecord[],
+  enrollmentDate?: string
+) {
+  return records.filter((r) => attendanceCountsForAward(r.date, enrollmentDate));
 }
 
 export function attendanceSummary(records: AttendanceRecord[]) {
@@ -94,7 +131,7 @@ export type ProgressBreakdown = {
  * classes attended, tests, exams, and the final exam when required.
  */
 export function learnerProgressBreakdown(
-  learner: Pick<Learner, "id" | "progress" | "course">,
+  learner: Pick<Learner, "id" | "progress" | "course" | "enrollmentDate">,
   courses = coursesStore.getAll()
 ): ProgressBreakdown {
   const course = courseForLearner(learner, courses);
@@ -103,7 +140,10 @@ export function learnerProgressBreakdown(
   const examRequired = course?.examCount ?? 0;
   const finalRequired = course?.hasFinalExam ? 1 : 0;
 
-  const attendance = attendanceStore.getAll().filter((r) => r.learnerId === learner.id);
+  const attendance = awardedAttendance(
+    attendanceStore.getAll().filter((r) => r.learnerId === learner.id),
+    learner.enrollmentDate
+  );
   const { present, late } = attendanceSummary(attendance);
   const classesDone = present + late;
 
@@ -134,7 +174,7 @@ export function learnerProgressBreakdown(
 }
 
 export function computeLearnerProgress(
-  learner: Pick<Learner, "id" | "progress" | "course">
+  learner: Pick<Learner, "id" | "progress" | "course" | "enrollmentDate">
 ): number {
   return learnerProgressBreakdown(learner).percent;
 }

@@ -184,11 +184,13 @@ export default function EnrollmentsPage() {
         status: form.status,
       };
       enrollmentsStore.upsert(record);
-      recordManualFee({
-        learnerName: record.learnerName,
-        learnerEmail: record.learnerEmail ?? "",
-        amount: record.status === "paid" ? amount : 0,
-      });
+      if (!editing && record.status === "paid" && amount > 0 && record.learnerEmail) {
+        recordManualFee({
+          learnerName: record.learnerName,
+          learnerEmail: record.learnerEmail,
+          amount,
+        });
+      }
       refreshEnrollments();
       setPayments(getPayments());
     }

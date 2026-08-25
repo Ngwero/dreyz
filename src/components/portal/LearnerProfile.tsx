@@ -13,7 +13,9 @@ import {
   useLiveTick,
 } from "@/lib/store";
 import {
+  ATTENDANCE_AWARD_MONTHS,
   attendanceSummary,
+  awardedAttendance,
   feesForStudent,
   learnerProgressBreakdown,
 } from "@/lib/academics";
@@ -78,7 +80,10 @@ export function LearnerProfile({
   const track = feeTracks.find((t) => t.id === account?.feeTrackId) ?? feeTracks[0];
   const klass = classOptions.find((c) => c.id === account?.classOptionId);
   const progress = learnerProgressBreakdown(learner);
-  const attendance = attendanceStore.getAll().filter((r) => r.learnerId === learner.id);
+  const attendance = awardedAttendance(
+    attendanceStore.getAll().filter((r) => r.learnerId === learner.id),
+    learner.enrollmentDate
+  );
   const att = attendanceSummary(attendance);
   const grades = gradesStore
     .getAll()
@@ -211,7 +216,7 @@ export function LearnerProfile({
           </section>
           <section className="rounded-2xl border border-border p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-              Attendance
+              Attendance (first {ATTENDANCE_AWARD_MONTHS} months)
             </p>
             <AttendancePulseChart present={att.present} late={att.late} absent={att.absent} />
             <div className="mt-2 grid grid-cols-4 gap-2 text-center">

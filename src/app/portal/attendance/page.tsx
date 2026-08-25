@@ -30,7 +30,13 @@ import {
 } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { cn } from "@/lib/utils";
-import { attendanceSummary } from "@/lib/academics";
+import {
+  ATTENDANCE_AWARD_MONTHS,
+  attendanceAwardWindow,
+  attendanceCountsForAward,
+  attendanceSummary,
+  awardedAttendance,
+} from "@/lib/academics";
 
 type Mark = AttendanceRecord["status"];
 
@@ -128,10 +134,25 @@ export default function AttendancePage() {
     );
   }, [scoped, query]);
 
-  const present = filtered.filter((a) => a.status === "present").length;
-  const absent = filtered.filter((a) => a.status === "absent").length;
-  const late = filtered.filter((a) => a.status === "late").length;
-  const studentStats = attendanceSummary(scoped);
+  const learnerById = useMemo(() => {
+    const map = new Map(learners.map((l) => [l.id, l]));
+    return map;
+  }, [learners]);
+
+  const awarded = useMemo(() => {
+    if (user?.role === "student" && user.learnerId) {
+      const enrolled = learnerById.get(user.learnerId)?.enrollmentDate;
+      return awardedAttendance(scoped, enrolled);
+    }
+    return scoped.filter((r) =>
+      attendanceCountsForAward(r.date, learnerById.get(r.learnerId)?.enrollmentDate)
+    );
+  }, [scoped, user, learnerById]);
+
+  const present = awarded.filter((a) => a.status === "present").length;
+  const absent = awarded.filter((a) => a.status === "absent").length;
+  const late = awarded.filter((a) => a.status === "late").length;
+  const studentStats = attendanceSummary(awarded);
 
   const bulkCounts = useMemo(() => {
     const counts = { present: 0, late: 0, absent: 0 };
@@ -160,8 +181,15 @@ export default function AttendancePage() {
       date: form.date,
       status: form.status,
     });
+    const counts = attendanceCountsForAward(form.date, learner.enrollmentDate);
     refresh();
     setOpen(false);
+    const { from, to } = attendanceAwardWindow(learner.enrollmentDate);
+    setBulkNotice(
+      counts
+        ? `Saved attendance for ${learner.name}.`
+        : `Saved, but ${form.date} is outside ${learner.name}'s ${ATTENDANCE_AWARD_MONTHS}-month window (${from} to ${to}) and will not count toward progress.`
+    );
   };
 
   const setStatus = (record: AttendanceRecord, status: Mark) => {
@@ -186,20 +214,35 @@ export default function AttendancePage() {
 
   const saveBulk = () => {
     if (!bulkRoster.length) return;
-    const entries = periodDates.flatMap((date) =>
+    const allEntries = periodDates.flatMap((date) =>
       bulkRoster.map((learner) => ({
         learnerId: learner.id,
         learnerName: learner.name,
         course: selectedCourse,
         date,
         status: markFor(learner),
+        enrollmentDate: learner.enrollmentDate,
       }))
     );
-    saveBulkAttendance(entries);
+    const awardedEntries = allEntries.filter((e) =>
+      attendanceCountsForAward(e.date, e.enrollmentDate)
+    );
+    const skipped = allEntries.length - awardedEntries.length;
+    saveBulkAttendance(
+      awardedEntries.map(({ learnerId, learnerName, course, date, status }) => ({
+        learnerId,
+        learnerName,
+        course,
+        date,
+        status,
+      }))
+    );
     setMarks({});
     refresh();
     setBulkNotice(
-      `Saved ${bulkRoster.length} learners × ${periodDates.length} day${periodDates.length === 1 ? "" : "s"} for ${selectedCourse} — ${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent.`
+      `Awarded ${awardedEntries.length} mark${awardedEntries.length === 1 ? "" : "s"} in the first ${ATTENDANCE_AWARD_MONTHS} months from each learner's enrolment (${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent).${
+        skipped ? ` ${skipped} day${skipped === 1 ? "" : "s"} outside that window were not saved.` : ""
+      }`
     );
   };
 
@@ -231,7 +274,7 @@ export default function AttendancePage() {
     <div>
       <PageHeader
         title="Attendance"
-        description="Track learner attendance for live sessions and workshops. Use bulk attendance to mark a whole class at once."
+        description={`Track live sessions and workshops. Only the first ${ATTENDANCE_AWARD_MONTHS} months from a learner's enrolment date count toward class progress.`}
         action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onExport}>
@@ -271,6 +314,7 @@ export default function AttendancePage() {
             Strikes (absence or two lates):{" "}
             <span className="font-semibold text-foreground">{studentStats.strikes}</span>
             . Four absences can lead to suspension — speak with your tutor if you need to catch up.
+            Only the first {ATTENDANCE_AWARD_MONTHS} months from your enrolment date count.
           </p>
         </Card>
       )}
@@ -286,7 +330,7 @@ export default function AttendancePage() {
           }
         >
           <p className="mb-4 text-sm text-muted">
-            Mark the class for one day or a full month. Existing marks for the same date and course are updated instead of duplicated.
+            Mark one day or a date range. Days after a learner&apos;s {ATTENDANCE_AWARD_MONTHS}-month enrolment window are not awarded.
           </p>
 
           {bulkNotice && (
@@ -479,10 +523,16 @@ export default function AttendancePage() {
           { key: "learner", label: "Learner" },
           { key: "course", label: "Course" },
           { key: "date", label: "Date" },
+          { key: "award", label: "Counts" },
           { key: "status", label: "Status" },
         ]}
       >
-        {filtered.map((record) => (
+        {filtered.map((record) => {
+          const counts = attendanceCountsForAward(
+            record.date,
+            learnerById.get(record.learnerId)?.enrollmentDate
+          );
+          return (
           <TableRow key={record.id}>
             <TableCell>
               <div>
@@ -492,6 +542,11 @@ export default function AttendancePage() {
             </TableCell>
             <TableCell>{record.course}</TableCell>
             <TableCell className="text-muted">{record.date}</TableCell>
+            <TableCell>
+              <Badge variant={counts ? "success" : "default"}>
+                {counts ? "Awarded" : "Outside 6 months"}
+              </Badge>
+            </TableCell>
             <TableCell>
               {canMark ? (
                 <select
@@ -520,7 +575,8 @@ export default function AttendancePage() {
               )}
             </TableCell>
           </TableRow>
-        ))}
+          );
+        })}
       </DataTable>
 
       <Modal open={open} title="Mark attendance" onClose={() => setOpen(false)}>

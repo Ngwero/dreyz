@@ -18,7 +18,7 @@ import { isPasswordAcceptable } from "@/lib/password-strength";
 import { ROLE_LABELS } from "@/lib/roles";
 import { classOptions, enrollments, feeTracks, schoolInfo } from "@/lib/data";
 import { formatUGX } from "@/lib/utils";
-import { feesForStudent, computeLearnerProgress } from "@/lib/academics";
+import { feesForStudent, computeLearnerProgress, awardedAttendance } from "@/lib/academics";
 import {
   attendanceStore,
   instructorsStore,
@@ -65,14 +65,20 @@ export default function MyAccountPage() {
     : instructors.find((i) => i.email.toLowerCase() === profile.email.toLowerCase());
   const track = feeTracks.find((t) => t.id === profile.feeTrackId);
   const klass = classOptions.find((c) => c.id === profile.classOptionId);
-  const fees = feesForStudent(profile.email, profile.feeTrackId);
+  const fees = feesForStudent(
+    profile.email,
+    profile.feeTrackId,
+    learner?.paidAmount,
+    learner?.feeDue
+  );
   const liveProgress = learner ? computeLearnerProgress(learner) : 0;
   const myPayments = getPayments().filter(
     (p) => p.learnerEmail.toLowerCase() === profile.email.toLowerCase()
   );
-  const myAttendance = attendanceStore
-    .getAll()
-    .filter((a) => a.learnerId === learner?.id);
+  const myAttendance = awardedAttendance(
+    attendanceStore.getAll().filter((a) => a.learnerId === learner?.id),
+    learner?.enrollmentDate
+  );
   const myProjects = projectsStore
     .getAll()
     .filter((p) => p.learnerId === learner?.id);

@@ -17,6 +17,7 @@ import {
   getEmailOutbox,
   getPayments,
 } from "@/lib/auth";
+import { provisionPortalAccount } from "@/lib/auth-client";
 import type { CredentialEmail, PaymentRecord } from "@/lib/types";
 import {
   Mail,
@@ -102,17 +103,40 @@ export default function PaymentsPage() {
   };
 
   // ── Manual confirm ──
-  const onSubmitManual = (e: FormEvent) => {
+  const onSubmitManual = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const amount = Number(form.amount) || selectedTrack?.total || 0;
+      const live = await provisionPortalAccount({
+        name: form.learnerName,
+        email: form.learnerEmail,
+        phone: form.phone,
+        role: "student",
+        feeTrackId: form.feeTrackId,
+        classOptionId: form.classOptionId,
+      });
       const result = confirmPaymentAndProvision({
         ...form,
-        amount: Number(form.amount) || selectedTrack?.total || 0,
+        amount,
       });
       setPayments(getPayments());
       setOutbox(getEmailOutbox());
       setLastEmail(result.email);
+      if (!live.ok) {
+        setRukaMsg(
+          `Payment saved, but the live login was not created: ${live.error} Open Learners and use Email live login.`
+        );
+        setRukaMsgType("error");
+      } else if (live.alreadyExists) {
+        setRukaMsg("Payment saved. This student already has a live portal login.");
+        setRukaMsgType("success");
+      } else {
+        setRukaMsg(
+          `Payment saved. Live login emailed to ${form.learnerEmail}. Temporary password: ${live.password ?? "—"}`
+        );
+        setRukaMsgType("success");
+      }
       resetForm();
     } finally {
       setSubmitting(false);
@@ -185,6 +209,14 @@ export default function PaymentsPage() {
       setRukaTransactions(getAllLocalTxns());
 
       if (res.transaction.status === "SUCCESS") {
+        const live = await provisionPortalAccount({
+          name: form.learnerName,
+          email: form.learnerEmail,
+          phone: form.phone,
+          role: "student",
+          feeTrackId: form.feeTrackId,
+          classOptionId: form.classOptionId,
+        });
         const result = confirmPaymentAndProvision({
           ...form,
           amount,
@@ -194,8 +226,14 @@ export default function PaymentsPage() {
         setPayments(getPayments());
         setOutbox(getEmailOutbox());
         setLastEmail(result.email);
-        setRukaMsg(`Payment collected! Txn: ${res.transaction.transactionId}. Student account created.`);
-        setRukaMsgType("success");
+        setRukaMsg(
+          live.ok
+            ? live.alreadyExists
+              ? `Payment collected. This student already has a live portal login. Txn: ${res.transaction.transactionId}`
+              : `Payment collected. Live login emailed to ${form.learnerEmail}. Temporary password: ${live.password ?? "—"}. Txn: ${res.transaction.transactionId}`
+            : `Payment collected, but live login failed: ${live.error}. Txn: ${res.transaction.transactionId}`
+        );
+        setRukaMsgType(live.ok ? "success" : "error");
         resetForm();
       } else {
         setRukaMsg(`Collection initiated (${res.transaction.status}). Txn: ${res.transaction.transactionId}. Waiting for callback confirmation.`);
