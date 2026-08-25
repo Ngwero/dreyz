@@ -9,6 +9,7 @@ import { Plus, Download, FileText, Box, Image, Video, Layout, Trash2, Upload } f
 import { resourcesStore, useStoreList, uid, type Resource } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { showFlash } from "@/lib/flash";
+import { LottieLoader } from "@/components/ui/LottieLoader";
 
 const typeIcons = {
   PDF: FileText,
@@ -223,7 +224,11 @@ export default function ResourcesPage() {
           </label>
           <div className="mt-4 flex justify-end">
             <Button type="submit" disabled={uploading}>
-              <Plus size={14} />
+              {uploading ? (
+                <LottieLoader size="xs" className="!gap-0" />
+              ) : (
+                <Plus size={14} />
+              )}
               {uploading ? "Uploading…" : "Upload to resource centre"}
             </Button>
           </div>

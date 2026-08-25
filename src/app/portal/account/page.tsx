@@ -33,6 +33,7 @@ import {
   schoolFeeTotals,
 } from "@/lib/academics";
 import { showFlash } from "@/lib/flash";
+import { LottiePanel } from "@/components/ui/LottieLoader";
 import { collectRecentActivity, formatActivityTime } from "@/lib/activity";
 import {
   attendanceStore,
@@ -121,7 +122,11 @@ export default function MyAccountPage() {
     return (
       <div>
         <PageHeader title="My profile" description="Your portal account." />
-        <p className="text-sm text-muted">{user ? "Loading your profile…" : "Sign in to view your profile."}</p>
+        {user ? (
+          <LottiePanel label="Loading your profile…" />
+        ) : (
+          <p className="text-sm text-muted">Sign in to view your profile.</p>
+        )}
       </div>
     );
   }

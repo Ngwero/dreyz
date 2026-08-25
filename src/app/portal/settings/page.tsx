@@ -9,6 +9,7 @@ import { getSettings, saveSettings, type SchoolSettings } from "@/lib/store";
 import { showFlash } from "@/lib/flash";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { RolePagesSettings } from "@/components/settings/RolePagesSettings";
+import { LottiePanel } from "@/components/ui/LottieLoader";
 import {
   getRukaPayConfig,
   saveRukaPayConfig,
@@ -27,7 +28,7 @@ export default function SettingsPage() {
   }, []);
 
   if (!settings) {
-    return <p className="text-sm text-muted">Loading settings…</p>;
+    return <LottiePanel label="Loading settings…" />;
   }
 
   const persist = (next: SchoolSettings, message: string) => {

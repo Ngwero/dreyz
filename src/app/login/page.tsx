@@ -22,6 +22,7 @@ import {
 } from "@/lib/auth-client";
 import { changePasswordByEmail } from "@/lib/auth";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrength";
+import { LottieLoader, LottieScreen } from "@/components/ui/LottieLoader";
 import { isPasswordAcceptable } from "@/lib/password-strength";
 import { showFlash } from "@/lib/flash";
 import { classOptions, feeTracks } from "@/lib/data";
@@ -980,8 +981,10 @@ function LoginForm() {
                 }
               >
                 <span className="truncate">{submitLabel}</span>
-                {!loading && otpStatus !== "ok" && (
-                  <ArrowRight size={16} className="shrink-0" />
+                {loading ? (
+                  <LottieLoader size="xs" tone="onDark" className="!gap-0" />
+                ) : (
+                  otpStatus !== "ok" && <ArrowRight size={16} className="shrink-0" />
                 )}
               </button>
 
@@ -1047,9 +1050,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[100svh] items-center justify-center bg-[#082878] px-4 text-sm text-white">
-          Loading…
-        </div>
+        <LottieScreen label="Loading login…" tone="onDark" />
       }
     >
       <LoginForm />

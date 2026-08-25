@@ -27,6 +27,7 @@ import { provisionPortalAccount } from "@/lib/auth-client";
 import { showFlash } from "@/lib/flash";
 import { exportCsv } from "@/lib/store";
 import { ROLE_LABELS } from "@/lib/roles";
+import { LottiePanel } from "@/components/ui/LottieLoader";
 import { classOptions, feeTracks } from "@/lib/data";
 import type { PortalUser, UserRole } from "@/lib/types";
 import { KeyRound, Mail, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
@@ -406,7 +407,7 @@ export default function AccountsPage() {
         </p>
       )}
       {listLoading && !remoteUsers && (
-        <p className="mb-4 text-sm text-muted">Loading accounts from the school database…</p>
+        <LottiePanel label="Loading accounts…" className="min-h-[28vh] py-6" />
       )}
       {isAdmin && (
         <div className="mb-5 flex flex-wrap gap-2">

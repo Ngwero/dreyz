@@ -29,8 +29,10 @@ import {
   Wifi,
   CreditCard,
   UserCheck,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PaymentLedger } from "@/components/payments/PaymentLedger";
 import {
   isRukaPayReady,
   isSandboxMode,
@@ -66,6 +68,7 @@ export default function PaymentsPage() {
   const [validatedName, setValidatedName] = useState("");
   const [rukaTransactions, setRukaTransactions] = useState<LocalTxn[]>(() => getAllLocalTxns());
 
+  const [recordOpen, setRecordOpen] = useState(false);
   const [form, setForm] = useState({
     learnerName: "",
     learnerEmail: "",
@@ -276,54 +279,74 @@ export default function PaymentsPage() {
         description="Confirm a fee payment to create the student account and email their portal login."
       />
 
-      {rukaReady && sandbox && payMode === "rukapay" && (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm">
-          <p className="font-medium text-emerald-700 dark:text-emerald-300">
-            Sandbox mode — no real money processed
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            Using <code className="text-[11px]">dev-api.rukapay.net</code> with sandbox endpoints.
-            Use the test numbers below to validate and collect.
-          </p>
-        </div>
-      )}
-
-      {rukaReady && (
-        <div className="mb-6 flex items-center gap-2 rounded-xl border border-border bg-card p-1">
-          <button
-            onClick={() => { setPayMode("rukapay"); setRukaMsg(""); }}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              payMode === "rukapay"
-                ? "bg-accent text-white shadow-sm"
-                : "text-muted hover:text-foreground"
-            }`}
-          >
-            <Smartphone size={16} />
-            RukaPay (Mobile Money)
-          </button>
-          <button
-            onClick={() => setPayMode("manual")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              payMode === "manual"
-                ? "bg-accent text-white shadow-sm"
-                : "text-muted hover:text-foreground"
-            }`}
-          >
-            <CreditCard size={16} />
-            Manual Confirm
-          </button>
-        </div>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* ── LEFT: Payment form ── */}
-        <Card
-          title={payMode === "rukapay" ? "Collect via RukaPay" : "Confirm payment"}
-          className="lg:col-span-2"
+      <div className="mb-6">
+        <button
+          type="button"
+          aria-expanded={recordOpen}
+          onClick={() => setRecordOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-3 py-1 text-left"
         >
+          <div>
+            <p className="text-sm font-semibold text-foreground">Record a payment</p>
+            <p className="mt-0.5 text-xs text-muted">
+              Collect mobile money or confirm cash, bank, or card
+            </p>
+          </div>
+          <ChevronDown
+            size={18}
+            className={`shrink-0 text-muted transition-transform ${recordOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {recordOpen && (
+          <div className="mt-4">
+            {rukaReady && sandbox && payMode === "rukapay" && (
+              <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm">
+                <p className="font-medium text-emerald-700 dark:text-emerald-300">
+                  Sandbox mode — no real money processed
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Using <code className="text-[11px]">dev-api.rukapay.net</code> with sandbox endpoints.
+                  Use the test numbers below to validate and collect.
+                </p>
+              </div>
+            )}
+
+            {rukaReady && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl border border-border bg-surface p-1">
+                <button
+                  type="button"
+                  onClick={() => { setPayMode("rukapay"); setRukaMsg(""); }}
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                    payMode === "rukapay"
+                      ? "bg-accent text-white shadow-sm"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  <Smartphone size={16} />
+                  RukaPay (Mobile Money)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayMode("manual")}
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                    payMode === "manual"
+                      ? "bg-accent text-white shadow-sm"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  <CreditCard size={16} />
+                  Manual Confirm
+                </button>
+              </div>
+            )}
+
+            <p className="mb-3 text-sm font-medium text-foreground">
+              {payMode === "rukapay" ? "Collect via RukaPay" : "Confirm payment"}
+            </p>
           <form
             onSubmit={payMode === "rukapay" ? onSubmitRuka : onSubmitManual}
-            className="space-y-3"
+            className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
           >
             <Field label="Student full name">
               <input
@@ -344,7 +367,7 @@ export default function PaymentsPage() {
                 placeholder="student@email.com"
               />
             </Field>
-            <Field label="Phone number">
+            <Field label="Phone number" className="md:col-span-2 xl:col-span-1">
               <input
                 required
                 value={form.phone}
@@ -433,7 +456,7 @@ export default function PaymentsPage() {
                 ))}
               </select>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:col-span-2 xl:col-span-1">
               <Field label="Amount (UGX)">
                 <input
                   required
@@ -478,7 +501,7 @@ export default function PaymentsPage() {
             )}
 
             {payMode === "rukapay" ? (
-              <Button type="submit" disabled={rukaPending} className="w-full">
+              <Button type="submit" disabled={rukaPending} className="w-full md:col-span-2 xl:col-span-3">
                 {rukaPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 size={16} className="animate-spin" /> Collecting…
@@ -490,20 +513,20 @@ export default function PaymentsPage() {
                 )}
               </Button>
             ) : (
-              <Button type="submit" disabled={submitting} className="w-full">
+              <Button type="submit" disabled={submitting} className="w-full md:col-span-2 xl:col-span-3">
                 {submitting ? "Processing…" : "Confirm & email student login"}
               </Button>
             )}
 
             {payMode === "rukapay" && (
-              <p className="text-[11px] leading-relaxed text-muted">
+              <p className="text-[11px] leading-relaxed text-muted md:col-span-2 xl:col-span-3">
                 Calls RukaPay <code className="text-[10px]">PARTNER_COLLECT_MNO</code> to collect from the student&apos;s{" "}
                 {provider === "MTN" ? "MTN MoMo" : provider === "AIRTEL" ? "Airtel Money" : "mobile money"} account.
                 On success, the student portal account is created automatically.
               </p>
             )}
             {payMode === "manual" && (
-              <p className="text-[11px] leading-relaxed text-muted">
+              <p className="text-[11px] leading-relaxed text-muted md:col-span-2 xl:col-span-3">
                 On confirm: student account is created (if new), a temporary password
                 is generated, and login details are emailed to the student.
               </p>
@@ -531,10 +554,11 @@ export default function PaymentsPage() {
               <p>{rukaMsg}</p>
             </div>
           )}
-        </Card>
+          </div>
+        )}
+      </div>
 
-        {/* ── RIGHT: History ── */}
-        <div className="space-y-5 lg:col-span-3">
+      <div className="space-y-5">
           {lastEmail && (
             <Card title="Login email sent">
               <div className="mb-3 flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
@@ -591,10 +615,14 @@ export default function PaymentsPage() {
             </Card>
           )}
 
-          <Card title="Payment history">
-            {payments.length === 0 ? (
+          {user?.role === "super_admin" ? (
+            <PaymentLedger payments={payments} />
+          ) : payments.length === 0 ? (
+            <Card title="Payment history">
               <p className="text-sm text-muted">No payments recorded yet.</p>
-            ) : (
+            </Card>
+          ) : (
+            <Card title="Payment history">
               <DataTable
                 columns={[
                   { key: "id", label: "ID" },
@@ -621,8 +649,8 @@ export default function PaymentsPage() {
                   </TableRow>
                 ))}
               </DataTable>
-            )}
-          </Card>
+            </Card>
+          )}
 
           <Card title="Credential email outbox">
             {outbox.length === 0 ? (
@@ -647,7 +675,6 @@ export default function PaymentsPage() {
             )}
           </Card>
         </div>
-      </div>
 
       {!rukaReady && (
         <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
@@ -673,9 +700,17 @@ export default function PaymentsPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+    <label className={`block text-xs font-semibold uppercase tracking-wider text-muted ${className ?? ""}`}>
       {label}
       {children}
     </label>
