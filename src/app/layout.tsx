@@ -22,8 +22,13 @@ export const metadata: Metadata = {
   description:
     "Turn your passion for interiors into a career. Dreyz Interior Design School in Kyaliwajjala offers hands-on training, industry placement, and a certificate that gets you hired.",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: [
+      { url: "/favicon.ico?v=3", sizes: "any" },
+      { url: "/favicon-32.png?v=3", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-64.png?v=3", type: "image/png", sizes: "64x64" },
+    ],
+    shortcut: "/favicon.ico?v=3",
+    apple: "/apple-touch-icon.png?v=3",
   },
 };
 
