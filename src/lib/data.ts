@@ -106,14 +106,14 @@ export const feeTracks: FeeTrack[] = [
 ];
 
 export const learners: Learner[] = [
-  { id: "DRY001", name: "Amara Okafor", email: "amara.o@email.com", phone: "+234 801 234 5678", course: "Residential Interior Design", enrollmentDate: "2025-09-12", progress: 78, status: "active" },
-  { id: "DRY002", name: "James Mitchell", email: "j.mitchell@email.com", phone: "+44 7700 900123", course: "Commercial Interior Design", enrollmentDate: "2025-10-03", progress: 92, status: "active" },
-  { id: "DRY003", name: "Priya Sharma", email: "priya.s@email.com", phone: "+91 98765 43210", course: "Colour Theory and Colour Psychology", enrollmentDate: "2025-08-20", progress: 100, status: "completed" },
-  { id: "DRY004", name: "David Chen", email: "d.chen@email.com", phone: "+1 555 0123", course: "SketchUp and 3D Visualization", enrollmentDate: "2025-11-01", progress: 45, status: "active" },
-  { id: "DRY005", name: "Fatima Al-Rashid", email: "fatima.a@email.com", phone: "+971 50 123 4567", course: "Hospitality Interior Design", enrollmentDate: "2025-07-15", progress: 100, status: "completed" },
-  { id: "DRY006", name: "Lucas Bergström", email: "lucas.b@email.com", phone: "+46 70 123 4567", course: "Materials and Finishes", enrollmentDate: "2025-11-18", progress: 23, status: "active" },
-  { id: "DRY007", name: "Grace Nakato", email: "grace.n@email.com", phone: "+256 712 345 678", course: "Space Planning and Layout", enrollmentDate: "2025-06-08", progress: 65, status: "paused" },
-  { id: "DRY008", name: "Marco Rossi", email: "marco.r@email.com", phone: "+39 333 123 4567", course: "AutoCAD for Interior Design", enrollmentDate: "2025-10-22", progress: 88, status: "active" },
+  { id: "DRY001", name: "Amara Okafor", email: "amara.o@email.com", phone: "+234 801 234 5678", course: "Residential Interior Design", enrollmentDate: "2025-09-12", intake: "September 2025", progress: 78, status: "active" },
+  { id: "DRY002", name: "James Mitchell", email: "j.mitchell@email.com", phone: "+44 7700 900123", course: "Commercial Interior Design", enrollmentDate: "2025-10-03", intake: "September 2025", progress: 92, status: "active" },
+  { id: "DRY003", name: "Priya Sharma", email: "priya.s@email.com", phone: "+91 98765 43210", course: "Colour Theory and Colour Psychology", enrollmentDate: "2025-08-20", intake: "September 2025", progress: 100, status: "completed" },
+  { id: "DRY004", name: "David Chen", email: "d.chen@email.com", phone: "+1 555 0123", course: "SketchUp and 3D Visualization", enrollmentDate: "2025-11-01", intake: "September 2025", progress: 45, status: "active" },
+  { id: "DRY005", name: "Fatima Al-Rashid", email: "fatima.a@email.com", phone: "+971 50 123 4567", course: "Hospitality Interior Design", enrollmentDate: "2025-07-15", intake: "September 2025", progress: 100, status: "completed" },
+  { id: "DRY006", name: "Lucas Bergström", email: "lucas.b@email.com", phone: "+46 70 123 4567", course: "Materials and Finishes", enrollmentDate: "2025-11-18", intake: "September 2025", progress: 23, status: "active" },
+  { id: "DRY007", name: "Grace Nakato", email: "grace.n@email.com", phone: "+256 712 345 678", course: "Space Planning and Layout", enrollmentDate: "2025-06-08", intake: "January 2025", progress: 65, status: "paused" },
+  { id: "DRY008", name: "Marco Rossi", email: "marco.r@email.com", phone: "+39 333 123 4567", course: "AutoCAD for Interior Design", enrollmentDate: "2025-10-22", intake: "September 2025", progress: 88, status: "active" },
 ];
 
 export const instructors: Instructor[] = [

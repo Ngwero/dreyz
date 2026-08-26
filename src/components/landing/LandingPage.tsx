@@ -288,9 +288,6 @@ export function LandingPage() {
                     </div>
                     <div className="landing-glass rounded-2xl px-4 py-2 text-right">
                       <p className="text-sm font-medium">{opt.time}</p>
-                      <p className="text-xs text-white/80">
-                        {opt.hoursPerDay}h per day
-                      </p>
                     </div>
                   </div>
                 </Reveal>

@@ -22,6 +22,7 @@ import {
   durationLabel,
   isCourseReadyToActivate,
   normalizeCourse,
+  parseDurationWeeks,
 } from "@/lib/course-structure";
 
 const emptyForm = {
@@ -99,14 +100,18 @@ export default function CoursesPage() {
 
   const onSave = (e: FormEvent) => {
     e.preventDefault();
-    const weeks = Number(form.durationWeeks) || 0;
+    const weeks =
+      Number(form.durationWeeks) ||
+      editing?.durationWeeks ||
+      parseDurationWeeks(editing?.duration) ||
+      0;
     const draft: Course = {
       id: editing?.id ?? uid("CRS"),
       title: form.title.trim(),
       category: form.category.trim(),
       level: form.level,
-      durationWeeks: weeks,
-      duration: durationLabel(weeks || 1),
+      durationWeeks: weeks || undefined,
+      duration: weeks ? durationLabel(weeks) : editing?.duration || "",
       classCount: Number(form.classCount) || 0,
       testCount: Number(form.testCount) || 0,
       examCount: Number(form.examCount) || 0,
@@ -119,7 +124,7 @@ export default function CoursesPage() {
     };
     if (draft.status === "active" && !isCourseReadyToActivate(draft)) {
       const msg =
-        "Set duration, class count, tests, exams, and whether there is a final exam before activating this course.";
+        "Set class count, tests, exams, and whether there is a final exam before activating this course.";
       setFormError(msg);
       showFlash("error", msg);
       return;
@@ -134,7 +139,7 @@ export default function CoursesPage() {
     <div>
       <PageHeader
         title="Courses"
-        description={`${programme.name}: duration, classes, tests, exams, and the final exam must be set by Super Admin before a course can go active. Those targets drive student progress.`}
+        description={`${programme.name}: classes, tests, exams, and the final exam must be set by Super Admin before a course can go active. Those targets drive student progress.`}
         action={
           canEdit ? (
             <Button size="sm" onClick={openCreate}>
@@ -192,10 +197,7 @@ export default function CoursesPage() {
         {filtered.map((course) => (
           <TableRow key={course.id}>
             <TableCell>
-              <div>
-                <p className="font-medium">{course.title}</p>
-                <p className="text-xs text-muted">{course.duration}</p>
-              </div>
+              <p className="font-medium">{course.title}</p>
             </TableCell>
             <TableCell>{course.category}</TableCell>
             <TableCell>
@@ -295,16 +297,6 @@ export default function CoursesPage() {
                 <option>Intermediate</option>
                 <option>Advanced</option>
               </select>
-            </Field>
-            <Field label="Duration (weeks)">
-              <input
-                type="number"
-                min={1}
-                required
-                className={fieldClass}
-                value={form.durationWeeks}
-                onChange={(e) => setForm({ ...form, durationWeeks: Number(e.target.value) })}
-              />
             </Field>
           </div>
           <p className="text-xs font-medium text-foreground">Progress targets (required before active)</p>

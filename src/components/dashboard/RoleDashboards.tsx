@@ -828,9 +828,7 @@ function StudentDashboard({
           </ExpandableChart>
           <Card className="lg:col-span-7" title="How progress is calculated">
             <p className="mb-3 text-xs text-muted">
-              Super Admin set this course to {breakdown.durationWeeks || "—"} week
-              {breakdown.durationWeeks === 1 ? "" : "s"}. Progress is the average of classes, tests,
-              exams
+              Progress is the average of classes, tests, exams
               {breakdown.final.required ? ", and the final exam" : ""}.
             </p>
             <ul className="grid gap-2 sm:grid-cols-2">

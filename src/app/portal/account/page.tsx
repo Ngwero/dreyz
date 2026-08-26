@@ -24,6 +24,7 @@ import { PasswordStrengthMeter } from "@/components/auth/PasswordStrength";
 import { isPasswordAcceptable } from "@/lib/password-strength";
 import { ROLE_LABELS, canAccessRoute } from "@/lib/roles";
 import { classOptions, feeTracks, programme, schoolInfo } from "@/lib/data";
+import { resolveLearnerIntake } from "@/lib/intakes";
 import { formatUGX } from "@/lib/utils";
 import {
   attendanceSummary,
@@ -401,7 +402,11 @@ export default function MyAccountPage() {
             <Row label="Status" value={profile.status} />
             <Row label="Phone" value={profile.phone || phone || "Not set"} />
             <Row label="Specialty" value={specialty || instructor?.specialty || "Not set"} />
-            <Row label="Learner ID" value={profile.learnerId || learner?.id || "—"} />
+            <Row label="Admission number" value={profile.learnerId || learner?.id || "—"} />
+            <Row
+              label="Intake"
+              value={learner ? resolveLearnerIntake(learner) : schoolInfo.intake}
+            />
             <Row label="Tutor ID" value={profile.instructorId || instructor?.id || "—"} />
             <Row label="Member since" value={profile.createdAt || "—"} />
             <Row

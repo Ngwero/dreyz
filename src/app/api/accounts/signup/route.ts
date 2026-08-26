@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail, welcomeStudentHtml, enrollmentAlertHtml } from "@/lib/mail";
 import { portalLoginUrl } from "@/lib/portal-url";
 import { classOptions, feeTracks, schoolInfo } from "@/lib/data";
+import { resolveAdmissionIdServer } from "@/lib/admission-server";
+import { currentOpenIntake } from "@/lib/intakes";
 
 function generatePassword(length = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
@@ -57,7 +59,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const learnerId = `DRY${Date.now().toString(36).toUpperCase().slice(-5)}`;
+    const learnerId = await resolveAdmissionIdServer(admin, email);
+    const intake =
+      String(body.intake ?? "").trim() || currentOpenIntake();
 
     const paymentAmount = Number(body.paymentAmount ?? 0) || 0;
     const paymentKind = String(body.paymentKind ?? "registration").trim() || "registration";
@@ -113,6 +117,7 @@ export async function POST(request: Request) {
         phone,
         course: track?.name ?? "Interior Design",
         enrollment_date: new Date().toISOString().slice(0, 10),
+        intake,
         progress: 0,
         status: learnerActive ? "active" : "paused",
         paid_amount: paymentAmount,

@@ -103,7 +103,7 @@ export default function ModulesPage() {
     <div>
       <PageHeader
         title="Modules"
-        description="Break each course into duration, class count, quizzes, and projects. Super Admin can edit existing modules."
+        description="Break each course into class count, quizzes, and projects. Super Admin can edit existing modules."
         action={
           canEdit ? (
             <Button size="sm" onClick={openCreate}>
@@ -130,7 +130,6 @@ export default function ModulesPage() {
           { key: "lessons", label: "Classes" },
           { key: "quizzes", label: "Quizzes" },
           { key: "projects", label: "Projects" },
-          { key: "duration", label: "Duration" },
           ...(canEdit ? [{ key: "actions", label: "" }] : []),
         ]}
       >
@@ -144,7 +143,6 @@ export default function ModulesPage() {
             <TableCell>{mod.classCount ?? mod.lessons}</TableCell>
             <TableCell>{mod.quizzes ?? 0}</TableCell>
             <TableCell>{mod.projects ?? 0}</TableCell>
-            <TableCell>{mod.duration}</TableCell>
             {canEdit && (
               <TableCell>
                 <div className="flex justify-end gap-1">
@@ -202,13 +200,6 @@ export default function ModulesPage() {
                 className={fieldClass}
                 value={form.order}
                 onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="Duration">
-              <input
-                className={fieldClass}
-                value={form.duration}
-                onChange={(e) => setForm({ ...form, duration: e.target.value })}
               />
             </Field>
           </div>

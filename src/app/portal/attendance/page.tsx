@@ -38,6 +38,8 @@ import {
   attendanceSummary,
   awardedAttendance,
 } from "@/lib/academics";
+import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
+import { resolveLearnerIntake } from "@/lib/intakes";
 
 type Mark = AttendanceRecord["status"];
 
@@ -78,6 +80,7 @@ export default function AttendancePage() {
   const [periodMode, setPeriodMode] = useState<"day" | "month">("day");
   const [bulkCourse, setBulkCourse] = useState("");
   const [bulkQuery, setBulkQuery] = useState("");
+  const [intakeFilter, setIntakeFilter] = useState<string>("all");
   const [marks, setMarks] = useState<Record<string, Mark>>({});
   const [bulkNotice, setBulkNotice] = useState("");
   const [pendingReset, setPendingReset] = useState<"all" | "period" | null>(null);
@@ -97,10 +100,13 @@ export default function AttendancePage() {
     refresh();
   }, [refresh]);
 
-  const roster = useMemo(
-    () => learners.filter((l) => l.status === "active"),
-    [learners]
-  );
+  const roster = useMemo(() => {
+    return learners.filter((l) => {
+      if (l.status !== "active") return false;
+      if (intakeFilter !== "all" && resolveLearnerIntake(l) !== intakeFilter) return false;
+      return true;
+    });
+  }, [learners, intakeFilter]);
 
   const selectedCourse = bulkCourse || courseOptions[0] || "Professional Interior Design Programme";
 
@@ -108,7 +114,10 @@ export default function AttendancePage() {
     const q = bulkQuery.trim().toLowerCase();
     if (!q) return roster;
     return roster.filter(
-      (l) => l.name.toLowerCase().includes(q) || l.id.toLowerCase().includes(q)
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.id.toLowerCase().includes(q) ||
+        resolveLearnerIntake(l).toLowerCase().includes(q)
     );
   }, [roster, bulkQuery]);
 
@@ -180,11 +189,18 @@ export default function AttendancePage() {
     e.preventDefault();
     const learner = learners.find((l) => l.id === form.learnerId);
     if (!learner) return;
+    const course = form.course || learner.course;
+    const existing = records.find(
+      (r) =>
+        r.learnerId === learner.id &&
+        r.date === form.date &&
+        r.course === course
+    );
     attendanceStore.upsert({
-      id: uid("ATT"),
+      id: existing?.id ?? uid("ATT"),
       learnerId: learner.id,
       learnerName: learner.name,
-      course: form.course || learner.course,
+      course,
       date: form.date,
       status: form.status,
     });
@@ -194,7 +210,7 @@ export default function AttendancePage() {
     const { from, to } = attendanceAwardWindow(learner.enrollmentDate);
     const msg = counts
       ? `Saved attendance for ${learner.name}.`
-      : `Saved, but ${form.date} is outside ${learner.name}'s ${ATTENDANCE_AWARD_MONTHS}-month window (${from} to ${to}) and will not count toward progress.`;
+      : `Saved attendance for ${learner.name}. Note: ${form.date} is outside their ${ATTENDANCE_AWARD_MONTHS}-month progress window (${from} to ${to}) and will not count toward progress.`;
     setBulkNotice(msg);
     showFlash(counts ? "success" : "error", msg);
   };
@@ -235,8 +251,9 @@ export default function AttendancePage() {
       attendanceCountsForAward(e.date, e.enrollmentDate)
     );
     const skipped = allEntries.length - awardedEntries.length;
+    // Persist every mark so earlier months / other intakes are not lost.
     saveBulkAttendance(
-      awardedEntries.map(({ learnerId, learnerName, course, date, status }) => ({
+      allEntries.map(({ learnerId, learnerName, course, date, status }) => ({
         learnerId,
         learnerName,
         course,
@@ -246,8 +263,10 @@ export default function AttendancePage() {
     );
     setMarks({});
     refresh();
-    const msg = `Awarded ${awardedEntries.length} mark${awardedEntries.length === 1 ? "" : "s"} in the first ${ATTENDANCE_AWARD_MONTHS} months from each learner's enrolment (${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent).${
-      skipped ? ` ${skipped} day${skipped === 1 ? "" : "s"} outside that window were not saved.` : ""
+    const msg = `Saved ${allEntries.length} class roll mark${allEntries.length === 1 ? "" : "s"} (${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent).${
+      skipped
+        ? ` ${skipped} fall outside the ${ATTENDANCE_AWARD_MONTHS}-month progress window and are stored but not awarded.`
+        : ` ${awardedEntries.length} count toward progress.`
     }`;
     setBulkNotice(msg);
     showFlash("success", msg);
@@ -337,8 +356,20 @@ export default function AttendancePage() {
           }
         >
           <p className="mb-4 text-sm text-muted">
-            Mark one day or a date range. Days after a learner&apos;s {ATTENDANCE_AWARD_MONTHS}-month enrolment window are not awarded.
+            Mark one day, a date range, or a full month for one intake at a time. Marks are always
+            saved; only the first {ATTENDANCE_AWARD_MONTHS} months from each learner&apos;s enrolment
+            count toward progress.
           </p>
+
+          <IntakeFilterTabs
+            learners={learners.filter((l) => l.status === "active")}
+            value={intakeFilter}
+            onChange={(next) => {
+              setIntakeFilter(next);
+              setMarks({});
+            }}
+            className="mb-4"
+          />
 
           {bulkNotice && (
             <p className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-300">

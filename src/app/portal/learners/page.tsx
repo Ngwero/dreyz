@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
   DataTable,
@@ -16,7 +16,6 @@ import {
   learnersStore,
   coursesStore,
   useStoreList,
-  uid,
   exportCsv,
   type Learner,
 } from "@/lib/store";
@@ -26,13 +25,27 @@ import { showFlash } from "@/lib/flash";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { computeLearnerProgress, feesForStudent } from "@/lib/academics";
 import { LearnerProfile } from "@/components/portal/LearnerProfile";
+import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { formatUGX } from "@/lib/utils";
+import {
+  INTAKE_OPTIONS,
+  compareIntakeLabels,
+  currentOpenIntake,
+  intakeStatus,
+  resolveLearnerIntake,
+} from "@/lib/intakes";
+import {
+  allocateAdmissionNumber,
+  purgeStudentIdentity,
+  resolveStudentAdmissionId,
+} from "@/lib/learner-identity";
 
 export default function LearnersPage() {
   const { user } = useAuth();
   const [learners, refresh] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [query, setQuery] = useState("");
+  const [intakeFilter, setIntakeFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Learner | null>(null);
   const [form, setForm] = useState({
@@ -41,6 +54,7 @@ export default function LearnersPage() {
     phone: "",
     course: "Professional Interior Design Programme",
     status: "active" as Learner["status"],
+    intake: currentOpenIntake(),
     createLogin: true,
     paidAmount: 0,
     addPayment: 0,
@@ -53,6 +67,35 @@ export default function LearnersPage() {
 
   const canEdit = user?.role === "super_admin" || user?.role === "accountant";
 
+  useEffect(() => {
+    if (!canEdit) return;
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("add") === "1") {
+      setEditing(null);
+      setForm({
+        name: "",
+        email: "",
+        phone: "",
+        course: "Professional Interior Design Programme",
+        status: "active",
+        intake: currentOpenIntake(),
+        createLogin: true,
+        paidAmount: 0,
+        addPayment: 0,
+        feeDue: 3350000,
+      });
+      setOpen(true);
+    }
+  }, [canEdit]);
+
+  const nextAdmissionPreview = useMemo(() => {
+    if (editing) return editing.id;
+    if (form.email.trim()) {
+      return resolveStudentAdmissionId({ email: form.email });
+    }
+    return allocateAdmissionNumber();
+  }, [editing, form.email, learners]);
+
   const namesMatch = (typed: string, actual: string) =>
     typed.trim().replace(/\s+/g, " ").toLowerCase() ===
     actual.trim().replace(/\s+/g, " ").toLowerCase();
@@ -60,27 +103,50 @@ export default function LearnersPage() {
   const confirmDelete = () => {
     if (!pendingDelete) return;
     if (!namesMatch(confirmName, pendingDelete.name)) return;
-    learnersStore.remove(pendingDelete.id);
+    const result = purgeStudentIdentity({
+      learnerId: pendingDelete.id,
+      email: pendingDelete.email,
+    });
     if (selected?.id === pendingDelete.id) setSelected(null);
     setPendingDelete(null);
     setConfirmName("");
     refresh();
-    const msg = `${pendingDelete.name} was removed from the roster.`;
+    const parts = [
+      result.removedLearner ? "learner roster" : null,
+      result.removedAccount ? "portal account" : null,
+      result.removedEnrollments ? "enrolments" : null,
+    ].filter(Boolean);
+    const msg = `${pendingDelete.name} was removed from ${parts.join(", ") || "the system"}.`;
     setNotice(msg);
     showFlash("success", msg);
   };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return learners;
-    return learners.filter(
-      (l) =>
+    return learners.filter((l) => {
+      const intake = resolveLearnerIntake(l);
+      if (intakeFilter !== "all" && intake !== intakeFilter) return false;
+      if (!q) return true;
+      return (
         l.name.toLowerCase().includes(q) ||
         l.id.toLowerCase().includes(q) ||
         l.email.toLowerCase().includes(q) ||
-        l.course.toLowerCase().includes(q)
-    );
-  }, [learners, query]);
+        l.course.toLowerCase().includes(q) ||
+        intake.toLowerCase().includes(q)
+      );
+    });
+  }, [learners, query, intakeFilter]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Learner[]>();
+    for (const learner of filtered) {
+      const intake = resolveLearnerIntake(learner);
+      const list = map.get(intake) ?? [];
+      list.push(learner);
+      map.set(intake, list);
+    }
+    return [...map.entries()].sort(([a], [b]) => compareIntakeLabels(a, b));
+  }, [filtered]);
 
   const canManageAccounts =
     user?.role === "super_admin" || user?.role === "accountant";
@@ -96,6 +162,7 @@ export default function LearnersPage() {
         phone: form.phone.trim(),
         course: form.course.trim(),
         status: form.status,
+        intake: form.intake.trim() || currentOpenIntake(),
         feeDue: Number(form.feeDue) || 0,
       };
       learnersStore.upsert(next);
@@ -113,13 +180,16 @@ export default function LearnersPage() {
       return;
     }
     const firstPay = Number(form.paidAmount) || 0;
+    const enrollmentDate = new Date().toISOString().slice(0, 10);
+    const admissionId = resolveStudentAdmissionId({ email: form.email });
     const learner: Learner = {
-      id: uid("DRY"),
+      id: admissionId,
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),
       course: form.course.trim(),
-      enrollmentDate: new Date().toISOString().slice(0, 10),
+      enrollmentDate,
+      intake: form.intake.trim() || resolveLearnerIntake({ enrollmentDate }),
       progress: 0,
       status: form.status,
       paidAmount: firstPay,
@@ -161,6 +231,7 @@ export default function LearnersPage() {
       phone: "",
       course: "Professional Interior Design Programme",
       status: "active",
+      intake: currentOpenIntake(),
       createLogin: true,
       paidAmount: 0,
       addPayment: 0,
@@ -212,13 +283,14 @@ export default function LearnersPage() {
 
   const onExport = () => {
     exportCsv("learners.csv", [
-      ["ID", "Name", "Email", "Phone", "Course", "Progress", "Status", "Enrolled"],
+      ["ID", "Name", "Email", "Phone", "Course", "Intake", "Progress", "Status", "Enrolled"],
       ...filtered.map((l) => [
         l.id,
         l.name,
         l.email,
         l.phone,
         l.course,
+        resolveLearnerIntake(l),
         String(computeLearnerProgress(l)),
         l.status,
         l.enrollmentDate,
@@ -226,11 +298,138 @@ export default function LearnersPage() {
     ]);
   };
 
+  const renderLearnerRow = (learner: Learner) => {
+    const progress = computeLearnerProgress(learner);
+    const account = getAllUsers().find(
+      (u) =>
+        u.learnerId === learner.id ||
+        u.email.toLowerCase() === learner.email.toLowerCase()
+    );
+    const fees = feesForStudent(
+      learner.email,
+      account?.feeTrackId,
+      learner.paidAmount,
+      learner.feeDue
+    );
+    return (
+      <TableRow key={learner.id}>
+        <TableCell className="font-mono text-xs text-muted">{learner.id}</TableCell>
+        <TableCell>
+          <button
+            type="button"
+            className="flex items-center gap-3 text-left"
+            onClick={() => setSelected(learner)}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent-dark">
+              {learner.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)}
+            </div>
+            <div>
+              <p className="font-medium hover:text-accent">{learner.name}</p>
+              <p className="text-xs text-muted">{learner.email}</p>
+            </div>
+          </button>
+        </TableCell>
+        <TableCell className="max-w-[200px] truncate">{learner.course}</TableCell>
+        <TableCell>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-20 overflow-hidden rounded-full bg-surface">
+              <div className="h-full rounded-full bg-navy" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="text-xs font-medium">{progress}%</span>
+          </div>
+        </TableCell>
+        <TableCell>
+          <p
+            className={`text-xs font-medium ${
+              fees.paid <= 0
+                ? "text-orange-600 dark:text-orange-400"
+                : fees.balance <= 0
+                  ? "text-emerald-600"
+                  : "text-foreground"
+            }`}
+          >
+            {fees.paid <= 0 ? "Not paid" : fees.balance <= 0 ? "Paid" : "Part paid"}
+          </p>
+          <p className="text-[11px] text-muted">
+            Paid {formatUGX(fees.paid)} · due {formatUGX(fees.total)} · balance{" "}
+            {formatUGX(fees.balance)}
+          </p>
+        </TableCell>
+        <TableCell>
+          <button type="button" onClick={() => cycleStatus(learner)} disabled={!canEdit}>
+            <Badge
+              variant={
+                learner.status === "active"
+                  ? "success"
+                  : learner.status === "completed"
+                    ? "info"
+                    : "warning"
+              }
+            >
+              {learner.status}
+            </Badge>
+          </button>
+        </TableCell>
+        <TableCell className="text-muted">{learner.enrollmentDate}</TableCell>
+        {canEdit && (
+          <TableCell>
+            <div className="flex justify-end gap-1">
+              <Button size="sm" variant="outline" onClick={() => setSelected(learner)}>
+                <Eye size={13} /> Profile
+              </Button>
+              {canManageAccounts && (
+                <Button size="sm" onClick={() => void grantLogin(learner)}>
+                  <UserPlus size={13} /> Email live login
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setEditing(learner);
+                  setForm({
+                    name: learner.name,
+                    email: learner.email,
+                    phone: learner.phone,
+                    course: learner.course,
+                    status: learner.status,
+                    intake: resolveLearnerIntake(learner),
+                    createLogin: false,
+                    paidAmount: learner.paidAmount ?? 0,
+                    addPayment: 0,
+                    feeDue: learner.feeDue ?? 3350000,
+                  });
+                  setOpen(true);
+                }}
+              >
+                <Pencil size={13} /> Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setPendingDelete(learner);
+                  setConfirmName("");
+                }}
+              >
+                <Trash2 size={14} />
+              </Button>
+            </div>
+          </TableCell>
+        )}
+      </TableRow>
+    );
+  };
+
   return (
     <div>
       <PageHeader
         title="Learners"
-        description="Manage enrolled students across all interior design courses."
+        description="Students grouped by intake — September and January cohorts across the programme."
         action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onExport}>
@@ -247,6 +446,7 @@ export default function LearnersPage() {
                     phone: "",
                     course: "Professional Interior Design Programme",
                     status: "active",
+                    intake: currentOpenIntake(),
                     createLogin: true,
                     paidAmount: 0,
                     addPayment: 0,
@@ -268,154 +468,55 @@ export default function LearnersPage() {
         </p>
       )}
 
+      <div className="mb-4">
+        <IntakeFilterTabs
+          learners={learners}
+          value={intakeFilter}
+          onChange={setIntakeFilter}
+        />
+      </div>
+
       <div className="mb-6">
         <SearchInput
-          placeholder="Search learners by name, ID, or course..."
+          placeholder="Search by name, ID, course, or intake…"
           className="max-w-md"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
 
-      <DataTable
-        columns={[
-          { key: "id", label: "ID" },
-          { key: "name", label: "Name" },
-          { key: "course", label: "Course" },
-          { key: "progress", label: "Progress" },
-          { key: "fees", label: "Fees" },
-          { key: "status", label: "Status" },
-          { key: "enrolled", label: "Enrolled" },
-          ...(canEdit ? [{ key: "actions", label: "" }] : []),
-        ]}
-      >
-        {filtered.map((learner) => {
-          const progress = computeLearnerProgress(learner);
-          const account = getAllUsers().find(
-            (u) =>
-              u.learnerId === learner.id ||
-              u.email.toLowerCase() === learner.email.toLowerCase()
-          );
-          const fees = feesForStudent(
-            learner.email,
-            account?.feeTrackId,
-            learner.paidAmount,
-            learner.feeDue
-          );
-          return (
-          <TableRow key={learner.id}>
-            <TableCell className="font-mono text-xs text-muted">{learner.id}</TableCell>
-            <TableCell>
-              <button
-                type="button"
-                className="flex items-center gap-3 text-left"
-                onClick={() => setSelected(learner)}
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent-dark">
-                  {learner.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                </div>
-                <div>
-                  <p className="font-medium hover:text-accent">{learner.name}</p>
-                  <p className="text-xs text-muted">{learner.email}</p>
-                </div>
-              </button>
-            </TableCell>
-            <TableCell className="max-w-[200px] truncate">{learner.course}</TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-20 overflow-hidden rounded-full bg-surface">
-                  <div
-                    className="h-full rounded-full bg-navy"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <span className="text-xs font-medium">{progress}%</span>
-              </div>
-            </TableCell>
-            <TableCell>
-              <p
-                className={`text-xs font-medium ${
-                  fees.paid <= 0
-                    ? "text-orange-600 dark:text-orange-400"
-                    : fees.balance <= 0
-                      ? "text-emerald-600"
-                      : "text-foreground"
-                }`}
-              >
-                {fees.paid <= 0 ? "Not paid" : fees.balance <= 0 ? "Paid" : "Part paid"}
-              </p>
-              <p className="text-[11px] text-muted">
-                Paid {formatUGX(fees.paid)} · due {formatUGX(fees.total)} · balance {formatUGX(fees.balance)}
-              </p>
-            </TableCell>
-            <TableCell>
-              <button type="button" onClick={() => cycleStatus(learner)} disabled={!canEdit}>
-                <Badge
-                  variant={
-                    learner.status === "active"
-                      ? "success"
-                      : learner.status === "completed"
-                        ? "info"
-                        : "warning"
-                  }
-                >
-                  {learner.status}
-                </Badge>
-              </button>
-            </TableCell>
-            <TableCell className="text-muted">{learner.enrollmentDate}</TableCell>
-            {canEdit && (
-              <TableCell>
-                <div className="flex justify-end gap-1">
-                  <Button size="sm" variant="outline" onClick={() => setSelected(learner)}>
-                    <Eye size={13} /> Profile
-                  </Button>
-                  {canManageAccounts && (
-                    <Button size="sm" onClick={() => void grantLogin(learner)}>
-                      <UserPlus size={13} /> Email live login
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditing(learner);
-                      setForm({
-                        name: learner.name,
-                        email: learner.email,
-                        phone: learner.phone,
-                        course: learner.course,
-                        status: learner.status,
-                        createLogin: false,
-                        paidAmount: learner.paidAmount ?? 0,
-                        addPayment: 0,
-                        feeDue: learner.feeDue ?? 3350000,
-                      });
-                      setOpen(true);
-                    }}
-                  >
-                    <Pencil size={13} /> Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setPendingDelete(learner);
-                      setConfirmName("");
-                    }}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
-              </TableCell>
-            )}
-          </TableRow>
-          );
-        })}
-      </DataTable>
-
-      {filtered.length === 0 && (
+      {grouped.length === 0 ? (
         <p className="mt-4 text-sm text-muted">No learners match your search.</p>
+      ) : (
+        <div className="space-y-8">
+          {grouped.map(([intake, rows]) => (
+            <section key={intake}>
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">{intake} intake</h2>
+                  <p className="text-xs text-muted">
+                    {rows.length} learner{rows.length === 1 ? "" : "s"}
+                    {intakeStatus(intake) === "open" ? " · registration open" : ""}
+                  </p>
+                </div>
+              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID" },
+                  { key: "name", label: "Name" },
+                  { key: "course", label: "Course" },
+                  { key: "progress", label: "Progress" },
+                  { key: "fees", label: "Fees" },
+                  { key: "status", label: "Status" },
+                  { key: "enrolled", label: "Enrolled" },
+                  ...(canEdit ? [{ key: "actions", label: "" }] : []),
+                ]}
+              >
+                {rows.map((learner) => renderLearnerRow(learner))}
+              </DataTable>
+            </section>
+          ))}
+        </div>
       )}
 
       <LearnerProfile learner={selected} onClose={() => setSelected(null)} />
@@ -429,6 +530,18 @@ export default function LearnersPage() {
         }}
       >
         <form onSubmit={onAdd} className="space-y-3">
+          <Field label="Admission number">
+            <input
+              readOnly
+              className={`${fieldClass} font-mono`}
+              value={nextAdmissionPreview}
+            />
+            <p className="mt-1 text-[11px] text-muted">
+              {editing
+                ? "Existing admission number — shared with the portal account and enrolments."
+                : "Issued automatically. Reuses the same ID if this email already exists."}
+            </p>
+          </Field>
           <Field label="Full name">
             <input required className={fieldClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
@@ -453,6 +566,24 @@ export default function LearnersPage() {
                   {c.title}
                 </option>
               ))}
+            </select>
+          </Field>
+          <Field label="Intake">
+            <select
+              required
+              className={fieldClass}
+              value={form.intake}
+              onChange={(e) => setForm({ ...form, intake: e.target.value })}
+            >
+              {INTAKE_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.label}>
+                  {opt.label}
+                  {opt.status === "open" ? " (open)" : ""}
+                </option>
+              ))}
+              {!INTAKE_OPTIONS.some((o) => o.label === form.intake) && form.intake ? (
+                <option value={form.intake}>{form.intake}</option>
+              ) : null}
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
@@ -544,8 +675,9 @@ export default function LearnersPage() {
           >
             <p className="text-sm text-foreground">
               This permanently removes{" "}
-              <span className="font-semibold">{pendingDelete.name}</span> from the roster.
-              Type their full name to confirm.
+              <span className="font-semibold">{pendingDelete.name}</span> (
+              <span className="font-mono text-xs">{pendingDelete.id}</span>) from the learner
+              roster, linked portal account, and enrolments. Type their full name to confirm.
             </p>
             <Field label="Full name">
               <input

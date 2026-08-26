@@ -29,6 +29,7 @@ import {
   schoolInfo as seedSchoolInfo,
 } from "./data";
 import { normalizeCourse } from "./course-structure";
+import { currentOpenIntake, resolveLearnerIntake } from "./intakes";
 
 function isBrowser() {
   return typeof window !== "undefined";
@@ -249,17 +250,25 @@ export function upsertLearnerFromPayment(input: {
   status?: Learner["status"];
   paidAmount?: number;
   feeDue?: number;
+  intake?: string;
 }) {
   const existing =
     learnersStore.getAll().find((l) => l.id === input.id) ??
     learnersStore.getAll().find((l) => l.email.toLowerCase() === input.email.toLowerCase());
+  const enrollmentDate = existing?.enrollmentDate ?? new Date().toISOString().slice(0, 10);
+  const intake =
+    existing?.intake?.trim() ||
+    input.intake?.trim() ||
+    resolveLearnerIntake({ enrollmentDate }) ||
+    currentOpenIntake();
   learnersStore.upsert({
     id: existing?.id ?? input.id,
     name: input.name,
     email: input.email,
     phone: input.phone,
     course: input.course,
-    enrollmentDate: existing?.enrollmentDate ?? new Date().toISOString().slice(0, 10),
+    enrollmentDate,
+    intake,
     progress: existing?.progress ?? 0,
     status: input.status ?? existing?.status ?? "active",
     paidAmount: input.paidAmount ?? existing?.paidAmount,

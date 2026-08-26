@@ -12,6 +12,8 @@ import {
   upsertInstructorFromAccount,
   upsertLearnerFromPayment,
 } from "./store";
+import { resolveStudentAdmissionId } from "./learner-identity";
+import { currentOpenIntake } from "./intakes";
 
 export const SESSION_COOKIE = "dreyz_session";
 export const USERS_KEY = "dreyz_users";
@@ -355,7 +357,10 @@ export function createAccount(input: CreateAccountInput): {
   const password = generatePassword();
   const learnerId =
     input.role === "student"
-      ? input.learnerId ?? `DRY${Date.now().toString(36).toUpperCase().slice(-5)}`
+      ? resolveStudentAdmissionId({
+          email,
+          preferredId: input.learnerId,
+        })
       : undefined;
   const instructorId =
     input.role === "tutor"
@@ -407,7 +412,7 @@ export function updateAccount(
     name: patch.name ? patch.name.trim() : current.name,
   };
   if (next.role === "student" && !next.learnerId) {
-    next.learnerId = `DRY${Date.now().toString(36).toUpperCase().slice(-5)}`;
+    next.learnerId = resolveStudentAdmissionId({ email: next.email });
   }
   if (next.role === "tutor" && !next.instructorId) {
     next.instructorId = `INS${Date.now().toString(36).toUpperCase().slice(-5)}`;
@@ -627,6 +632,7 @@ export type ConfirmPaymentInput = {
   amount: number;
   method: PaymentRecord["method"];
   reference: string;
+  intake?: string;
 };
 
 export type ConfirmPaymentResult = {
@@ -644,9 +650,10 @@ export function confirmPaymentAndProvision(
   );
 
   const password = existing?.role === "student" ? existing.password : generatePassword();
-  const learnerId =
-    existing?.learnerId ??
-    `DRY${String(Math.floor(100 + Math.random() * 900))}`;
+  const learnerId = resolveStudentAdmissionId({
+    email: input.learnerEmail,
+    preferredId: existing?.learnerId,
+  });
   const userId = existing?.id ?? `USR-ST-${Date.now().toString(36).toUpperCase()}`;
 
   const user: PortalUser = {
@@ -671,6 +678,7 @@ export function confirmPaymentAndProvision(
     email: user.email,
     phone: user.phone ?? "",
     course: track?.name ?? "Professional Interior Design Programme",
+    intake: input.intake?.trim() || currentOpenIntake(),
   });
 
   const { subject, body } = buildCredentialEmail({

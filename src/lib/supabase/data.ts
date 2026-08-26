@@ -26,6 +26,7 @@ type LearnerRow = {
   phone: string | null;
   course: string | null;
   enrollment_date: string | null;
+  intake?: string | null;
   progress: number | null;
   status: Learner["status"];
   avatar: string | null;
@@ -92,6 +93,7 @@ export async function fetchLearners(): Promise<Learner[]> {
     phone: row.phone ?? "",
     course: row.course ?? "",
     enrollmentDate: row.enrollment_date ?? "",
+    intake: row.intake ?? undefined,
     progress: row.progress ?? 0,
     status: row.status,
     paidAmount: row.paid_amount != null ? Number(row.paid_amount) : undefined,
@@ -108,6 +110,7 @@ export async function upsertLearner(learner: Learner) {
     phone: learner.phone,
     course: learner.course,
     enrollment_date: learner.enrollmentDate,
+    intake: learner.intake ?? null,
     progress: learner.progress,
     status: learner.status,
     avatar: learner.avatar ?? null,

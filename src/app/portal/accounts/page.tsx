@@ -26,6 +26,7 @@ import {
 import { provisionPortalAccount } from "@/lib/auth-client";
 import { showFlash } from "@/lib/flash";
 import { exportCsv } from "@/lib/store";
+import { purgeStudentIdentity } from "@/lib/learner-identity";
 import { ROLE_LABELS } from "@/lib/roles";
 import { LottiePanel } from "@/components/ui/LottieLoader";
 import { classOptions, feeTracks } from "@/lib/data";
@@ -758,7 +759,7 @@ export default function AccountsPage() {
       <ConfirmDialog
         open={!!pendingDelete}
         title="Remove portal account"
-        description={`Remove ${pendingDelete?.name ?? "this account"} (${pendingDelete?.email ?? ""}) from the portal? They will not be able to sign in.`}
+        description={`Remove ${pendingDelete?.name ?? "this account"} (${pendingDelete?.email ?? ""}) from the portal? For students this also removes the linked learner roster entry and enrolments.`}
         confirmLabel="Remove account"
         onClose={() => setPendingDelete(null)}
         onConfirm={() => {
@@ -786,13 +787,24 @@ export default function AccountsPage() {
               return;
             }
             try {
-              deleteUser(target.id);
+              if (target.role === "student") {
+                purgeStudentIdentity({
+                  learnerId: target.learnerId,
+                  email: target.email,
+                });
+              } else {
+                deleteUser(target.id);
+              }
             } catch {
               updateUserStatus(target.id, "inactive");
             }
             await loadUsers();
             bump();
-            ok(`${target.name} was removed from the live portal.`);
+            ok(
+              target.role === "student"
+                ? `${target.name} was removed from accounts, learners, and enrolments.`
+                : `${target.name} was removed from the live portal.`
+            );
           })();
         }}
       />

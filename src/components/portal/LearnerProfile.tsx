@@ -20,6 +20,7 @@ import {
   learnerProgressBreakdown,
 } from "@/lib/academics";
 import type { Learner } from "@/lib/types";
+import { resolveLearnerIntake } from "@/lib/intakes";
 
 function Initials({ name }: { name: string }) {
   const letters = name
@@ -122,7 +123,9 @@ export function LearnerProfile({
             <p className="mt-1 font-mono text-xs text-muted">{learner.id}</p>
             <p className="mt-2 text-sm text-foreground">{learner.email}</p>
             <p className="text-sm text-muted">{learner.phone}</p>
-            <p className="mt-2 text-xs text-muted">Enrolled {learner.enrollmentDate}</p>
+            <p className="mt-2 text-xs text-muted">
+              {resolveLearnerIntake(learner)} intake · Enrolled {learner.enrollmentDate}
+            </p>
           </div>
         </div>
 
@@ -163,12 +166,6 @@ export function LearnerProfile({
             {track?.includesInternship ? " · includes internship" : ""}
             {klass ? ` · ${klass.name} (${klass.days}, ${klass.time})` : ""}
           </p>
-          {progress.durationWeeks > 0 && (
-            <p className="mt-1 text-xs text-muted">
-              Course length {progress.durationWeeks} week
-              {progress.durationWeeks === 1 ? "" : "s"}
-            </p>
-          )}
         </section>
 
         <div className="grid gap-4 lg:grid-cols-2">

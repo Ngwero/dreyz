@@ -5,6 +5,8 @@ export interface Learner {
   phone: string;
   course: string;
   enrollmentDate: string;
+  /** Cohort label, e.g. "January 2027". */
+  intake?: string;
   progress: number;
   status: "active" | "completed" | "paused";
   avatar?: string;

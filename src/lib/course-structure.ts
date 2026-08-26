@@ -37,9 +37,7 @@ export function isCourseReadyToActivate(course: Pick<
   Course,
   "durationWeeks" | "duration" | "classCount" | "testCount" | "examCount" | "hasFinalExam"
 >): boolean {
-  const weeks = course.durationWeeks || parseDurationWeeks(course.duration);
   return (
-    weeks > 0 &&
     (course.classCount ?? 0) > 0 &&
     course.testCount !== undefined &&
     course.testCount >= 0 &&
@@ -51,13 +49,11 @@ export function isCourseReadyToActivate(course: Pick<
 
 export function courseStructureSummary(course: Course): string {
   const c = normalizeCourse(course);
-  const weeks = c.durationWeeks || parseDurationWeeks(c.duration);
   const parts = [
-    weeks ? durationLabel(weeks) : null,
     `${c.classCount} classes`,
     `${c.testCount} tests`,
     `${c.examCount} exams`,
     c.hasFinalExam ? "final exam" : "no final",
-  ].filter(Boolean);
+  ];
   return parts.join(" · ");
 }

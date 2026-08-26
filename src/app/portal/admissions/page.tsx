@@ -20,30 +20,128 @@ import {
   GraduationCap,
   CreditCard,
   Building2,
+  UserPlus,
+  Smartphone,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
+import { INTAKE_OPTIONS, currentOpenIntake } from "@/lib/intakes";
 
 export default function AdmissionsPage() {
+  const openIntake = currentOpenIntake();
+
   return (
     <div>
       <PageHeader
         title="Admissions"
-        description={`${schoolInfo.intakeNote} ${programme.courseworkUnits} course units plus optional ${programme.internshipMonths}-month internship. ${schoolInfo.tagline}.`}
+        description={`${schoolInfo.intakeNote} ${programme.courseworkUnits} course units plus optional ${programme.internshipMonths}-month internship. Admission numbers (DRY###) are issued here and stay linked across Accounts, Learners, and Enrolments.`}
         action={
-          <Link href="/portal/payments">
-            <Button size="sm">Enroll / Record payment</Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/portal/payments">
+              <Button size="sm">
+                <Smartphone size={14} /> RukaPay / Record payment
+              </Button>
+            </Link>
+            <Link href="/portal/enrollments">
+              <Button size="sm" variant="outline">
+                <ClipboardList size={14} /> Manual enrolment
+              </Button>
+            </Link>
+            <Link href="/portal/learners?add=1">
+              <Button size="sm" variant="outline">
+                <UserPlus size={14} /> Add learner
+              </Button>
+            </Link>
+          </div>
         }
       />
 
-      <div className="mb-6 rounded-2xl border border-accent/25 bg-accent/10 px-4 py-3 text-sm text-foreground">
-        <p className="font-semibold text-accent-dark">
-          Now registering · {schoolInfo.intake} intake
-        </p>
-        <p className="mt-1 text-muted">{schoolInfo.intakeNote}</p>
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-accent/25 bg-accent/10 px-4 py-3 text-sm text-foreground lg:col-span-2">
+          <p className="font-semibold text-accent-dark">
+            Now registering · {schoolInfo.intake} intake
+          </p>
+          <p className="mt-1 text-muted">{schoolInfo.intakeNote}</p>
+          <p className="mt-3 text-xs text-muted">
+            New students default to <span className="font-medium text-foreground">{openIntake}</span>.
+            Pick a different intake when adding a learner so May, September, and January cohorts stay separate for attendance and marks.
+          </p>
+        </div>
+        <Card>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+            Admission numbers
+          </p>
+          <p className="mt-2 text-sm text-foreground">
+            Each student gets one ID like <span className="font-mono font-semibold">DRY009</span> —
+            the same number on their portal account, learner roster, and enrolments.
+          </p>
+        </Card>
       </div>
+
+      <div className="mb-6">
+        <Card title="Enrol a student">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Link
+              href="/portal/payments"
+              className="rounded-xl border border-border bg-surface/50 p-4 transition hover:border-accent/40"
+            >
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Smartphone size={16} className="text-accent" /> RukaPay
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                Mobile money payment that creates the portal login and learner record together.
+              </p>
+            </Link>
+            <Link
+              href="/portal/enrollments"
+              className="rounded-xl border border-border bg-surface/50 p-4 transition hover:border-accent/40"
+            >
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ClipboardList size={16} className="text-accent" /> Manual enrolment
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                Cash or bank payment — record fees and keep the roster in sync.
+              </p>
+            </Link>
+            <Link
+              href="/portal/learners?add=1"
+              className="rounded-xl border border-border bg-surface/50 p-4 transition hover:border-accent/40"
+            >
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <UserPlus size={16} className="text-accent" /> Add learner
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                Create the roster entry with intake + admission number; optionally email a login.
+              </p>
+            </Link>
+          </div>
+        </Card>
+      </div>
+
+      <div className="mb-6">
+        <Card title="Intakes">
+          <div className="flex flex-wrap gap-2">
+            {INTAKE_OPTIONS.map((opt) => (
+              <span
+                key={opt.id}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                  opt.status === "open"
+                    ? "bg-[#082878] text-white"
+                    : "bg-surface text-muted"
+                }`}
+              >
+                {opt.label}
+                {opt.status === "open" ? " · open" : ""}
+              </span>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            Filter Attendance, Assessments, and Portfolio by intake so each cohort is marked on its own.
+          </p>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Requirements */}
         <Card title="Admission Requirements">
           <ul className="space-y-3">
             {admissionRequirements.map((req) => (
@@ -55,7 +153,6 @@ export default function AdmissionsPage() {
           </ul>
         </Card>
 
-        {/* Class options */}
         <Card title="Class Options">
           <p className="mb-4 text-sm text-muted">
             Choose one. {schoolInfo.format}
@@ -66,10 +163,7 @@ export default function AdmissionsPage() {
                 key={opt.id}
                 className="rounded-xl border border-border bg-surface/50 p-4"
               >
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-foreground">{opt.name}</p>
-                  <Badge variant="accent">{opt.hoursPerDay}h / day</Badge>
-                </div>
+                <p className="font-semibold text-foreground">{opt.name}</p>
                 <div className="mt-2 space-y-1 text-sm text-muted">
                   <p className="flex items-center gap-2">
                     <CalendarDays size={14} /> {opt.days}
@@ -84,13 +178,16 @@ export default function AdmissionsPage() {
         </Card>
       </div>
 
-      {/* Fees */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {feeTracks.map((track) => (
           <Card
             key={track.id}
             title={track.name}
-            action={<Badge variant={track.includesInternship ? "success" : "info"}>{track.durationMonths} months</Badge>}
+            action={
+              <Badge variant={track.includesInternship ? "success" : "info"}>
+                {track.durationMonths} months
+              </Badge>
+            }
           >
             <div className="mb-4 flex items-baseline gap-2">
               <span className="text-2xl font-bold text-foreground">{formatUGX(track.total)}</span>
@@ -112,11 +209,17 @@ export default function AdmissionsPage() {
                 Includes PPE and the 2-month internship on top of the main course.
               </p>
             )}
+            <div className="mt-4">
+              <Link href={`/portal/payments?track=${track.id}`}>
+                <Button size="sm" variant="outline">
+                  Enrol on this track
+                </Button>
+              </Link>
+            </div>
           </Card>
         ))}
       </div>
 
-      {/* Payment & graduation */}
       <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
         <Card>
           <div className="flex items-center gap-3">
@@ -153,7 +256,6 @@ export default function AdmissionsPage() {
         </Card>
       </div>
 
-      {/* Contact / location */}
       <div className="mt-6">
         <Card title="Location & Contact">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

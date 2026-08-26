@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail, welcomeAccountHtml } from "@/lib/mail";
 import { portalLoginUrl } from "@/lib/portal-url";
 import { classOptions, feeTracks, schoolInfo } from "@/lib/data";
+import { resolveAdmissionIdServer } from "@/lib/admission-server";
+import { currentOpenIntake } from "@/lib/intakes";
 
 const ROLES = ["super_admin", "accountant", "tutor", "student"] as const;
 type Role = (typeof ROLES)[number];
@@ -121,10 +123,17 @@ export async function POST(request: Request) {
       typeof body.password === "string" && body.password.length >= 6
         ? body.password
         : generatePassword();
+    const intake =
+      role === "student"
+        ? String(body.intake ?? "").trim() || currentOpenIntake()
+        : null;
     const learnerId =
       role === "student"
-        ? String(body.learnerId ?? "").trim() ||
-          `DRY${Date.now().toString(36).toUpperCase().slice(-5)}`
+        ? await resolveAdmissionIdServer(
+            admin,
+            email,
+            String(body.learnerId ?? "").trim() || null
+          )
         : null;
     const instructorId =
       role === "tutor"
@@ -182,6 +191,7 @@ export async function POST(request: Request) {
           phone,
           course: track?.name ?? "Interior Design",
           enrollment_date: new Date().toISOString().slice(0, 10),
+          intake,
           progress: 0,
           status: "active",
           paid_amount: 0,

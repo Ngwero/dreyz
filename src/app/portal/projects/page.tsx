@@ -15,6 +15,8 @@ import { Star, Plus, Pencil } from "lucide-react";
 import { projectsStore, learnersStore, coursesStore, useStoreList, uid, type Project } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { showFlash } from "@/lib/flash";
+import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
+import { resolveLearnerIntake } from "@/lib/intakes";
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -22,6 +24,7 @@ export default function ProjectsPage() {
   const [learners] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [query, setQuery] = useState("");
+  const [intakeFilter, setIntakeFilter] = useState<string>("all");
   const [viewId, setViewId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
@@ -45,14 +48,26 @@ export default function ProjectsPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return scoped;
-    return scoped.filter(
-      (p) =>
+    return scoped.filter((p) => {
+      if (intakeFilter !== "all") {
+        const learner = learners.find((l) => l.id === p.learnerId);
+        const intake = learner ? resolveLearnerIntake(learner) : "";
+        if (intake !== intakeFilter) return false;
+      }
+      if (!q) return true;
+      return (
         p.title.toLowerCase().includes(q) ||
         p.learnerName.toLowerCase().includes(q) ||
-        p.course.toLowerCase().includes(q)
-    );
-  }, [scoped, query]);
+        p.course.toLowerCase().includes(q) ||
+        p.learnerId.toLowerCase().includes(q)
+      );
+    });
+  }, [scoped, query, intakeFilter, learners]);
+
+  const learnersForForm = useMemo(() => {
+    if (intakeFilter === "all") return learners;
+    return learners.filter((l) => resolveLearnerIntake(l) === intakeFilter);
+  }, [learners, intakeFilter]);
 
   const viewing = projects.find((p) => p.id === viewId) ?? null;
 
@@ -73,11 +88,16 @@ export default function ProjectsPage() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const learner = learners.find((l) => l.id === form.learnerId);
+    const learnerId = learner?.id ?? user?.learnerId ?? editing?.learnerId;
+    if (!learnerId) {
+      showFlash("error", "Select a learner with a valid admission number.");
+      return;
+    }
     projectsStore.upsert({
       id: editing?.id ?? uid("PRJ"),
       title: form.title.trim(),
       course: form.course.trim(),
-      learnerId: learner?.id ?? user?.learnerId ?? editing?.learnerId ?? "DRY-NEW",
+      learnerId,
       learnerName: learner?.name ?? user?.name ?? editing?.learnerName ?? "Learner",
       score: canReview ? Number(form.score) || 0 : editing?.score ?? 0,
       status: canReview ? form.status : editing?.status ?? "submitted",
@@ -92,7 +112,7 @@ export default function ProjectsPage() {
     <div>
       <PageHeader
         title="Student Portfolio Projects"
-        description="Review, score, and feature outstanding interior design projects."
+        description="Review and score projects by intake. Students see their own submissions on the portal."
         action={
           canSubmit ? (
             <Button size="sm" onClick={() => setOpen(true)}>
@@ -102,9 +122,18 @@ export default function ProjectsPage() {
         }
       />
 
+      {user?.role !== "student" && (
+        <IntakeFilterTabs
+          learners={learners}
+          value={intakeFilter}
+          onChange={setIntakeFilter}
+          className="mb-4"
+        />
+      )}
+
       <div className="mb-6">
         <SearchInput
-          placeholder="Search projects..."
+          placeholder="Search projects, learners, or admission numbers…"
           className="max-w-md"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -263,8 +292,10 @@ export default function ProjectsPage() {
               <Field label="Learner">
                 <select className={fieldClass} value={form.learnerId} onChange={(e) => setForm({ ...form, learnerId: e.target.value })}>
                   <option value="">Select learner</option>
-                  {learners.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
+                  {learnersForForm.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} ({l.id} · {resolveLearnerIntake(l)})
+                    </option>
                   ))}
                 </select>
               </Field>

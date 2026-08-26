@@ -25,8 +25,10 @@ import {
 import { useAuth } from "@/components/auth/AuthProvider";
 import { showFlash } from "@/lib/flash";
 import { getAllUsers } from "@/lib/auth";
+import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
+import { resolveLearnerIntake } from "@/lib/intakes";
 
-type MarkStudent = { id: string; name: string; course: string };
+type MarkStudent = { id: string; name: string; course: string; intake: string };
 
 export default function AssessmentsPage() {
   const { user } = useAuth();
@@ -40,6 +42,7 @@ export default function AssessmentsPage() {
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [markQuery, setMarkQuery] = useState("");
   const [courseOnly, setCourseOnly] = useState(false);
+  const [intakeFilter, setIntakeFilter] = useState<string>("all");
   const [pendingDelete, setPendingDelete] = useState<Assessment | null>(null);
   const [form, setForm] = useState({
     title: "",
@@ -91,6 +94,7 @@ export default function AssessmentsPage() {
         id: learner.id,
         name: learner.name,
         course: learner.course,
+        intake: resolveLearnerIntake(learner),
       });
     }
     for (const account of getAllUsers()) {
@@ -101,10 +105,16 @@ export default function AssessmentsPage() {
         if (!existing.name) existing.name = account.name;
         continue;
       }
+      const linked = learners.find(
+        (l) =>
+          l.id === account.learnerId ||
+          l.email.toLowerCase() === account.email.toLowerCase()
+      );
       byId.set(id, {
         id,
         name: account.name,
-        course: account.specialty || "",
+        course: linked?.course || account.specialty || "",
+        intake: linked ? resolveLearnerIntake(linked) : "",
       });
     }
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -115,6 +125,7 @@ export default function AssessmentsPage() {
     const q = markQuery.trim().toLowerCase();
     const course = marking.course.trim().toLowerCase();
     return markStudents.filter((student) => {
+      if (intakeFilter !== "all" && student.intake !== intakeFilter) return false;
       if (courseOnly && course) {
         const match =
           student.course.toLowerCase() === course ||
@@ -126,24 +137,31 @@ export default function AssessmentsPage() {
       return (
         student.name.toLowerCase().includes(q) ||
         student.id.toLowerCase().includes(q) ||
-        student.course.toLowerCase().includes(q)
+        student.course.toLowerCase().includes(q) ||
+        student.intake.toLowerCase().includes(q)
       );
     });
-  }, [marking, markStudents, markQuery, courseOnly]);
+  }, [marking, markStudents, markQuery, courseOnly, intakeFilter]);
 
   const openMarks = (assessment: Assessment) => {
     setMarking(assessment);
     setMarkQuery("");
     setCourseOnly(false);
+    setIntakeFilter("all");
     const next: Record<string, string> = {};
-    const roster = markStudents.length ? markStudents : learnersStore.getAll().map((l) => ({
-      id: l.id,
-      name: l.name,
-      course: l.course,
-    }));
+    const roster = markStudents.length
+      ? markStudents
+      : learnersStore.getAll().map((l) => ({
+          id: l.id,
+          name: l.name,
+          course: l.course,
+          intake: resolveLearnerIntake(l),
+        }));
     const saved = gradesStore.getAll();
     for (const student of roster) {
-      const g = saved.find((row) => row.assessmentId === assessment.id && row.learnerId === student.id);
+      const g = saved.find(
+        (row) => row.assessmentId === assessment.id && row.learnerId === student.id
+      );
       next[student.id] = g ? String(g.score) : "";
     }
     setScoreDrafts(next);
@@ -151,7 +169,7 @@ export default function AssessmentsPage() {
 
   const saveMarks = () => {
     if (!marking) return;
-    const rows = markStudents
+    const rows = markingRoster
       .map((student) => {
         const raw = scoreDrafts[student.id];
         if (raw === undefined || raw === "") return null;
@@ -177,7 +195,7 @@ export default function AssessmentsPage() {
     gradesStore.upsertMany(rows);
     assessmentsStore.upsert({
       ...marking,
-      submissions: rows.length,
+      submissions: Math.max(marking.submissions, rows.length),
     });
     refresh();
     refreshGrades();
@@ -295,15 +313,21 @@ export default function AssessmentsPage() {
           }
         >
           <p className="mb-4 text-sm text-muted">
-            Student names appear below. Type a mark out of {marking.maxScore} next to each name, then save.
-            Saved marks show on the student portal.
+            Filter by intake so May, September, and January cohorts are scored separately. Marks show
+            on each student&apos;s portal and under Learners.
           </p>
+          <IntakeFilterTabs
+            learners={learners}
+            value={intakeFilter}
+            onChange={setIntakeFilter}
+            className="mb-4"
+          />
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="block min-w-0 flex-1 text-xs font-semibold uppercase tracking-wider text-muted">
               Find student
               <input
                 className={`${fieldClass} mt-1.5`}
-                placeholder="Name pops as you type…"
+                placeholder="Name or admission number…"
                 value={markQuery}
                 onChange={(e) => setMarkQuery(e.target.value)}
                 autoFocus
@@ -334,6 +358,9 @@ export default function AssessmentsPage() {
                       ID
                     </th>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+                      Intake
+                    </th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
                       Course
                     </th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
@@ -346,6 +373,7 @@ export default function AssessmentsPage() {
                     <tr key={student.id} className="hover:bg-surface/70">
                       <td className="px-4 py-3 font-medium text-foreground">{student.name}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted">{student.id}</td>
+                      <td className="px-4 py-3 text-xs text-muted">{student.intake || "—"}</td>
                       <td className="px-4 py-3 text-muted">{student.course || "—"}</td>
                       <td className="px-4 py-3">
                         <input
