@@ -31,6 +31,7 @@ import {
   learnersStore,
 } from "@/lib/store";
 import { schoolFeeTotals } from "@/lib/academics";
+import { feeTracks } from "@/lib/data";
 import Link from "next/link";
 
 type Row = {
@@ -61,7 +62,7 @@ export default function EnrollmentsPage() {
   const [form, setForm] = useState({
     learnerName: "",
     email: "",
-    course: "4-Month Main Course",
+    course: "4-month",
     date: new Date().toISOString().slice(0, 10),
     amount: 0,
     status: "paid" as Row["status"],
@@ -165,6 +166,11 @@ export default function EnrollmentsPage() {
   const onSave = (e: FormEvent) => {
     e.preventDefault();
     const amount = Number(form.amount) || 0;
+    const track =
+      feeTracks.find((t) => t.id === form.course) ||
+      feeTracks.find((t) => t.name === form.course);
+    const trackId = track?.id ?? (form.course.startsWith("4-month") || form.course.startsWith("6-month") ? form.course : "4-month");
+    const trackName = track?.name ?? form.course;
     if (editing?.source === "payment") {
       updatePayment(editing.id, {
         learnerName: form.learnerName.trim(),
@@ -172,7 +178,7 @@ export default function EnrollmentsPage() {
         amount,
         date: form.date,
         status: form.status === "paid" ? "confirmed" : form.status === "pending" ? "pending" : "failed",
-        feeTrackId: form.course,
+        feeTrackId: trackId,
       });
       setPayments(getPayments());
     } else {
@@ -180,7 +186,7 @@ export default function EnrollmentsPage() {
         id: editing?.id ?? uid("ENR"),
         learnerName: form.learnerName.trim(),
         learnerEmail: form.email.trim().toLowerCase(),
-        course: form.course.trim(),
+        course: trackName,
         date: form.date,
         amount,
         status: form.status,
@@ -191,6 +197,8 @@ export default function EnrollmentsPage() {
           learnerName: record.learnerName,
           learnerEmail: record.learnerEmail,
           amount,
+          feeTrackId: trackId,
+          feeDue: track?.total,
         });
       }
       refreshEnrollments();
@@ -333,8 +341,29 @@ export default function EnrollmentsPage() {
           <Field label="Email">
             <input required type="email" className={fieldClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </Field>
-          <Field label="Course / track">
-            <input required className={fieldClass} value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} />
+          <Field label="Fee programme">
+            <select
+              required
+              className={fieldClass}
+              value={
+                feeTracks.find((t) => t.id === form.course || t.name === form.course)?.id ??
+                form.course
+              }
+              onChange={(e) => {
+                const track = feeTracks.find((t) => t.id === e.target.value);
+                setForm({
+                  ...form,
+                  course: e.target.value,
+                  amount: form.amount || track?.total || 0,
+                });
+              }}
+            >
+              {feeTracks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} — {formatUGX(t.total)}
+                </option>
+              ))}
+            </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Date">

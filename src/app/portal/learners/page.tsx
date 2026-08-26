@@ -27,6 +27,7 @@ import { computeLearnerProgress, feesForStudent } from "@/lib/academics";
 import { LearnerProfile } from "@/components/portal/LearnerProfile";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { formatUGX } from "@/lib/utils";
+import { feeTracks } from "@/lib/data";
 import {
   INTAKE_OPTIONS,
   compareIntakeLabels,
@@ -55,6 +56,7 @@ export default function LearnersPage() {
     course: "Professional Interior Design Programme",
     status: "active" as Learner["status"],
     intake: currentOpenIntake(),
+    feeTrackId: "4-month",
     createLogin: true,
     paidAmount: 0,
     addPayment: 0,
@@ -79,6 +81,7 @@ export default function LearnersPage() {
         course: "Professional Interior Design Programme",
         status: "active",
         intake: currentOpenIntake(),
+        feeTrackId: "4-month",
         createLogin: true,
         paidAmount: 0,
         addPayment: 0,
@@ -232,6 +235,7 @@ export default function LearnersPage() {
       course: "Professional Interior Design Programme",
       status: "active",
       intake: currentOpenIntake(),
+      feeTrackId: "4-month",
       createLogin: true,
       paidAmount: 0,
       addPayment: 0,
@@ -398,6 +402,9 @@ export default function LearnersPage() {
                     course: learner.course,
                     status: learner.status,
                     intake: resolveLearnerIntake(learner),
+                    feeTrackId:
+                      feeTracks.find((t) => t.total === (learner.feeDue ?? 0))?.id ??
+                      "4-month",
                     createLogin: false,
                     paidAmount: learner.paidAmount ?? 0,
                     addPayment: 0,
@@ -447,6 +454,7 @@ export default function LearnersPage() {
                     course: "Professional Interior Design Programme",
                     status: "active",
                     intake: currentOpenIntake(),
+                    feeTrackId: "4-month",
                     createLogin: true,
                     paidAmount: 0,
                     addPayment: 0,
@@ -585,6 +593,29 @@ export default function LearnersPage() {
                 <option value={form.intake}>{form.intake}</option>
               ) : null}
             </select>
+          </Field>
+          <Field label="Fee programme">
+            <select
+              className={fieldClass}
+              value={form.feeTrackId}
+              onChange={(e) => {
+                const track = feeTracks.find((t) => t.id === e.target.value);
+                setForm({
+                  ...form,
+                  feeTrackId: e.target.value,
+                  feeDue: track?.total ?? form.feeDue,
+                });
+              }}
+            >
+              {feeTracks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} — {formatUGX(t.total)}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-muted">
+              Use a previous-rate programme for students who enrolled under UGX 3,050,000 or 3,920,000.
+            </p>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             {editing ? (

@@ -301,7 +301,8 @@ export function PaymentLedger({ payments }: { payments: PaymentRecord[] }) {
               <option value="all">All programmes</option>
               {feeTracks.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name}
+                  {t.name} — {formatUGX(t.total)}
+                  {t.legacy ? " (previous)" : ""}
                 </option>
               ))}
             </select>

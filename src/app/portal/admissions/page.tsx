@@ -5,6 +5,7 @@ import {
   admissionRequirements,
   classOptions,
   feeTracks,
+  publicFeeTracks,
   schoolInfo,
   programme,
 } from "@/lib/data";
@@ -179,7 +180,7 @@ export default function AdmissionsPage() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {feeTracks.map((track) => (
+        {publicFeeTracks.map((track) => (
           <Card
             key={track.id}
             title={track.name}

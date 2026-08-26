@@ -610,6 +610,7 @@ function AccountantDashboard() {
                 <p className="text-xs text-muted">
                   {t.durationMonths} months
                   {t.includesInternship ? " · internship" : ""}
+                  {t.legacy ? " · previous rate" : ""}
                 </p>
               </div>
               <p className="text-sm font-medium text-muted">Due {formatUGX(t.total)}</p>

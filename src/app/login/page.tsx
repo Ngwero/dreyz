@@ -25,7 +25,7 @@ import { PasswordStrengthMeter } from "@/components/auth/PasswordStrength";
 import { LottieLoader, LottieScreen } from "@/components/ui/LottieLoader";
 import { isPasswordAcceptable } from "@/lib/password-strength";
 import { showFlash } from "@/lib/flash";
-import { classOptions, feeTracks } from "@/lib/data";
+import { classOptions, publicFeeTracks } from "@/lib/data";
 
 const OTP_LENGTH = 6;
 
@@ -62,7 +62,7 @@ function LoginForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [feeTrackId, setFeeTrackId] = useState(feeTracks[0]?.id ?? "4-month");
+  const [feeTrackId, setFeeTrackId] = useState(publicFeeTracks[0]?.id ?? "4-month");
   const [classOptionId, setClassOptionId] = useState(
     classOptions[0]?.id ?? "weekday"
   );
@@ -708,7 +708,7 @@ function LoginForm() {
                           onChange={(e) => setFeeTrackId(e.target.value)}
                           className={fieldClass}
                         >
-                          {feeTracks.map((t) => (
+                          {publicFeeTracks.map((t) => (
                             <option key={t.id} value={t.id} className="bg-[#082878] text-white">
                               {t.name}
                             </option>

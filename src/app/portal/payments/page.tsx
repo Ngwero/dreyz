@@ -439,6 +439,7 @@ export default function PaymentsPage() {
                 {feeTracks.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name} — {formatUGX(t.total)}
+                    {t.legacy ? " · previous rate" : ""}
                   </option>
                 ))}
               </select>

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { schoolInfo, feeTracks, classOptions, programme, stats, admissionRequirements } from "@/lib/data";
+import { schoolInfo, publicFeeTracks, classOptions, programme, stats, admissionRequirements } from "@/lib/data";
 import { formatUGX, formatNumber } from "@/lib/utils";
 import { Reveal, RevealWords, useScrollProgress } from "./scroll";
 import { NeutraHeader, brand } from "./NeutraHeader";
@@ -398,7 +398,7 @@ export function LandingPage() {
               </div>
 
               <div className="grid gap-3">
-                {feeTracks.map((track, i) => (
+                {publicFeeTracks.map((track, i) => (
                   <Reveal key={track.id} delay={i * 0.1} y={20}>
                     <div className="landing-glass landing-card-hover flex items-end justify-between gap-4 rounded-2xl px-6 py-5">
                       <div>

@@ -699,7 +699,8 @@ export default function AccountsPage() {
                 >
                   {feeTracks.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name}
+                      {t.name} — {t.total.toLocaleString("en-UG")}
+                      {t.legacy ? " (previous rate)" : ""}
                     </option>
                   ))}
                 </select>

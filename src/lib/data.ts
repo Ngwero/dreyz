@@ -103,7 +103,44 @@ export const feeTracks: FeeTrack[] = [
       { label: "Internship", amount: 700000 },
     ],
   },
+  {
+    id: "4-month-legacy",
+    name: "4-Month Main Course (previous rate)",
+    durationMonths: 4,
+    total: 3050000,
+    includesInternship: false,
+    legacy: true,
+    breakdown: [
+      { label: "Registration", amount: 350000 },
+      { label: "Tuition", amount: 1700000 },
+      { label: "Study text book", amount: 350000 },
+      { label: "Graduation", amount: 650000 },
+    ],
+  },
+  {
+    id: "6-month-legacy",
+    name: "6-Month Course + Internship (previous rate)",
+    durationMonths: 6,
+    total: 3920000,
+    includesInternship: true,
+    legacy: true,
+    breakdown: [
+      { label: "Registration", amount: 350000 },
+      { label: "Tuition", amount: 1700000 },
+      { label: "Study text book", amount: 350000 },
+      { label: "Graduation", amount: 650000 },
+      { label: "PPE (protective gear)", amount: 350000 },
+      { label: "Internship", amount: 520000 },
+    ],
+  },
 ];
+
+/** Current published rates for landing, admissions, and public signup. */
+export const publicFeeTracks = feeTracks.filter((t) => !t.legacy);
+
+export function feeTrackLabel(track: FeeTrack): string {
+  return `${track.name} — UGX ${track.total.toLocaleString("en-UG")}`;
+}
 
 export const learners: Learner[] = [
   { id: "DRY001", name: "Amara Okafor", email: "amara.o@email.com", phone: "+234 801 234 5678", course: "Residential Interior Design", enrollmentDate: "2025-09-12", intake: "September 2025", progress: 78, status: "active" },

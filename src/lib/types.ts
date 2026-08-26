@@ -227,6 +227,8 @@ export interface FeeTrack {
   total: number;
   breakdown: FeeItem[];
   includesInternship: boolean;
+  /** Older published rate — selectable for existing students, hidden from public marketing. */
+  legacy?: boolean;
 }
 
 export interface ClassOption {
