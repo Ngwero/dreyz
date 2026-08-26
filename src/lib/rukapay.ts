@@ -53,6 +53,7 @@ export function saveRukaPayConfig(config: RukaPayConfig) {
   if (!isBrowser()) return;
   localStorage.setItem(RUKA_CONFIG_KEY, JSON.stringify(config));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: RUKA_CONFIG_KEY } }));
+  void import("@/lib/store").then((mod) => mod.queueCloudPush());
 }
 
 export function isRukaPayReady(): boolean {

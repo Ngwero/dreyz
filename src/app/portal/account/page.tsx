@@ -206,8 +206,9 @@ export default function MyAccountPage() {
       } catch {
         /* live accounts may not exist in the local roster yet */
       }
-      if (usingSupabase) {
-        await fetch("/api/accounts/update", {
+      // Always push profile edits to the live school database when possible.
+      try {
+        const res = await fetch("/api/accounts/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -217,6 +218,12 @@ export default function MyAccountPage() {
             specialty,
           }),
         });
+        if (usingSupabase && !res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(data.error ?? "Could not save profile to the live school.");
+        }
+      } catch (err) {
+        if (usingSupabase) throw err;
       }
       await refresh();
       setMessage("Profile saved.");
@@ -231,31 +238,35 @@ export default function MyAccountPage() {
   const onChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     setMessage("");
-    if (!isPasswordAcceptable(password)) {
+    const nextPassword = password.trim();
+    const nextConfirm = confirm.trim();
+    if (!isPasswordAcceptable(nextPassword)) {
       const msg = "Password is too weak. Use 6+ characters with mixed case, numbers, or symbols.";
       setMessage(msg);
       showFlash("error", msg);
       return;
     }
-    if (password !== confirm) {
+    if (nextPassword !== nextConfirm) {
       setMessage("Passwords do not match.");
       showFlash("error", "Passwords do not match.");
       return;
     }
     try {
-      if (usingSupabase) {
-        const remotePw = await supabaseUpdatePassword(password);
-        if (!remotePw.ok) {
+      // Always push to live auth first. Local-only saves look successful, then fail at login.
+      const remotePw = await supabaseUpdatePassword(nextPassword);
+      if (!remotePw.ok) {
+        // Live portal users must update Supabase; device-only demo can fall back to local.
+        if (usingSupabase) {
           setMessage(remotePw.error);
           showFlash("error", remotePw.error);
           return;
         }
       }
       try {
-        changePassword(profile.id, password);
+        changePassword(profile.id, nextPassword);
       } catch {
-        changePasswordByEmail(profile.email, password);
-        upsertUser({ ...profile, password });
+        changePasswordByEmail(profile.email, nextPassword);
+        upsertUser({ ...profile, password: nextPassword });
       }
       setPassword("");
       setConfirm("");

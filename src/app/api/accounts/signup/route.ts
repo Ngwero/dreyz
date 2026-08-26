@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const feeTrackId = String(body.feeTrackId ?? "4-month").trim() || "4-month";
     const classOptionId =
       String(body.classOptionId ?? "weekday").trim() || "weekday";
-    const requestedPassword = String(body.password ?? "");
+    const requestedPassword = String(body.password ?? "").trim();
 
     if (!name || !email.includes("@")) {
       return NextResponse.json(

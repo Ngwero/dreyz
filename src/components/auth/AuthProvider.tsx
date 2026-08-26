@@ -114,15 +114,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     loggingOutRef.current = false;
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
     try {
-      const remote = await supabaseSignIn(email, password);
+      const remote = await supabaseSignIn(cleanEmail, cleanPassword);
       if (remote.ok) {
         setSession(remote.session);
         setUser(remote.session);
         setUsingSupabase(true);
         return { ok: true };
       }
-      const local = authenticate(email, password);
+      const local = authenticate(cleanEmail, cleanPassword);
       if (local) {
         setSession(local);
         setUser(local);
@@ -131,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { ok: false, error: remote.error };
     } catch {
-      const local = authenticate(email, password);
+      const local = authenticate(cleanEmail, cleanPassword);
       if (!local) {
         return { ok: false, error: "Invalid email or password." };
       }
@@ -196,11 +198,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const completePasswordReset = useCallback(
     async (email: string, newPassword: string): Promise<LoginResult> => {
       try {
-        const remote = await supabaseUpdatePassword(newPassword);
+        const remote = await supabaseUpdatePassword(newPassword.trim());
         if (!remote.ok) {
           return { ok: false, error: remote.error };
         }
-        changePasswordByEmail(email, newPassword);
+        changePasswordByEmail(email, newPassword.trim());
         await supabaseSignOut();
         clearSession();
         setUser(null);

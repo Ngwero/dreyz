@@ -41,6 +41,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
+    if (body.email) {
+      await admin.auth.admin
+        .updateUserById(id, { email: body.email.trim().toLowerCase(), email_confirm: true })
+        .catch(() => undefined);
+    }
+
     let password: string | undefined;
     if (body.resetPassword) {
       password = generatePassword();

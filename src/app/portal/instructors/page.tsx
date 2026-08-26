@@ -20,6 +20,7 @@ import {
   type Instructor,
 } from "@/lib/store";
 import { createAccount, getAllUsers, updateAccount, updateUserStatus } from "@/lib/auth";
+import { provisionPortalAccount } from "@/lib/auth-client";
 import { showFlash } from "@/lib/flash";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { InstructorProfile } from "@/components/portal/InstructorProfile";
@@ -85,42 +86,55 @@ export default function InstructorsPage() {
 
   const onSave = (e: FormEvent) => {
     e.preventDefault();
-    const payload: Instructor = {
-      id: editing?.id ?? uid("INS"),
-      name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
-      phone: form.phone.trim() || undefined,
-      specialty: form.specialty.trim(),
-      courses: editing?.assignedCourseIds?.length ?? editing?.courses ?? 1,
-      rating: Number(form.rating) || 4.5,
-      status: form.status,
-      assignedCourseIds: editing?.assignedCourseIds,
-    };
-    const previousName = editing?.name;
-    instructorsStore.upsert(payload);
-    if (previousName && previousName !== payload.name) {
-      coursesStore.replaceAll(
-        courses.map((c) =>
-          c.instructor.toLowerCase() === previousName.toLowerCase()
-            ? { ...c, instructor: payload.name }
-            : c
-        )
-      );
-      refreshCourses();
-    }
-    const linked = portalUser(payload);
-    if (linked) {
-      updateAccount(linked.id, {
-        name: payload.name,
-        email: payload.email,
-        phone: payload.phone,
-        specialty: payload.specialty,
-        status: payload.status === "suspended" ? "inactive" : "active",
-      });
-    }
-    if (!editing && form.createLogin && canEdit) {
-      try {
-        const result = createAccount({
+    void (async () => {
+      const payload: Instructor = {
+        id: editing?.id ?? uid("INS"),
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim() || undefined,
+        specialty: form.specialty.trim(),
+        courses: editing?.assignedCourseIds?.length ?? editing?.courses ?? 1,
+        rating: Number(form.rating) || 4.5,
+        status: form.status,
+        assignedCourseIds: editing?.assignedCourseIds,
+      };
+      const previousName = editing?.name;
+      instructorsStore.upsert(payload);
+      if (previousName && previousName !== payload.name) {
+        coursesStore.replaceAll(
+          courses.map((c) =>
+            c.instructor.toLowerCase() === previousName.toLowerCase()
+              ? { ...c, instructor: payload.name }
+              : c
+          )
+        );
+        refreshCourses();
+      }
+      const linked = portalUser(payload);
+      if (linked) {
+        updateAccount(linked.id, {
+          name: payload.name,
+          email: payload.email,
+          phone: payload.phone,
+          specialty: payload.specialty,
+          status: payload.status === "suspended" ? "inactive" : "active",
+        });
+        void fetch("/api/accounts/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: linked.id,
+            name: payload.name,
+            email: payload.email,
+            phone: payload.phone ?? "",
+            specialty: payload.specialty,
+            status: payload.status === "suspended" ? "inactive" : "active",
+            role: "tutor",
+          }),
+        });
+      }
+      if (!editing && form.createLogin && canEdit) {
+        const live = await provisionPortalAccount({
           name: payload.name,
           email: payload.email,
           phone: payload.phone,
@@ -128,24 +142,41 @@ export default function InstructorsPage() {
           specialty: payload.specialty,
           instructorId: payload.id,
         });
-        const msg = `Tutor saved. Login emailed to ${result.user.email}. Temporary password: ${result.password}`;
-        setNotice(msg);
-        showFlash("success", msg);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Tutor saved without a new login.";
-        setNotice(msg);
-        showFlash("error", msg);
+        if (!live.ok) {
+          // Keep a local fallback so the roster still has a tutor row.
+          try {
+            createAccount({
+              name: payload.name,
+              email: payload.email,
+              phone: payload.phone,
+              role: "tutor",
+              specialty: payload.specialty,
+              instructorId: payload.id,
+            });
+          } catch {
+            /* ignore */
+          }
+          const msg = `Tutor saved, but live login failed: ${live.error}`;
+          setNotice(msg);
+          showFlash("error", msg);
+        } else {
+          const msg = `Tutor saved. Login emailed to ${payload.email}${
+            live.password ? `. Temporary password: ${live.password}` : "."
+          }`;
+          setNotice(msg);
+          showFlash("success", msg);
+        }
+      } else {
+        showFlash("success", editing ? `${payload.name} was updated.` : `${payload.name} was added.`);
       }
-    } else {
-      showFlash("success", editing ? `${payload.name} was updated.` : `${payload.name} was added.`);
-    }
-    refresh();
-    closeForm();
+      refresh();
+      closeForm();
+    })();
   };
 
   const grantLogin = (instructor: Instructor) => {
-    try {
-      const result = createAccount({
+    void (async () => {
+      const live = await provisionPortalAccount({
         name: instructor.name,
         email: instructor.email,
         phone: instructor.phone,
@@ -153,15 +184,31 @@ export default function InstructorsPage() {
         specialty: instructor.specialty,
         instructorId: instructor.id,
       });
-      const msg = `Tutor login created for ${instructor.name}. Emailed ${result.user.email}. Temporary password: ${result.password}`;
+      if (!live.ok) {
+        const msg = live.error;
+        setNotice(msg);
+        showFlash("error", msg);
+        return;
+      }
+      try {
+        createAccount({
+          name: instructor.name,
+          email: instructor.email,
+          phone: instructor.phone,
+          role: "tutor",
+          specialty: instructor.specialty,
+          instructorId: instructor.id,
+        });
+      } catch {
+        /* already exists locally */
+      }
+      const msg = `Tutor login created for ${instructor.name}. Emailed ${instructor.email}${
+        live.password ? `. Temporary password: ${live.password}` : "."
+      }`;
       setNotice(msg);
       showFlash("success", msg);
       refresh();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Could not create login.";
-      setNotice(msg);
-      showFlash("error", msg);
-    }
+    })();
   };
 
   const openAssign = (instructor: Instructor) => {

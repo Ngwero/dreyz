@@ -324,7 +324,7 @@ function LoginForm() {
             name: fullName,
             email,
             phone,
-            password,
+            password: password.trim(),
             feeTrackId,
             classOptionId,
             paymentAmount: Number(paymentAmount.replace(/[^\d]/g, "")) || 0,
@@ -370,11 +370,13 @@ function LoginForm() {
     }
 
     if (step === "forgot-new") {
-      if (!isPasswordAcceptable(newPassword)) {
+      const nextPassword = newPassword.trim();
+      const nextConfirm = confirmPassword.trim();
+      if (!isPasswordAcceptable(nextPassword)) {
         setError("Password is too weak. Use 6+ characters with mixed case, numbers, or symbols.");
         return;
       }
-      if (newPassword !== confirmPassword) {
+      if (nextPassword !== nextConfirm) {
         setError("Passwords do not match.");
         return;
       }
@@ -386,16 +388,16 @@ function LoginForm() {
       setLoading(true);
       try {
         const result = await resetPasswordWithOtp({
-          email,
+          email: email.trim(),
           code: resetCode,
-          password: newPassword,
+          password: nextPassword,
         });
         if (!result.ok) {
           setError(result.error);
           showFlash("error", result.error);
           return;
         }
-        changePasswordByEmail(email, newPassword);
+        changePasswordByEmail(email.trim(), nextPassword);
         setPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -411,7 +413,7 @@ function LoginForm() {
 
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(email.trim(), password.trim());
       if (!result.ok) {
         setError(result.error);
         return;

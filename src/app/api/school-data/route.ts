@@ -36,8 +36,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Missing data" }, { status: 400 });
     }
     const admin = createAdminClient();
-    await persistSnapshotRecords(body.data);
-    const merged = await mergeLiveSchoolData(body.data);
+
+    // Deep-merge with the existing cloud snapshot so a thin device
+    // (missing keys) cannot wipe school-wide lists for everyone else.
+    const { data: existingRow } = await admin
+      .from("school_settings")
+      .select("data")
+      .eq("id", "default")
+      .maybeSingle();
+    const existing = (existingRow?.data ?? {}) as Record<string, unknown>;
+    const incoming = body.data;
+    const combined: Record<string, unknown> = { ...existing };
+    for (const [key, value] of Object.entries(incoming)) {
+      if (value === undefined) continue;
+      combined[key] = value;
+    }
+
+    await persistSnapshotRecords(combined);
+    const merged = await mergeLiveSchoolData(combined);
     const { error } = await admin.from("school_settings").upsert({
       id: "default",
       data: merged,

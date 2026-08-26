@@ -201,10 +201,11 @@ export function deleteUser(userId: string) {
 }
 
 export function authenticate(email: string, password: string): SessionUser | null {
+  const needle = password.trim();
   const user = getAllUsers().find(
     (u) =>
       u.email.toLowerCase() === email.trim().toLowerCase() &&
-      u.password === password &&
+      u.password === needle &&
       u.status === "active"
   );
   if (!user) return null;
@@ -423,22 +424,24 @@ export function updateAccount(
 export function changePassword(userId: string, nextPassword: string): PortalUser {
   const current = getUserById(userId);
   if (!current) throw new Error("Account not found.");
-  if (nextPassword.length < 6) {
+  const password = nextPassword.trim();
+  if (password.length < 6) {
     throw new Error("Password must be at least 6 characters.");
   }
-  return upsertUser({ ...current, password: nextPassword });
+  return upsertUser({ ...current, password });
 }
 
 export function changePasswordByEmail(
   email: string,
   nextPassword: string
 ): boolean {
-  if (nextPassword.length < 6) return false;
+  const password = nextPassword.trim();
+  if (password.length < 6) return false;
   const current = getAllUsers().find(
     (u) => u.email.toLowerCase() === email.trim().toLowerCase()
   );
   if (!current) return false;
-  upsertUser({ ...current, password: nextPassword });
+  upsertUser({ ...current, password });
   return true;
 }
 

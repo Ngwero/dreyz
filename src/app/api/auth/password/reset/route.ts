@@ -9,7 +9,7 @@ export async function POST(request: Request) {
       .trim()
       .toLowerCase();
     const code = String(body.code ?? "").replace(/\D/g, "");
-    const password = String(body.password ?? "");
+    const password = String(body.password ?? "").trim();
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(

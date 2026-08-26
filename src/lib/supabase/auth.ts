@@ -52,7 +52,7 @@ export async function supabaseSignIn(email: string, password: string) {
   const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
-    password,
+    password: password.trim(),
   });
   if (error || !data.user) {
     return { ok: false as const, error: error?.message ?? "Invalid email or password." };
@@ -98,10 +98,42 @@ export async function supabaseVerifyOtpHash(hashedToken: string) {
 
 export async function supabaseUpdatePassword(password: string) {
   const supabase = createClient();
-  if (password.length < 6) {
+  const next = password.trim();
+  if (next.length < 6) {
     return { ok: false as const, error: "Password must be at least 6 characters." };
   }
-  const { error } = await supabase.auth.updateUser({ password });
+
+  // Prefer admin API via access token so the live auth password always updates,
+  // even when the client session is flaky after OTP login.
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (accessToken) {
+    try {
+      const res = await fetch("/api/auth/password/change", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ password: next }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (res.ok && json.ok) {
+        return { ok: true as const };
+      }
+      // Fall through to client updateUser if the API is unavailable.
+      if (res.status === 401) {
+        return {
+          ok: false as const,
+          error: json.error ?? "Your session expired. Sign in again, then change your password.",
+        };
+      }
+    } catch {
+      // Fall through.
+    }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: next });
   if (error) {
     return { ok: false as const, error: error.message };
   }

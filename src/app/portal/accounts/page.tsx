@@ -14,12 +14,12 @@ import { Card } from "@/components/ui/Card";
 import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
+  changePasswordByEmail,
   createAccount,
   deleteUser,
   getAllUsers,
   getEmailOutbox,
   resendLoginEmail,
-  resetUserPassword,
   updateAccount,
   updateUserStatus,
 } from "@/lib/auth";
@@ -252,43 +252,82 @@ export default function AccountsPage() {
     }
   };
 
-  const onEdit = (e: FormEvent) => {
+  const onEdit = async (e: FormEvent) => {
     e.preventDefault();
     if (!editing) return;
     setError("");
+    setSaving(true);
     try {
-      updateAccount(editing.id, {
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        role: isAdmin ? form.role : editing.role,
-        feeTrackId: form.role === "student" || editing.role === "student" ? form.feeTrackId : undefined,
-        classOptionId: form.role === "student" || editing.role === "student" ? form.classOptionId : undefined,
-        specialty: form.role === "tutor" || editing.role === "tutor" ? form.specialty : undefined,
+      const role = isAdmin ? form.role : editing.role;
+      const res = await fetch("/api/accounts/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editing.id,
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          role,
+          feeTrackId: role === "student" ? form.feeTrackId : undefined,
+          classOptionId: role === "student" ? form.classOptionId : undefined,
+          specialty: role === "tutor" ? form.specialty : undefined,
+        }),
       });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        fail(data.error ?? "Could not update account.");
+        return;
+      }
+      try {
+        updateAccount(editing.id, {
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          role,
+          feeTrackId: role === "student" ? form.feeTrackId : undefined,
+          classOptionId: role === "student" ? form.classOptionId : undefined,
+          specialty: role === "tutor" ? form.specialty : undefined,
+        });
+      } catch {
+        /* live profile is source of truth */
+      }
       ok(`Updated ${form.name}.`);
       setOpen(null);
+      await loadUsers();
       bump();
       refresh();
-    } catch (err) {
-      fail(err instanceof Error ? err.message : "Could not update account.");
+    } catch {
+      fail("Network error while updating account.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const onReset = (u: PortalUser) => {
+  const onReset = async (u: PortalUser) => {
+    setError("");
+    setNotice("");
     try {
-      const result = resetUserPassword(u.id);
-      void fetch("/api/accounts/update", {
+      const res = await fetch("/api/accounts/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: u.id, email: u.email, resetPassword: true }),
       });
+      const data = (await res.json()) as { ok?: boolean; error?: string; password?: string };
+      if (!res.ok || !data.ok) {
+        fail(data.error ?? "Reset failed.");
+        return;
+      }
+      if (data.password) {
+        changePasswordByEmail(u.email, data.password);
+      }
       ok(
-        `Password reset for ${u.name}. Emailed to ${u.email}. Temporary password: ${result.password}`
+        `Password reset for ${u.name}. Emailed to ${u.email}${
+          data.password ? `. Temporary password: ${data.password}` : "."
+        }`
       );
       bump();
-    } catch (err) {
-      fail(err instanceof Error ? err.message : "Reset failed.");
+    } catch {
+      fail("Network error while resetting password.");
     }
   };
 
@@ -723,10 +762,38 @@ export default function AccountsPage() {
         confirmLabel="Remove account"
         onClose={() => setPendingDelete(null)}
         onConfirm={() => {
-          if (!pendingDelete) return;
-          deleteUser(pendingDelete.id);
-          bump();
-          ok(`${pendingDelete.name} was removed.`);
+          void (async () => {
+            if (!pendingDelete) return;
+            const target = pendingDelete;
+            setPendingDelete(null);
+            try {
+              const res = await fetch("/api/accounts/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: target.id,
+                  email: target.email,
+                  status: "inactive",
+                }),
+              });
+              const data = (await res.json()) as { ok?: boolean; error?: string };
+              if (!res.ok || !data.ok) {
+                fail(data.error ?? "Could not remove account.");
+                return;
+              }
+            } catch {
+              fail("Network error while removing account.");
+              return;
+            }
+            try {
+              deleteUser(target.id);
+            } catch {
+              updateUserStatus(target.id, "inactive");
+            }
+            await loadUsers();
+            bump();
+            ok(`${target.name} was removed from the live portal.`);
+          })();
         }}
       />
     </div>

@@ -62,6 +62,8 @@ const STORE_KEYS = [
   "dreyz_users",
   "dreyz_payments",
   "dreyz_role_pages",
+  "dreyz_email_outbox",
+  "dreyz_rukapay_config",
 ] as const;
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -108,7 +110,7 @@ export function queueCloudPush() {
 
 export async function hydrateSchoolData() {
   if (!isBrowser()) return;
-  const mergeKey = "dreyz_live_merge_v3";
+  const mergeKey = "dreyz_live_merge_v4";
   if (hydrated && localStorage.getItem(mergeKey)) return;
   hydrated = true;
   try {
