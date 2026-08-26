@@ -109,17 +109,38 @@ export function RolePagesSettings() {
                     <ul className="space-y-0.5">
                       {PAGE_FEATURES.filter((f) => f.group === group).map((feature) => {
                         const on = flags[feature.id];
+                        const locked =
+                          role === "student" &&
+                          (feature.id === "schedule" || feature.id === "notices");
                         return (
                           <li key={feature.id}>
                             <button
                               type="button"
                               role="switch"
                               aria-checked={on}
-                              onClick={() => onToggle(role, feature.id, !on)}
-                              className="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#082878]/25"
+                              disabled={locked}
+                              title={
+                                locked
+                                  ? "Always on for students so timetable and notices appear automatically"
+                                  : undefined
+                              }
+                              onClick={() => {
+                                if (locked) return;
+                                onToggle(role, feature.id, !on);
+                              }}
+                              className={`-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-lg px-2 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#082878]/25 ${
+                                locked
+                                  ? "cursor-not-allowed opacity-80"
+                                  : "hover:bg-surface/80"
+                              }`}
                             >
                               <span className={`text-sm ${on ? "text-foreground" : "text-muted"}`}>
                                 {feature.label}
+                                {locked ? (
+                                  <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-emerald-600">
+                                    always on
+                                  </span>
+                                ) : null}
                               </span>
                               <Toggle on={on} />
                             </button>

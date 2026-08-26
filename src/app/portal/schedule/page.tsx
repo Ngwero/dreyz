@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { PageHeader, Button } from "@/components/ui/PageElements";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -39,7 +39,27 @@ export default function SchedulePage() {
     instructor: user?.name ?? "",
   });
 
-  const canEdit = user?.role === "super_admin";
+  const canEdit = user?.role === "super_admin" || user?.role === "tutor";
+  const isStudent = user?.role === "student";
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/school-data", { cache: "no-store" });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          data?: { dreyz_schedule?: ScheduleItem[] };
+        };
+        const rows = data.data?.dreyz_schedule;
+        if (res.ok && data.ok && Array.isArray(rows) && rows.length) {
+          scheduleStore.upsertMany(rows);
+          refresh();
+        }
+      } catch {
+        /* keep local schedule */
+      }
+    })();
+  }, [refresh]);
 
   const onAdd = (e: FormEvent) => {
     e.preventDefault();
@@ -54,14 +74,21 @@ export default function SchedulePage() {
     });
     refresh();
     setOpen(false);
-    showFlash("success", `${form.title.trim()} was added to the schedule.`);
+    showFlash(
+      "success",
+      `${form.title.trim()} was added — students will see it on their portal automatically.`
+    );
   };
 
   return (
     <div>
       <PageHeader
         title="Course Schedule"
-        description="Live, physical, workshop, and project review sessions."
+        description={
+          isStudent
+            ? "Your class timetable. New sessions appear here as soon as staff publish them."
+            : "Live, physical, workshop, and project review sessions. Students see these on their portal home and Schedule page automatically."
+        }
         action={
           canEdit ? (
             <Button size="sm" onClick={() => setOpen(true)}>
@@ -70,6 +97,14 @@ export default function SchedulePage() {
           ) : undefined
         }
       />
+
+      {items.length === 0 ? (
+        <p className="mb-4 text-sm text-muted">
+          {isStudent
+            ? "No sessions published yet. Check back after your tutors add the timetable."
+            : "No sessions yet. Add a session and students will see it immediately."}
+        </p>
+      ) : null}
 
       <div className="space-y-4">
         {items.map((item) => (
@@ -105,11 +140,7 @@ export default function SchedulePage() {
                   <Calendar size={14} /> Add to Calendar
                 </Button>
                 {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setPendingDelete(item)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setPendingDelete(item)}>
                     <Trash2 size={14} />
                   </Button>
                 )}
@@ -122,7 +153,12 @@ export default function SchedulePage() {
       <Modal open={open} title="Add session" onClose={() => setOpen(false)}>
         <form onSubmit={onAdd} className="space-y-3">
           <Field label="Title">
-            <input required className={fieldClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            <input
+              required
+              className={fieldClass}
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
           </Field>
           <Field label="Course">
             <select
@@ -141,14 +177,31 @@ export default function SchedulePage() {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Date">
-              <input required type="date" className={fieldClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <input
+                required
+                type="date"
+                className={fieldClass}
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+              />
             </Field>
             <Field label="Time">
-              <input required className={fieldClass} value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+              <input
+                required
+                className={fieldClass}
+                value={form.time}
+                onChange={(e) => setForm({ ...form, time: e.target.value })}
+              />
             </Field>
           </div>
           <Field label="Type">
-            <select className={fieldClass} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as ScheduleItem["type"] })}>
+            <select
+              className={fieldClass}
+              value={form.type}
+              onChange={(e) =>
+                setForm({ ...form, type: e.target.value as ScheduleItem["type"] })
+              }
+            >
               <option value="live">live</option>
               <option value="physical">physical</option>
               <option value="workshop">workshop</option>
@@ -156,10 +209,17 @@ export default function SchedulePage() {
             </select>
           </Field>
           <Field label="Instructor">
-            <input required className={fieldClass} value={form.instructor} onChange={(e) => setForm({ ...form, instructor: e.target.value })} />
+            <input
+              required
+              className={fieldClass}
+              value={form.instructor}
+              onChange={(e) => setForm({ ...form, instructor: e.target.value })}
+            />
           </Field>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button type="submit">Save session</Button>
           </div>
         </form>

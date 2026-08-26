@@ -74,7 +74,13 @@ export default function NoticesPage() {
         );
         return;
       }
-      showFlash("success", data.message ?? `Notice posted and emailed to everyone.`);
+      showFlash(
+        "success",
+        data.message ??
+          `Notice posted — students will see it on their portal automatically${
+            data.emailed ? ` (emailed to ${data.emailed})` : ""
+          }.`
+      );
     } catch {
       showFlash("error", "Notice is on the portal, but email could not be sent.");
     } finally {
@@ -86,7 +92,7 @@ export default function NoticesPage() {
     <div>
       <PageHeader
         title="Notices & Announcements"
-        description="Posted notices show for everyone in the portal and are emailed to all staff and learners."
+        description="Posted notices show on every student portal home and Notices page, and are emailed to staff and learners."
         action={
           canPost ? (
             <Button size="sm" onClick={() => setOpen(true)} disabled={posting}>

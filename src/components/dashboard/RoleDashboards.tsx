@@ -253,6 +253,55 @@ function UpcomingSessionsPanel({ limit = 5 }: { limit?: number }) {
   );
 }
 
+function StudentNoticesPanel({ limit = 4 }: { limit?: number }) {
+  const tick = useLiveTick();
+  void tick;
+  const notices = [...noticesStore.getAll()].sort((a, b) =>
+    (b.date || "").localeCompare(a.date || "")
+  );
+  const recent = notices.slice(0, limit);
+
+  return (
+    <Card
+      className="mb-6"
+      title="School notices"
+      action={
+        <Link href="/portal/notices" className="text-xs font-semibold text-accent">
+          All notices
+        </Link>
+      }
+    >
+      {recent.length === 0 ? (
+        <p className="text-sm text-muted">
+          No notices yet. When staff post an announcement, it appears here automatically.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {recent.map((n) => (
+            <li key={n.id}>
+              <ListRow>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{n.title}</p>
+                  <p className="truncate text-xs text-muted">
+                    {n.date} · {n.category}
+                  </p>
+                </div>
+                <Badge
+                  variant={
+                    n.priority === "high" ? "danger" : n.priority === "medium" ? "warning" : "default"
+                  }
+                >
+                  {n.priority}
+                </Badge>
+              </ListRow>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 function LiveInsightCharts({
   showRoles = false,
 }: {
@@ -738,13 +787,29 @@ function StudentDashboard({
         title={`Welcome, ${name.split(" ")[0]}`}
         description={`Your progress, schedule, and studio work at ${schoolInfo.name}.`}
         actions={
-          <Link
-            href="/portal/projects"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:brightness-110"
-          >
-            <FolderKanban size={14} />
-            My projects
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/portal/schedule"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
+            >
+              <CalendarDays size={14} />
+              Schedule
+            </Link>
+            <Link
+              href="/portal/notices"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-surface"
+            >
+              <Bell size={14} />
+              Notices
+            </Link>
+            <Link
+              href="/portal/projects"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:brightness-110"
+            >
+              <FolderKanban size={14} />
+              My projects
+            </Link>
+          </div>
         }
       />
 
@@ -793,6 +858,8 @@ function StudentDashboard({
       </div>
 
       <UpcomingSessionsPanel />
+
+      <StudentNoticesPanel />
 
       {breakdown && (
         <div className="mb-6 grid gap-5 lg:grid-cols-12">

@@ -100,29 +100,44 @@ function mergeFlags(stored: Partial<RolePageFlags> | undefined, fallback: RolePa
 
 export function getRolePages(): RolePages {
   const defaults = defaultRolePages();
-  if (typeof window === "undefined") return defaults;
+  if (typeof window === "undefined") return forceStudentEssentials(defaults);
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaults;
+    if (!raw) return forceStudentEssentials(defaults);
     const stored = JSON.parse(raw) as Partial<RolePages>;
-    return {
+    return forceStudentEssentials({
       accountant: mergeFlags(stored.accountant, defaults.accountant),
       tutor: mergeFlags(stored.tutor, defaults.tutor),
       student: mergeFlags(stored.student, defaults.student),
-    };
+    });
   } catch {
-    return defaults;
+    return forceStudentEssentials(defaults);
   }
+}
+
+/** Schedule + notices always stay on for students so staff posts appear automatically. */
+function forceStudentEssentials(pages: RolePages): RolePages {
+  return {
+    ...pages,
+    student: {
+      ...pages.student,
+      schedule: true,
+      notices: true,
+    },
+  };
 }
 
 export function saveRolePages(pages: RolePages) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(pages));
+  localStorage.setItem(KEY, JSON.stringify(forceStudentEssentials(pages)));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: KEY } }));
   queueCloudPush();
 }
 
 export function setRolePage(role: ConfigurableRole, id: PageFeatureId, on: boolean) {
+  if (role === "student" && (id === "schedule" || id === "notices") && !on) {
+    return getRolePages();
+  }
   const pages = getRolePages();
   pages[role] = { ...pages[role], [id]: on };
   saveRolePages(pages);
