@@ -111,7 +111,7 @@ export function queueCloudPush() {
 
 export async function hydrateSchoolData() {
   if (!isBrowser()) return;
-  const mergeKey = "dreyz_live_merge_v4";
+  const mergeKey = "dreyz_live_merge_v5";
   if (hydrated && localStorage.getItem(mergeKey)) return;
   hydrated = true;
   try {

@@ -91,7 +91,7 @@ export default function AttendancePage() {
     if (typeof window === "undefined") return;
     if (localStorage.getItem("dreyz_attendance_reset_v2")) return;
     // After cloud hydrate, real attendance must not be wiped by this one-shot flag.
-    if (localStorage.getItem("dreyz_live_merge_v4") || localStorage.getItem("dreyz_live_merge_v3")) {
+    if (localStorage.getItem("dreyz_live_merge_v5") || localStorage.getItem("dreyz_live_merge_v4") || localStorage.getItem("dreyz_live_merge_v3")) {
       localStorage.setItem("dreyz_attendance_reset_v2", "1");
       return;
     }

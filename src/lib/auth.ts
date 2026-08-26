@@ -749,6 +749,7 @@ export function confirmPaymentAndProvision(
         phone: user.phone ?? "",
         course: track?.name ?? "Professional Interior Design Programme",
         enrollmentDate: payment.date,
+        intake: input.intake?.trim() || currentOpenIntake(),
         progress: 0,
         status: "active",
         paidAmount: paidTotal,

@@ -4,7 +4,7 @@ import {
   parseAdmissionNumber,
 } from "@/lib/admission-number";
 
-/** Next DRY### from Supabase learners + profiles (server-side). */
+/** Next DRY### using the Postgres counter when available. */
 export async function allocateAdmissionNumberServer(
   admin: SupabaseClient,
   preferred?: string | null
@@ -19,6 +19,12 @@ export async function allocateAdmissionNumberServer(
     if (byId?.id) return byId.id;
   }
 
+  const { data: rpcId, error } = await admin.rpc("allocate_admission_number");
+  if (!error && typeof rpcId === "string" && rpcId.startsWith("DRY")) {
+    return rpcId;
+  }
+
+  // Fallback if migration not applied yet
   const [{ data: learners }, { data: profiles }] = await Promise.all([
     admin.from("learners").select("id"),
     admin.from("profiles").select("learner_id").not("learner_id", "is", null),

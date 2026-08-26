@@ -32,6 +32,7 @@ function writeJson(key: string, value: unknown) {
   if (!isBrowser()) return;
   localStorage.setItem(key, JSON.stringify(value));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key } }));
+  void import("./store").then((mod) => mod.queueCloudPush());
 }
 
 function readUsers(): PortalUser[] {
@@ -200,6 +201,16 @@ export function purgeStudentIdentity(opts: {
       return !hit;
     });
     writeJson(USERS_KEY, nextUsers);
+  }
+
+  if (isBrowser() && (learnerId || email)) {
+    void fetch("/api/learners/purge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ learnerId, email }),
+    }).catch(() => {
+      /* best-effort cloud purge */
+    });
   }
 
   return result;
