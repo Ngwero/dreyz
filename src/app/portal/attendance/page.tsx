@@ -218,6 +218,7 @@ export default function AttendancePage() {
       course,
       date: form.date,
       status: form.status,
+      recordedAt: new Date().toISOString(),
     });
     const counts = attendanceCountsForAward(form.date, learner.enrollmentDate);
     refresh();
@@ -232,7 +233,7 @@ export default function AttendancePage() {
 
   const setStatus = (record: AttendanceRecord, status: Mark) => {
     if (!canMark) return;
-    attendanceStore.upsert({ ...record, status });
+    attendanceStore.upsert({ ...record, status, recordedAt: new Date().toISOString() });
     refresh();
   };
 

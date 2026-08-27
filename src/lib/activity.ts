@@ -9,6 +9,7 @@ import {
   learnersStore,
   noticesStore,
   projectsStore,
+  queueCloudPush,
   scheduleStore,
 } from "@/lib/store";
 
@@ -71,6 +72,7 @@ function writeLog(items: ActivityItem[]) {
   if (!isBrowser()) return;
   localStorage.setItem(LOG_KEY, JSON.stringify(items.slice(0, MAX_LOG)));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: LOG_KEY } }));
+  queueCloudPush();
 }
 
 /** Record a portal action (emails, saves, errors) so Recent activity stays current. */
@@ -160,7 +162,7 @@ function collectSchoolActivity(): ActivityItem[] {
   for (const rec of attendanceStore.getAll()) {
     items.push({
       id: `att-${rec.id}`,
-      at: parseWhen(rec.date),
+      at: parseWhen(rec.recordedAt) || parseWhen(rec.date),
       category: "attendance",
       title: `${rec.learnerName} marked ${rec.status}`,
       detail: rec.course,
@@ -174,7 +176,7 @@ function collectSchoolActivity(): ActivityItem[] {
   for (const grade of gradesStore.getAll()) {
     items.push({
       id: `grd-${grade.id}`,
-      at: parseWhen(grade.date),
+      at: parseWhen(grade.recordedAt) || parseWhen(grade.date),
       category: "assessment",
       title: `${grade.learnerName} scored ${grade.score}/${grade.maxScore} on ${grade.title}`,
       detail: `${grade.course} · ${grade.type}`,
@@ -290,6 +292,43 @@ export function collectRecentActivity(user: SessionUser): ActivityItem[] {
   return unique
     .filter((item) => visibleForRole(item, user))
     .sort((a, b) => (b.at || 0) - (a.at || 0));
+}
+
+/** Latest activity item per learner (attendance, marks, login, payments, etc.). */
+export function lastActivityByLearner(
+  learners: { id: string; email: string; name: string }[],
+  user: SessionUser
+): Map<string, ActivityItem> {
+  const byId = new Map<string, ActivityItem>();
+  if (!learners.length) return byId;
+
+  const emailToId = new Map<string, string>();
+  const nameToId = new Map<string, string>();
+  for (const learner of learners) {
+    emailToId.set(learner.email.toLowerCase(), learner.id);
+    nameToId.set(learner.name.trim().toLowerCase(), learner.id);
+  }
+
+  const items = collectRecentActivity(user);
+  for (const item of items) {
+    const matched = new Set<string>();
+    for (const id of item.learnerIds) {
+      if (learners.some((l) => l.id === id)) matched.add(id);
+    }
+    for (const email of item.emails) {
+      const id = emailToId.get(email.toLowerCase());
+      if (id) matched.add(id);
+    }
+    // Titles like "Jane marked present" / "Jane enrolled"
+    for (const [name, id] of nameToId) {
+      if (name.length > 2 && item.title.toLowerCase().includes(name)) matched.add(id);
+    }
+    for (const id of matched) {
+      const prev = byId.get(id);
+      if (!prev || (item.at || 0) > (prev.at || 0)) byId.set(id, item);
+    }
+  }
+  return byId;
 }
 
 export function formatActivityTime(at: number): string {

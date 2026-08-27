@@ -16,6 +16,7 @@ import {
   learnersStore,
   coursesStore,
   useStoreList,
+  useLiveTick,
   exportCsv,
   type Learner,
 } from "@/lib/store";
@@ -26,7 +27,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { computeLearnerProgress, feesForStudent } from "@/lib/academics";
 import { LearnerProfile } from "@/components/portal/LearnerProfile";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
-import { formatUGX } from "@/lib/utils";
+import { formatUGX, cn } from "@/lib/utils";
 import { feeTracks } from "@/lib/data";
 import {
   INTAKE_OPTIONS,
@@ -40,13 +41,16 @@ import {
   purgeStudentIdentity,
   resolveStudentAdmissionId,
 } from "@/lib/learner-identity";
+import { formatActivityTime, lastActivityByLearner } from "@/lib/activity";
 
 export default function LearnersPage() {
   const { user } = useAuth();
+  const tick = useLiveTick();
   const [learners, refresh] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [query, setQuery] = useState("");
   const [intakeFilter, setIntakeFilter] = useState<string>("all");
+  const [view, setView] = useState<"roster" | "activity">("roster");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Learner | null>(null);
   const [form, setForm] = useState({
@@ -124,21 +128,30 @@ export default function LearnersPage() {
     showFlash("success", msg);
   };
 
+  const activityByLearner = useMemo(() => {
+    void tick;
+    if (!user) return new Map();
+    return lastActivityByLearner(learners, user);
+  }, [learners, user, tick]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return learners.filter((l) => {
       const intake = resolveLearnerIntake(l);
       if (intakeFilter !== "all" && intake !== intakeFilter) return false;
       if (!q) return true;
+      const activity = activityByLearner.get(l.id);
       return (
         l.name.toLowerCase().includes(q) ||
         l.id.toLowerCase().includes(q) ||
         l.email.toLowerCase().includes(q) ||
         l.course.toLowerCase().includes(q) ||
-        intake.toLowerCase().includes(q)
+        intake.toLowerCase().includes(q) ||
+        (activity?.title.toLowerCase().includes(q) ?? false) ||
+        (activity?.detail.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [learners, query, intakeFilter]);
+  }, [learners, query, intakeFilter, activityByLearner]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Learner[]>();
@@ -150,6 +163,15 @@ export default function LearnersPage() {
     }
     return [...map.entries()].sort(([a], [b]) => compareIntakeLabels(a, b));
   }, [filtered]);
+
+  const byLastActivity = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const aAt = activityByLearner.get(a.id)?.at ?? 0;
+      const bAt = activityByLearner.get(b.id)?.at ?? 0;
+      if (bAt !== aAt) return bAt - aAt;
+      return a.name.localeCompare(b.name);
+    });
+  }, [filtered, activityByLearner]);
 
   const canManageAccounts =
     user?.role === "super_admin" || user?.role === "accountant";
@@ -484,16 +506,114 @@ export default function LearnersPage() {
         />
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {(
+          [
+            { id: "roster" as const, label: "Roster" },
+            { id: "activity" as const, label: "Last activity" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setView(tab.id)}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-xs font-semibold transition",
+              view === tab.id
+                ? "bg-accent text-white"
+                : "border border-border bg-card text-muted hover:bg-surface hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-6">
         <SearchInput
-          placeholder="Search by name, ID, course, or intake…"
+          placeholder={
+            view === "activity"
+              ? "Search learners by name, ID, or activity…"
+              : "Search by name, ID, course, or intake…"
+          }
           className="max-w-md"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
 
-      {grouped.length === 0 ? (
+      {view === "activity" ? (
+        byLastActivity.length === 0 ? (
+          <p className="mt-4 text-sm text-muted">No learners match your search.</p>
+        ) : (
+          <DataTable
+            columns={[
+              { key: "name", label: "Learner" },
+              { key: "intake", label: "Intake" },
+              { key: "activity", label: "Last activity" },
+              { key: "when", label: "When" },
+              { key: "status", label: "Status" },
+              ...(canEdit ? [{ key: "actions", label: "" }] : []),
+            ]}
+          >
+            {byLastActivity.map((learner) => {
+              const item = activityByLearner.get(learner.id);
+              return (
+                <TableRow key={learner.id}>
+                  <TableCell>
+                    <button
+                      type="button"
+                      className="text-left"
+                      onClick={() => setSelected(learner)}
+                    >
+                      <p className="font-medium hover:text-accent">{learner.name}</p>
+                      <p className="text-xs text-muted">
+                        {learner.id} · {learner.email}
+                      </p>
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-muted">{resolveLearnerIntake(learner)}</TableCell>
+                  <TableCell>
+                    {item ? (
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        {item.detail ? (
+                          <p className="text-xs text-muted">{item.detail}</p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted">No activity yet</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted">
+                    {item?.at ? formatActivityTime(item.at) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        learner.status === "active"
+                          ? "success"
+                          : learner.status === "completed"
+                            ? "info"
+                            : "warning"
+                      }
+                    >
+                      {learner.status}
+                    </Badge>
+                  </TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <Button size="sm" variant="outline" onClick={() => setSelected(learner)}>
+                        <Eye size={13} /> Profile
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </DataTable>
+        )
+      ) : grouped.length === 0 ? (
         <p className="mt-4 text-sm text-muted">No learners match your search.</p>
       ) : (
         <div className="space-y-8">

@@ -189,6 +189,7 @@ export default function AssessmentsPage() {
           score,
           maxScore: marking.maxScore,
           date: new Date().toISOString().slice(0, 10),
+          recordedAt: new Date().toISOString(),
         };
       })
       .filter((row) => row !== null);

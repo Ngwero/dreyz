@@ -92,6 +92,8 @@ export interface AttendanceRecord {
   course: string;
   date: string;
   status: "present" | "absent" | "late";
+  /** When the mark was saved (ISO) — used for live recent activity. */
+  recordedAt?: string;
 }
 
 export interface Assessment {
@@ -115,6 +117,8 @@ export interface Grade {
   score: number;
   maxScore: number;
   date: string;
+  /** When the mark was saved (ISO) — used for live recent activity. */
+  recordedAt?: string;
 }
 
 export interface Notice {

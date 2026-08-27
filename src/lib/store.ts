@@ -65,10 +65,21 @@ const STORE_KEYS = [
   "dreyz_role_pages",
   "dreyz_email_outbox",
   "dreyz_rukapay_config",
+  "dreyz_activity_log",
 ] as const;
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let pushInFlight = false;
 let hydrated = false;
+let lastAppliedFingerprint = "";
+
+function fingerprintSnapshot(data: Record<string, unknown>): string {
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return "";
+  }
+}
 
 function collectSnapshot() {
   if (!isBrowser()) return {};
@@ -85,28 +96,59 @@ function collectSnapshot() {
   return data;
 }
 
-function applySnapshot(data: Record<string, unknown>) {
-  if (!isBrowser() || !data) return;
+function applySnapshot(data: Record<string, unknown>, opts?: { force?: boolean }) {
+  if (!isBrowser() || !data) return false;
+  const nextFp = fingerprintSnapshot(data);
+  if (!opts?.force && nextFp && nextFp === lastAppliedFingerprint) return false;
   for (const [key, value] of Object.entries(data)) {
     if (!STORE_KEYS.includes(key as (typeof STORE_KEYS)[number])) continue;
     localStorage.setItem(key, JSON.stringify(value));
   }
+  lastAppliedFingerprint = nextFp;
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: "*" } }));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: "*" } }));
+  return true;
 }
 
 export function queueCloudPush() {
   if (!isBrowser()) return;
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
+    syncTimer = null;
+    pushInFlight = true;
     void fetch("/api/school-data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: collectSnapshot() }),
-    }).catch(() => {
-      /* offline */
-    });
+    })
+      .then(async (res) => {
+        const json = (await res.json()) as { ok?: boolean; data?: Record<string, unknown> };
+        if (res.ok && json.ok && json.data) {
+          applySnapshot(json.data);
+        }
+      })
+      .catch(() => {
+        /* offline */
+      })
+      .finally(() => {
+        pushInFlight = false;
+      });
   }, 500);
+}
+
+/** Keep school data fresh after the first hydrate (for live recent activity). */
+export async function pullLiveSchoolData() {
+  if (!isBrowser()) return;
+  if (pushInFlight || syncTimer) return;
+  try {
+    const res = await fetch("/api/school-data", { cache: "no-store" });
+    const json = (await res.json()) as { ok?: boolean; data?: Record<string, unknown> };
+    if (res.ok && json.ok && json.data && Object.keys(json.data).length > 0) {
+      applySnapshot(json.data);
+    }
+  } catch {
+    /* keep local copy */
+  }
 }
 
 export async function hydrateSchoolData() {
@@ -118,7 +160,7 @@ export async function hydrateSchoolData() {
     const res = await fetch("/api/school-data", { cache: "no-store" });
     const json = (await res.json()) as { ok?: boolean; data?: Record<string, unknown> };
     if (res.ok && json.ok && json.data && Object.keys(json.data).length > 0) {
-      applySnapshot(json.data);
+      applySnapshot(json.data, { force: true });
       localStorage.setItem(mergeKey, "1");
     } else {
       queueCloudPush();
@@ -317,6 +359,7 @@ export function saveBulkAttendance(
     status: AttendanceRecord["status"];
   }[]
 ) {
+  const recordedAt = new Date().toISOString();
   const all = [...attendanceStore.getAll()];
   for (const entry of entries) {
     const existing = all.find(
@@ -326,8 +369,13 @@ export function saveBulkAttendance(
         r.course === entry.course
     );
     const record: AttendanceRecord = existing
-      ? { ...existing, status: entry.status, learnerName: entry.learnerName }
-      : { id: uid("ATT"), ...entry };
+      ? {
+          ...existing,
+          status: entry.status,
+          learnerName: entry.learnerName,
+          recordedAt,
+        }
+      : { id: uid("ATT"), ...entry, recordedAt };
     const i = all.findIndex((x) => x.id === record.id);
     if (i >= 0) all[i] = record;
     else all.unshift(record);
@@ -467,9 +515,26 @@ export function useLiveTick() {
     void hydrateSchoolData().then(bump);
     window.addEventListener("storage", bump);
     window.addEventListener("dreyz-store", bump);
+
+    // Relative timestamps ("3m ago") and cloud pulls for cross-device live activity.
+    const clock = window.setInterval(bump, 30_000);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void pullLiveSchoolData();
+    }, 6_000);
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void pullLiveSchoolData();
+      bump();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       window.removeEventListener("storage", bump);
       window.removeEventListener("dreyz-store", bump);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(clock);
+      window.clearInterval(poll);
     };
   }, []);
   return tick;

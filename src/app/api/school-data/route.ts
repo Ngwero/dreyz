@@ -17,11 +17,15 @@ export async function GET() {
     }
     const snapshot = (data?.data ?? {}) as Record<string, unknown>;
     const merged = await mergeLiveSchoolData(snapshot);
-    await admin.from("school_settings").upsert({
-      id: "default",
-      data: merged,
-      updated_at: new Date().toISOString(),
-    });
+    const before = JSON.stringify(snapshot);
+    const after = JSON.stringify(merged);
+    if (before !== after) {
+      await admin.from("school_settings").upsert({
+        id: "default",
+        data: merged,
+        updated_at: new Date().toISOString(),
+      });
+    }
     return NextResponse.json({ ok: true, data: merged });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

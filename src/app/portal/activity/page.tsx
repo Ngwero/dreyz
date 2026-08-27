@@ -89,7 +89,7 @@ export default function RecentActivityPage() {
     <div>
       <PageHeader
         title="Recent activity"
-        description="Emails, payments, attendance, marks, notices, and other school actions in one timeline."
+        description="Live school timeline — emails, payments, attendance, marks, notices, and portal actions update as they happen."
       />
 
       <div className="mb-4">
