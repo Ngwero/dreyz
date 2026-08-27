@@ -81,11 +81,26 @@ export default function AttendancePage() {
   const [bulkCourse, setBulkCourse] = useState("");
   const [bulkQuery, setBulkQuery] = useState("");
   const [intakeFilter, setIntakeFilter] = useState<string>("all");
+  const [includeInactive, setIncludeInactive] = useState(true);
   const [marks, setMarks] = useState<Record<string, Mark>>({});
   const [bulkNotice, setBulkNotice] = useState("");
   const [pendingReset, setPendingReset] = useState<"all" | "period" | null>(null);
 
   const canMark = user?.role === "super_admin" || user?.role === "tutor";
+
+  /** Last 24 months for quick jump (includes previous year). */
+  const recentMonths = useMemo(() => {
+    const out: string[] = [];
+    const d = new Date();
+    d.setDate(1);
+    for (let i = 0; i < 24; i++) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      out.push(`${y}-${m}`);
+      d.setMonth(d.getMonth() - 1);
+    }
+    return out;
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -102,11 +117,11 @@ export default function AttendancePage() {
 
   const roster = useMemo(() => {
     return learners.filter((l) => {
-      if (l.status !== "active") return false;
+      if (!includeInactive && l.status !== "active") return false;
       if (intakeFilter !== "all" && resolveLearnerIntake(l) !== intakeFilter) return false;
       return true;
     });
-  }, [learners, intakeFilter]);
+  }, [learners, intakeFilter, includeInactive]);
 
   const selectedCourse = bulkCourse || courseOptions[0] || "Professional Interior Design Programme";
 
@@ -209,10 +224,10 @@ export default function AttendancePage() {
     setOpen(false);
     const { from, to } = attendanceAwardWindow(learner.enrollmentDate);
     const msg = counts
-      ? `Saved attendance for ${learner.name}.`
-      : `Saved attendance for ${learner.name}. Note: ${form.date} is outside their ${ATTENDANCE_AWARD_MONTHS}-month progress window (${from} to ${to}) and will not count toward progress.`;
+      ? `Saved attendance for ${learner.name} on ${form.date}.`
+      : `Saved attendance for ${learner.name} on ${form.date}. Stored for the record (outside the ${ATTENDANCE_AWARD_MONTHS}-month progress window ${from}–${to}).`;
     setBulkNotice(msg);
-    showFlash(counts ? "success" : "error", msg);
+    showFlash("success", msg);
   };
 
   const setStatus = (record: AttendanceRecord, status: Mark) => {
@@ -263,10 +278,10 @@ export default function AttendancePage() {
     );
     setMarks({});
     refresh();
-    const msg = `Saved ${allEntries.length} class roll mark${allEntries.length === 1 ? "" : "s"} (${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent).${
+    const msg = `Saved ${allEntries.length} class roll mark${allEntries.length === 1 ? "" : "s"} for ${periodDates[0] ?? "—"}${periodDates.length > 1 ? ` → ${periodDates[periodDates.length - 1]}` : ""} (${bulkCounts.present} present, ${bulkCounts.late} late, ${bulkCounts.absent} absent).${
       skipped
-        ? ` ${skipped} fall outside the ${ATTENDANCE_AWARD_MONTHS}-month progress window and are stored but not awarded.`
-        : ` ${awardedEntries.length} count toward progress.`
+        ? ` ${skipped} are outside the ${ATTENDANCE_AWARD_MONTHS}-month progress window — still stored, not counted in progress %.`
+        : ` All count toward progress.`
     }`;
     setBulkNotice(msg);
     showFlash("success", msg);
@@ -300,7 +315,7 @@ export default function AttendancePage() {
     <div>
       <PageHeader
         title="Attendance"
-        description={`Track live sessions and workshops. Only the first ${ATTENDANCE_AWARD_MONTHS} months from a learner's enrolment date count toward class progress.`}
+        description="Mark class rolls for any day or month — including previous months and last year. Marks are always saved to the school record."
         action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onExport}>
@@ -340,7 +355,7 @@ export default function AttendancePage() {
             Strikes (absence or two lates):{" "}
             <span className="font-semibold text-foreground">{studentStats.strikes}</span>
             . Four absences can lead to suspension — speak with your tutor if you need to catch up.
-            Only the first {ATTENDANCE_AWARD_MONTHS} months from your enrolment date count.
+            Progress uses the first {ATTENDANCE_AWARD_MONTHS} months from your enrolment date.
           </p>
         </Card>
       )}
@@ -356,13 +371,13 @@ export default function AttendancePage() {
           }
         >
           <p className="mb-4 text-sm text-muted">
-            Mark one day, a date range, or a full month for one intake at a time. Marks are always
-            saved; only the first {ATTENDANCE_AWARD_MONTHS} months from each learner&apos;s enrolment
-            count toward progress.
+            Choose any past month (including last year), a single day, or a date range. Every mark is
+            saved. Progress % still uses only the first {ATTENDANCE_AWARD_MONTHS} months from each
+            learner&apos;s enrolment — older rolls stay on the record.
           </p>
 
           <IntakeFilterTabs
-            learners={learners.filter((l) => l.status === "active")}
+            learners={includeInactive ? learners : learners.filter((l) => l.status === "active")}
             value={intakeFilter}
             onChange={(next) => {
               setIntakeFilter(next);
@@ -370,6 +385,18 @@ export default function AttendancePage() {
             }}
             className="mb-4"
           />
+
+          <label className="mb-4 flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={includeInactive}
+              onChange={(e) => {
+                setIncludeInactive(e.target.checked);
+                setMarks({});
+              }}
+            />
+            Include paused and completed learners (needed for earlier intakes)
+          </label>
 
           {bulkNotice && (
             <p className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-300">
@@ -386,7 +413,7 @@ export default function AttendancePage() {
                 onChange={(e) => setPeriodMode(e.target.value as "day" | "month")}
               >
                 <option value="day">One day / date range</option>
-                <option value="month">Full month</option>
+                <option value="month">Full month (any year)</option>
               </select>
             </label>
             {periodMode === "month" ? (
@@ -396,6 +423,7 @@ export default function AttendancePage() {
                   type="month"
                   className={`${fieldClass} mt-1.5`}
                   value={bulkMonth}
+                  min="2020-01"
                   onChange={(e) => {
                     setBulkMonth(e.target.value);
                     setMarks({});
@@ -410,6 +438,7 @@ export default function AttendancePage() {
                     type="date"
                     className={`${fieldClass} mt-1.5`}
                     value={bulkDate}
+                    min="2020-01-01"
                     onChange={(e) => {
                       setBulkDate(e.target.value);
                       if (e.target.value > bulkEnd) setBulkEnd(e.target.value);
@@ -423,6 +452,7 @@ export default function AttendancePage() {
                     type="date"
                     className={`${fieldClass} mt-1.5`}
                     value={bulkEnd}
+                    min="2020-01-01"
                     onChange={(e) => {
                       setBulkEnd(e.target.value);
                       setMarks({});
@@ -458,6 +488,36 @@ export default function AttendancePage() {
               />
             </label>
           </div>
+
+          {periodMode === "month" && (
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {recentMonths.map((ym) => {
+                const [y, m] = ym.split("-");
+                const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString("en", {
+                  month: "short",
+                  year: "numeric",
+                });
+                return (
+                  <button
+                    key={ym}
+                    type="button"
+                    onClick={() => {
+                      setBulkMonth(ym);
+                      setMarks({});
+                    }}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-[11px] font-medium",
+                      bulkMonth === ym
+                        ? "bg-[#082878] text-white"
+                        : "bg-surface text-muted hover:text-foreground"
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => setAllMarks("present")}>
@@ -507,7 +567,10 @@ export default function AttendancePage() {
                     <tr key={learner.id} className="hover:bg-surface/70">
                       <td className="px-4 py-3">
                         <p className="font-medium">{learner.name}</p>
-                        <p className="text-xs text-muted">{learner.id}</p>
+                        <p className="text-xs text-muted">
+                          {learner.id}
+                          {learner.status !== "active" ? ` · ${learner.status}` : ""}
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-muted">{learner.course}</td>
                       <td className="px-4 py-3">
@@ -541,7 +604,9 @@ export default function AttendancePage() {
               </tbody>
             </table>
             {bulkRoster.length === 0 && (
-              <p className="px-4 py-6 text-sm text-muted">No active learners match this roll.</p>
+              <p className="px-4 py-6 text-sm text-muted">
+                No learners match this roll. Try another intake or include paused/completed.
+              </p>
             )}
           </div>
         </Card>
@@ -582,7 +647,7 @@ export default function AttendancePage() {
             <TableCell className="text-muted">{record.date}</TableCell>
             <TableCell>
               <Badge variant={counts ? "success" : "default"}>
-                {counts ? "Awarded" : "Outside 6 months"}
+                {counts ? "Counts to %" : "Record only"}
               </Badge>
             </TableCell>
             <TableCell>
@@ -662,6 +727,7 @@ export default function AttendancePage() {
               type="date"
               className={fieldClass}
               value={form.date}
+              min="2020-01-01"
               onChange={(e) => setForm({ ...form, date: e.target.value })}
             />
           </Field>
