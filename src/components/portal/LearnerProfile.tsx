@@ -81,11 +81,14 @@ export function LearnerProfile({
   const track = feeTracks.find((t) => t.id === account?.feeTrackId) ?? feeTracks[0];
   const klass = classOptions.find((c) => c.id === account?.classOptionId);
   const progress = learnerProgressBreakdown(learner);
-  const attendance = awardedAttendance(
-    attendanceStore.getAll().filter((r) => r.learnerId === learner.id),
-    learner.enrollmentDate
-  );
+  const attendanceAll = attendanceStore
+    .getAll()
+    .filter((r) => r.learnerId === learner.id)
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? ""));
+  const attendance = awardedAttendance(attendanceAll, learner.enrollmentDate);
   const att = attendanceSummary(attendance);
+  const recentAttendance = attendanceAll.slice(0, 12);
   const grades = gradesStore
     .getAll()
     .filter((g) => g.learnerId === learner.id)
@@ -197,80 +200,58 @@ export function LearnerProfile({
               />
             </div>
           </section>
-          <section className="rounded-2xl border border-border p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-              Progress mix
-            </p>
-            {progress.classes.done +
-              progress.tests.done +
-              progress.exams.done +
-              progress.final.done ===
-            0 ? (
-              <p className="mt-6 text-sm text-muted">No classes, tests, or exams counted yet.</p>
-            ) : (
-              <CourseDonutChart
-                total={progress.percent}
-                centerLabel="Progress"
-                centerHint="percent"
-                data={[
-                  {
-                    name: "Classes",
-                    value: progress.classes.done,
-                    color: "#082878",
-                  },
-                  {
-                    name: "Tests",
-                    value: progress.tests.done,
-                    color: "#1b7eef",
-                  },
-                  {
-                    name: "Exams",
-                    value: progress.exams.done,
-                    color: "#d8ff59",
-                  },
-                  {
-                    name: "Final",
-                    value: progress.final.done,
-                    color: "#ff8c00",
-                  },
-                ].filter((slice) => slice.value > 0)}
-              />
-            )}
-          </section>
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
           <section className="rounded-2xl border border-border p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-              Attendance (first {ATTENDANCE_AWARD_MONTHS} months)
+              Attendance
             </p>
-            {att.total === 0 ? (
-              <p className="mt-6 text-sm text-muted">No awarded attendance yet.</p>
-            ) : (
-              <CourseDonutChart
-                total={att.total}
-                centerLabel="Sessions"
-                centerHint="awarded"
-                data={[
-                  { name: "Present", value: att.present, color: "#082878" },
-                  { name: "Late", value: att.late, color: "#e8a317" },
-                  { name: "Absent", value: att.absent, color: "#c45c5c" },
-                ].filter((slice) => slice.value > 0)}
-              />
-            )}
-            <div className="mt-2 grid grid-cols-4 gap-2 text-center">
+            <p className="mt-1 text-xs text-muted">
+              First {ATTENDANCE_AWARD_MONTHS} months from enrolment count toward progress.
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               {[
-                ["Present", att.present],
-                ["Late", att.late],
-                ["Absent", att.absent],
-                ["Strikes", att.strikes],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-xl bg-surface px-2 py-2">
-                  <p className="text-sm font-semibold tabular-nums">{value}</p>
+                ["Present", att.present, "text-emerald-700"],
+                ["Late", att.late, "text-amber-700"],
+                ["Absent", att.absent, "text-red-700"],
+              ].map(([label, value, color]) => (
+                <div key={String(label)} className="rounded-xl bg-surface px-2 py-3">
+                  <p className={`text-lg font-semibold tabular-nums ${color}`}>{value}</p>
                   <p className="text-[10px] uppercase text-muted">{label}</p>
                 </div>
               ))}
             </div>
+            <p className="mt-2 text-xs text-muted">
+              {att.total} session{att.total === 1 ? "" : "s"} · {att.strikes} strike
+              {att.strikes === 1 ? "" : "s"} (absent or two lates)
+            </p>
+            {recentAttendance.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">No attendance marked yet.</p>
+            ) : (
+              <ul className="mt-4 max-h-48 space-y-2 overflow-y-auto">
+                {recentAttendance.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex items-center justify-between gap-2 text-sm"
+                  >
+                    <span className="min-w-0 truncate text-muted">
+                      {r.date}
+                      {r.course ? ` · ${r.course}` : ""}
+                    </span>
+                    <Badge
+                      variant={
+                        r.status === "present"
+                          ? "success"
+                          : r.status === "late"
+                            ? "warning"
+                            : "danger"
+                      }
+                    >
+                      {r.status}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
 

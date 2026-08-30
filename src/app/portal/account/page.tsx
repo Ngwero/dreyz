@@ -163,10 +163,12 @@ export default function MyAccountPage() {
   const myPayments = payments.filter(
     (p) => p.learnerEmail.toLowerCase() === profile.email.toLowerCase()
   );
-  const myAttendance = awardedAttendance(
-    attendance.filter((a) => a.learnerId === learner?.id),
-    learner?.enrollmentDate
-  );
+  const myAttendanceAll = attendance
+    .filter((a) => a.learnerId === learner?.id)
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const myAttendance = awardedAttendance(myAttendanceAll, learner?.enrollmentDate);
+  const myAttSummary = attendanceSummary(myAttendance);
   const myProjects = projects.filter((p) => p.learnerId === learner?.id);
   const { present } = attendanceSummary(attendance);
   const upcoming = [...sessions].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
@@ -450,15 +452,70 @@ export default function MyAccountPage() {
           </p>
         </Card>
 
-        <Card title="Attendance & studio">
-          <dl className="space-y-3 text-sm">
-            <Row label="Attendance marks" value={String(learner ? myAttendance.length : attendance.length)} />
-            <Row label="Present in school today" value={String(present)} />
-            <Row label="Projects" value={String(learner ? myProjects.length : projects.length)} />
-            <Row label="Notices" value={String(notices.length)} />
-            <Row label="Upcoming sessions" value={String(sessions.length)} />
-            <Row label="Portal accounts" value={String(allUsers.length)} />
-          </dl>
+        <Card
+          title="Attendance"
+          action={
+            <Link href="/portal/attendance" className="text-xs font-semibold text-accent">
+              Open
+            </Link>
+          }
+        >
+          {learner ? (
+            <>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-surface px-2 py-3">
+                  <p className="text-lg font-semibold tabular-nums text-emerald-700">
+                    {myAttSummary.present}
+                  </p>
+                  <p className="text-[10px] uppercase text-muted">Present</p>
+                </div>
+                <div className="rounded-xl bg-surface px-2 py-3">
+                  <p className="text-lg font-semibold tabular-nums text-amber-700">
+                    {myAttSummary.late}
+                  </p>
+                  <p className="text-[10px] uppercase text-muted">Late</p>
+                </div>
+                <div className="rounded-xl bg-surface px-2 py-3">
+                  <p className="text-lg font-semibold tabular-nums text-red-700">
+                    {myAttSummary.absent}
+                  </p>
+                  <p className="text-[10px] uppercase text-muted">Absent</p>
+                </div>
+              </div>
+              {myAttendanceAll.length === 0 ? (
+                <p className="mt-3 text-sm text-muted">No attendance marked yet.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {myAttendanceAll.slice(0, 6).map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="text-muted">{r.date}</span>
+                      <Badge
+                        variant={
+                          r.status === "present"
+                            ? "success"
+                            : r.status === "late"
+                              ? "warning"
+                              : "danger"
+                        }
+                      >
+                        {r.status}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <dl className="space-y-3 text-sm">
+              <Row label="Attendance marks" value={String(attendance.length)} />
+              <Row label="Present in school today" value={String(present)} />
+              <Row label="Projects" value={String(projects.length)} />
+              <Row label="Notices" value={String(notices.length)} />
+            </dl>
+          )}
         </Card>
 
         <Card
