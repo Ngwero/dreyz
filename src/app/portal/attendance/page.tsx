@@ -37,6 +37,7 @@ import {
   attendanceCountsForAward,
   attendanceSummary,
   awardedAttendance,
+  syncLearnerProgress,
 } from "@/lib/academics";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { resolveLearnerIntake } from "@/lib/intakes";
@@ -212,6 +213,7 @@ export default function AttendancePage() {
       status: form.status,
       recordedAt: new Date().toISOString(),
     });
+    syncLearnerProgress([learner.id]);
     const counts = attendanceCountsForAward(form.date, learner.enrollmentDate);
     refresh();
     setOpen(false);
@@ -232,6 +234,7 @@ export default function AttendancePage() {
   const setStatus = (record: AttendanceRecord, status: Mark) => {
     if (!canMark) return;
     attendanceStore.upsert({ ...record, status, recordedAt: new Date().toISOString() });
+    syncLearnerProgress([record.learnerId]);
     refresh();
   };
 

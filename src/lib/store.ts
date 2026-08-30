@@ -449,6 +449,9 @@ export function saveBulkAttendance(
     else all.unshift(record);
   }
   attendanceStore.replaceAll(all);
+  void import("./academics").then(({ syncLearnerProgress }) => {
+    syncLearnerProgress(entries.map((e) => e.learnerId));
+  });
 }
 
 export function allCourseTitles() {

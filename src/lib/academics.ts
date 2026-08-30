@@ -1,6 +1,6 @@
 import { feeTracks } from "./data";
 import { getPayments } from "./auth";
-import { attendanceStore, coursesStore, gradesStore } from "./store";
+import { attendanceStore, coursesStore, gradesStore, learnersStore } from "./store";
 import { normalizeCourse } from "./course-structure";
 import type { Assessment, AttendanceRecord, Course, Grade, Learner } from "./types";
 
@@ -108,8 +108,43 @@ function isTestType(type: Assessment["type"] | Grade["type"]) {
   return type === "test" || type === "quiz";
 }
 
-function uniqueAssessmentCount(grades: Grade[], match: (type: Grade["type"]) => boolean) {
-  return new Set(grades.filter((g) => match(g.type)).map((g) => g.assessmentId || g.id)).size;
+function uniqueGradesByAssessment(grades: Grade[], match: (type: Grade["type"]) => boolean) {
+  const byAsm = new Map<string, Grade>();
+  for (const g of grades) {
+    if (!match(g.type)) continue;
+    const key = g.assessmentId || g.id;
+    const prev = byAsm.get(key);
+    if (!prev || g.score >= prev.score) byAsm.set(key, g);
+  }
+  return [...byAsm.values()];
+}
+
+/** Count of marked assessments; quality is average score ratio across required slots (unmarked = 0). */
+function assessmentProgress(grades: Grade[], match: (type: Grade["type"]) => boolean, required: number) {
+  const list = uniqueGradesByAssessment(grades, match);
+  const done = list.length;
+  if (required <= 0) return { done, part: 0 };
+  const qualitySum = list.reduce(
+    (sum, g) => sum + Math.min(1, Math.max(0, g.score / Math.max(g.maxScore, 1))),
+    0
+  );
+  return { done, part: Math.min(1, qualitySum / required) };
+}
+
+function isProgrammeCourseLabel(name: string) {
+  const n = name.trim().toLowerCase();
+  if (!n) return true;
+  if (
+    n.includes("programme") ||
+    n.includes("program") ||
+    n.includes("main course") ||
+    /\d[\s-]*month/.test(n)
+  ) {
+    return true;
+  }
+  return feeTracks.some(
+    (t) => t.id.toLowerCase() === n || t.name.toLowerCase() === n
+  );
 }
 
 function courseForLearner(learner: Pick<Learner, "course">, courses: Course[]) {
@@ -124,6 +159,61 @@ function courseForLearner(learner: Pick<Learner, "course">, courses: Course[]) {
     );
 }
 
+type ProgressTargets = {
+  title: string;
+  durationWeeks: number;
+  classCount: number;
+  testCount: number;
+  examCount: number;
+  hasFinalExam: boolean;
+};
+
+/** Resolve Super Admin unit targets, or the full active programme when the learner holds a fee-track label. */
+function progressTargetsForLearner(
+  learner: Pick<Learner, "course">,
+  courses: Course[]
+): ProgressTargets {
+  const matched = courseForLearner(learner, courses);
+  if (
+    matched &&
+    ((matched.classCount ?? 0) > 0 ||
+      (matched.testCount ?? 0) > 0 ||
+      (matched.examCount ?? 0) > 0 ||
+      matched.hasFinalExam)
+  ) {
+    return {
+      title: matched.title,
+      durationWeeks: matched.durationWeeks ?? 0,
+      classCount: matched.classCount ?? 0,
+      testCount: matched.testCount ?? 0,
+      examCount: matched.examCount ?? 0,
+      hasFinalExam: !!matched.hasFinalExam,
+    };
+  }
+
+  const active = courses
+    .map(normalizeCourse)
+    .filter((c) => c.status === "active");
+  const label = learner.course.toLowerCase();
+  const includeInternship =
+    label.includes("6-month") ||
+    label.includes("internship") ||
+    !isProgrammeCourseLabel(learner.course);
+  const pool = active.filter((c) =>
+    includeInternship ? true : c.category !== "Internship"
+  );
+  const units = pool.length ? pool : active;
+
+  return {
+    title: learner.course || "Professional Interior Design Programme",
+    durationWeeks: units.reduce((s, c) => s + (c.durationWeeks ?? 0), 0),
+    classCount: units.reduce((s, c) => s + (c.classCount ?? 0), 0),
+    testCount: units.reduce((s, c) => s + (c.testCount ?? 0), 0),
+    examCount: units.reduce((s, c) => s + (c.examCount ?? 0), 0),
+    hasFinalExam: units.some((c) => c.hasFinalExam),
+  };
+}
+
 export type ProgressBreakdown = {
   percent: number;
   durationWeeks: number;
@@ -136,16 +226,17 @@ export type ProgressBreakdown = {
 /**
  * Progress is driven by Super Admin course targets:
  * classes attended, tests, exams, and the final exam when required.
+ * Assessment parts use score quality (score/max), so mark changes move the bar.
  */
 export function learnerProgressBreakdown(
   learner: Pick<Learner, "id" | "progress" | "course" | "enrollmentDate">,
   courses = coursesStore.getAll()
 ): ProgressBreakdown {
-  const course = courseForLearner(learner, courses);
-  const classRequired = course?.classCount ?? 0;
-  const testRequired = course?.testCount ?? 0;
-  const examRequired = course?.examCount ?? 0;
-  const finalRequired = course?.hasFinalExam ? 1 : 0;
+  const targets = progressTargetsForLearner(learner, courses);
+  const classRequired = targets.classCount;
+  const testRequired = targets.testCount;
+  const examRequired = targets.examCount;
+  const finalRequired = targets.hasFinalExam ? 1 : 0;
 
   const attendance = awardedAttendance(
     attendanceStore.getAll().filter((r) => r.learnerId === learner.id),
@@ -155,15 +246,20 @@ export function learnerProgressBreakdown(
   const classesDone = present + late;
 
   const grades = gradesStore.getAll().filter((g) => g.learnerId === learner.id);
-  const testsDone = uniqueAssessmentCount(grades, isTestType);
-  const examsDone = uniqueAssessmentCount(grades, (t) => t === "exam");
-  const finalDone = uniqueAssessmentCount(grades, (t) => t === "final") > 0 ? 1 : 0;
+  const tests = assessmentProgress(grades, isTestType, testRequired);
+  const exams = assessmentProgress(grades, (t) => t === "exam", examRequired);
+  const finals = uniqueGradesByAssessment(grades, (t) => t === "final");
+  const finalDone = finals.length > 0 ? 1 : 0;
+  const finalPart =
+    finalRequired > 0 && finals[0]
+      ? Math.min(1, Math.max(0, finals[0].score / Math.max(finals[0].maxScore, 1)))
+      : 0;
 
   const parts: number[] = [];
   if (classRequired > 0) parts.push(Math.min(1, classesDone / classRequired));
-  if (testRequired > 0) parts.push(Math.min(1, testsDone / testRequired));
-  if (examRequired > 0) parts.push(Math.min(1, examsDone / examRequired));
-  if (finalRequired > 0) parts.push(finalDone);
+  if (testRequired > 0) parts.push(tests.part);
+  if (examRequired > 0) parts.push(exams.part);
+  if (finalRequired > 0) parts.push(finalPart);
 
   const percent =
     parts.length === 0
@@ -172,10 +268,10 @@ export function learnerProgressBreakdown(
 
   return {
     percent,
-    durationWeeks: course?.durationWeeks ?? 0,
+    durationWeeks: targets.durationWeeks,
     classes: { done: classesDone, required: classRequired },
-    tests: { done: testsDone, required: testRequired },
-    exams: { done: examsDone, required: examRequired },
+    tests: { done: tests.done, required: testRequired },
+    exams: { done: exams.done, required: examRequired },
     final: { done: finalDone, required: finalRequired },
   };
 }
@@ -184,6 +280,17 @@ export function computeLearnerProgress(
   learner: Pick<Learner, "id" | "progress" | "course" | "enrollmentDate">
 ): number {
   return learnerProgressBreakdown(learner).percent;
+}
+
+/** Persist live % onto the learner roster so exports and cloud sync stay in sync with attendance/marks. */
+export function syncLearnerProgress(learnerIds?: string[]) {
+  const idSet = learnerIds?.length ? new Set(learnerIds) : null;
+  for (const learner of learnersStore.getAll()) {
+    if (idSet && !idSet.has(learner.id)) continue;
+    const percent = computeLearnerProgress(learner);
+    if (learner.progress === percent) continue;
+    learnersStore.upsert({ ...learner, progress: percent });
+  }
 }
 
 export function livePerformanceByLevel(

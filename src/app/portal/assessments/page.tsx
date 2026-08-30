@@ -27,6 +27,7 @@ import { showFlash } from "@/lib/flash";
 import { getAllUsers } from "@/lib/auth";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { resolveLearnerIntake } from "@/lib/intakes";
+import { syncLearnerProgress } from "@/lib/academics";
 
 type MarkStudent = { id: string; name: string; course: string; intake: string };
 
@@ -198,17 +199,18 @@ export default function AssessmentsPage() {
       ...marking,
       submissions: Math.max(marking.submissions, rows.length),
     });
+    syncLearnerProgress(rows.map((r) => r.learnerId));
     refresh();
     refreshGrades();
     setMarking(null);
-    showFlash("success", `Marks saved for ${marking.title} (${rows.length} student${rows.length === 1 ? "" : "s"}).`);
+    showFlash("success", `Marks saved for ${marking.title} (${rows.length} student${rows.length === 1 ? "" : "s"}). Progress bars updated.`);
   };
 
   return (
     <div>
       <PageHeader
         title="Assessments"
-        description="Tests, exams, and the final exam. Marks here count toward the Super Admin course progress targets."
+        description="Tests, exams, and the final exam. Marks and scores here update each learner’s progress bar (score quality counts, not only presence of a mark)."
         action={
           canCreate ? (
             <Button size="sm" onClick={() => setOpen(true)}>
