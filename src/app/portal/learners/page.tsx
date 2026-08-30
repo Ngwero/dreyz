@@ -139,20 +139,28 @@ export default function LearnersPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const tokens = q.split(/\s+/).filter(Boolean);
     return learners.filter((l) => {
       const intake = resolveLearnerIntake(l);
-      if (intakeFilter !== "all" && intake !== intakeFilter) return false;
-      if (!q) return true;
+      if (!tokens.length) {
+        if (intakeFilter !== "all" && intake !== intakeFilter) return false;
+        return true;
+      }
+      // Search across all intakes so names always resolve
       const activity = activityByLearner.get(l.id);
-      return (
-        l.name.toLowerCase().includes(q) ||
-        l.id.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q) ||
-        l.course.toLowerCase().includes(q) ||
-        intake.toLowerCase().includes(q) ||
-        (activity?.title.toLowerCase().includes(q) ?? false) ||
-        (activity?.detail.toLowerCase().includes(q) ?? false)
-      );
+      const haystack = [
+        l.name,
+        l.id,
+        l.email,
+        l.phone,
+        l.course,
+        intake,
+        activity?.title ?? "",
+        activity?.detail ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return tokens.every((token) => haystack.includes(token));
     });
   }, [learners, query, intakeFilter, activityByLearner]);
 

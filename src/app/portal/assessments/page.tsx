@@ -124,8 +124,15 @@ export default function AssessmentsPage() {
   const markingRoster = useMemo(() => {
     if (!marking) return [];
     const q = markQuery.trim().toLowerCase();
+    const tokens = q.split(/\s+/).filter(Boolean);
     const course = marking.course.trim().toLowerCase();
     return markStudents.filter((student) => {
+      if (tokens.length) {
+        const haystack = [student.name, student.id, student.course, student.intake]
+          .join(" ")
+          .toLowerCase();
+        return tokens.every((token) => haystack.includes(token));
+      }
       if (intakeFilter !== "all" && student.intake !== intakeFilter) return false;
       if (courseOnly && course) {
         const match =
@@ -134,13 +141,7 @@ export default function AssessmentsPage() {
           course.includes(student.course.toLowerCase());
         if (!match) return false;
       }
-      if (!q) return true;
-      return (
-        student.name.toLowerCase().includes(q) ||
-        student.id.toLowerCase().includes(q) ||
-        student.course.toLowerCase().includes(q) ||
-        student.intake.toLowerCase().includes(q)
-      );
+      return true;
     });
   }, [marking, markStudents, markQuery, courseOnly, intakeFilter]);
 

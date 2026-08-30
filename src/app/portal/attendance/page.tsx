@@ -71,17 +71,35 @@ export default function AttendancePage() {
 
   const roster = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const tokens = q.split(/\s+/).filter(Boolean);
+
+    const matchesSearch = (l: Learner) => {
+      if (!tokens.length) return true;
+      const haystack = [
+        l.name,
+        l.id,
+        l.email,
+        l.phone,
+        l.course,
+        resolveLearnerIntake(l),
+      ]
+        .join(" ")
+        .toLowerCase();
+      // Every typed word must appear somewhere (so "ama oka" finds "Amara Okafor")
+      return tokens.every((token) => haystack.includes(token));
+    };
+
     return learners.filter((l) => {
+      if (q) {
+        // Searching: look across all statuses and intakes
+        return matchesSearch(l);
+      }
       if (intakeFilter === "all") {
         if (l.status !== "active") return false;
       } else if (resolveLearnerIntake(l) !== intakeFilter) {
         return false;
       }
-      if (!q) return true;
-      return (
-        l.name.toLowerCase().includes(q) ||
-        l.id.toLowerCase().includes(q)
-      );
+      return true;
     });
   }, [learners, intakeFilter, search]);
 
@@ -273,27 +291,36 @@ export default function AttendancePage() {
                 ))}
               </select>
             </label>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted sm:col-span-2 lg:col-span-1">
               Find learner
               <input
+                type="search"
                 className={`${fieldClass} mt-1.5`}
-                placeholder="Name or ID"
+                placeholder="Name, email, or ID"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                autoComplete="off"
               />
             </label>
           </div>
 
-          <IntakeFilterTabs
-            learners={learners}
-            value={intakeFilter}
-            onChange={(next) => {
-              setIntakeFilter(next);
-              setMarks({});
-            }}
-            className="mb-4"
-          />
-
+          {!search.trim() && (
+            <IntakeFilterTabs
+              learners={learners}
+              value={intakeFilter}
+              onChange={(next) => {
+                setIntakeFilter(next);
+                setMarks({});
+              }}
+              className="mb-4"
+            />
+          )}
+          {search.trim() && (
+            <p className="mb-4 text-xs text-muted">
+              Showing {roster.length} match{roster.length === 1 ? "" : "es"} for “{search.trim()}”
+              (all intakes). Clear search to use intake tabs again.
+            </p>
+          )}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => setAll("present")}>
               <Check size={13} /> All present
