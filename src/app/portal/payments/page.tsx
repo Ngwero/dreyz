@@ -60,6 +60,8 @@ export default function PaymentsPage() {
 
   const rukaReady = useMemo(() => isRukaPayReady(), []);
   const sandbox = useMemo(() => isSandboxMode(), []);
+  const canRecord =
+    user?.role === "super_admin" || user?.role === "accountant";
   const [payMode, setPayMode] = useState<"manual" | "rukapay">(rukaReady ? "rukapay" : "manual");
   const [rukaPending, setRukaPending] = useState(false);
   const [rukaMsg, setRukaMsg] = useState("");
@@ -68,7 +70,7 @@ export default function PaymentsPage() {
   const [validatedName, setValidatedName] = useState("");
   const [rukaTransactions, setRukaTransactions] = useState<LocalTxn[]>(() => getAllLocalTxns());
 
-  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(true);
   const [form, setForm] = useState({
     learnerName: "",
     learnerEmail: "",
@@ -87,7 +89,7 @@ export default function PaymentsPage() {
 
   const provider = useMemo(() => resolveProvider(form.phone), [form.phone]);
 
-  if (user && user.role !== "super_admin" && user.role !== "accountant") {
+  if (user && !canRecord) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-sm text-muted">
         Only Super Admin and Accountant can record payments.
@@ -276,7 +278,7 @@ export default function PaymentsPage() {
     <div>
       <PageHeader
         title="Payments"
-        description="Confirm a fee payment to create the student account and email their portal login."
+        description="Super Admin and Accountant can confirm manual payments (cash, bank, card, mobile money) or collect via RukaPay. Confirming creates the student account and emails their portal login."
       />
 
       <div className="mb-6">
@@ -312,11 +314,14 @@ export default function PaymentsPage() {
               </div>
             )}
 
-            {rukaReady && (
-              <div className="mb-4 flex items-center gap-2 rounded-xl border border-border bg-surface p-1">
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-1">
+              {rukaReady && (
                 <button
                   type="button"
-                  onClick={() => { setPayMode("rukapay"); setRukaMsg(""); }}
+                  onClick={() => {
+                    setPayMode("rukapay");
+                    setRukaMsg("");
+                  }}
                   className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                     payMode === "rukapay"
                       ? "bg-accent text-white shadow-sm"
@@ -326,23 +331,26 @@ export default function PaymentsPage() {
                   <Smartphone size={16} />
                   RukaPay (Mobile Money)
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setPayMode("manual")}
-                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                    payMode === "manual"
-                      ? "bg-accent text-white shadow-sm"
-                      : "text-muted hover:text-foreground"
-                  }`}
-                >
-                  <CreditCard size={16} />
-                  Manual Confirm
-                </button>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setPayMode("manual");
+                  setRukaMsg("");
+                }}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  payMode === "manual"
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                <CreditCard size={16} />
+                Manual payment
+              </button>
+            </div>
 
             <p className="mb-3 text-sm font-medium text-foreground">
-              {payMode === "rukapay" ? "Collect via RukaPay" : "Confirm payment"}
+              {payMode === "rukapay" ? "Collect via RukaPay" : "Manual payment (cash, bank, card, or MoMo)"}
             </p>
           <form
             onSubmit={payMode === "rukapay" ? onSubmitRuka : onSubmitManual}
@@ -515,7 +523,7 @@ export default function PaymentsPage() {
               </Button>
             ) : (
               <Button type="submit" disabled={submitting} className="w-full md:col-span-2 xl:col-span-3">
-                {submitting ? "Processing…" : "Confirm & email student login"}
+                {submitting ? "Processing…" : "Confirm manual payment & email login"}
               </Button>
             )}
 
@@ -616,7 +624,7 @@ export default function PaymentsPage() {
             </Card>
           )}
 
-          {user?.role === "super_admin" ? (
+          {canRecord ? (
             <PaymentLedger payments={payments} />
           ) : payments.length === 0 ? (
             <Card title="Payment history">

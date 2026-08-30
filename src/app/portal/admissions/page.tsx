@@ -35,7 +35,7 @@ export default function AdmissionsPage() {
     <div>
       <PageHeader
         title="Admissions"
-        description={`${schoolInfo.intakeNote} ${programme.courseworkUnits} course units plus optional ${programme.internshipMonths}-month internship. Admission numbers (DRY###) are issued here and stay linked across Accounts, Learners, and Enrolments.`}
+        description={`${schoolInfo.intakeNote} ${programme.courseworkUnits} course units plus optional ${programme.internshipMonths}-month internship. One learner record (DRY###) is shared across Admissions, Learners, and Billing — payments update the same balances everywhere.`}
         action={
           <div className="flex flex-wrap gap-2">
             <Link href="/portal/payments">
@@ -45,7 +45,7 @@ export default function AdmissionsPage() {
             </Link>
             <Link href="/portal/enrollments">
               <Button size="sm" variant="outline">
-                <ClipboardList size={14} /> Manual enrolment
+                <ClipboardList size={14} /> Billing
               </Button>
             </Link>
             <Link href="/portal/learners?add=1">
@@ -74,7 +74,7 @@ export default function AdmissionsPage() {
           </p>
           <p className="mt-2 text-sm text-foreground">
             Each student gets one ID like <span className="font-mono font-semibold">DRY009</span> —
-            the same number on their portal account, learner roster, and enrolments.
+            the same number on their portal account, learner roster, and billing.
           </p>
         </Card>
       </div>
@@ -98,10 +98,10 @@ export default function AdmissionsPage() {
               className="rounded-xl border border-border bg-surface/50 p-4 transition hover:border-accent/40"
             >
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <ClipboardList size={16} className="text-accent" /> Manual enrolment
+                <ClipboardList size={16} className="text-accent" /> Billing
               </p>
               <p className="mt-1 text-xs text-muted">
-                Cash or bank payment — record fees and keep the roster in sync.
+                Cash or bank — updates the same learner fees shown on Learners and Payments.
               </p>
             </Link>
             <Link

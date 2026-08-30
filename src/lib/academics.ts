@@ -39,10 +39,17 @@ export function feesForStudent(
   };
 }
 
-export function schoolFeeTotals(learners: { email: string; paidAmount?: number; feeDue?: number }[]) {
+export function schoolFeeTotals(
+  learners: { email: string; paidAmount?: number; feeDue?: number; feeTrackId?: string }[]
+) {
   return learners.reduce(
     (acc, learner) => {
-      const snap = feesForStudent(learner.email, undefined, learner.paidAmount, learner.feeDue);
+      const snap = feesForStudent(
+        learner.email,
+        learner.feeTrackId,
+        learner.paidAmount,
+        learner.feeDue
+      );
       acc.expected += snap.total;
       acc.paid += snap.paid;
       acc.balance += snap.balance;

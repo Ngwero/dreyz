@@ -352,6 +352,7 @@ export function upsertLearnerFromPayment(input: {
   status?: Learner["status"];
   paidAmount?: number;
   feeDue?: number;
+  feeTrackId?: string;
   intake?: string;
 }) {
   const existing =
@@ -373,13 +374,19 @@ export function upsertLearnerFromPayment(input: {
     intake,
     progress: existing?.progress ?? 0,
     status: input.status ?? existing?.status ?? "active",
+    feeTrackId: input.feeTrackId ?? existing?.feeTrackId,
     paidAmount: input.paidAmount ?? existing?.paidAmount,
     feeDue: input.feeDue ?? existing?.feeDue,
   });
 }
 
 /** Keep the roster paid/due figures in line with the payment ledger. */
-export function applyLearnerFeeTotals(email: string, paidAmount: number, feeDue?: number) {
+export function applyLearnerFeeTotals(
+  email: string,
+  paidAmount: number,
+  feeDue?: number,
+  feeTrackId?: string
+) {
   const e = email.trim().toLowerCase();
   const learner = learnersStore.getAll().find((l) => l.email.toLowerCase() === e);
   if (!learner) return;
@@ -387,6 +394,7 @@ export function applyLearnerFeeTotals(email: string, paidAmount: number, feeDue?
     ...learner,
     paidAmount,
     feeDue: feeDue && feeDue > 0 ? feeDue : learner.feeDue,
+    feeTrackId: feeTrackId || learner.feeTrackId,
   });
 }
 

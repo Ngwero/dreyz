@@ -9,6 +9,7 @@ import { feeTracks, classOptions, schoolInfo } from "./data";
 import { portalLoginUrl } from "./portal-url";
 import {
   applyLearnerFeeTotals,
+  enrollmentsStore,
   upsertInstructorFromAccount,
   upsertLearnerFromPayment,
 } from "./store";
@@ -506,6 +507,8 @@ function syncLinkedRecords(user: PortalUser) {
       phone: user.phone ?? "",
       course: track?.name ?? "Professional Interior Design Programme",
       status: user.status === "active" ? "active" : "paused",
+      feeTrackId: user.feeTrackId,
+      feeDue: track?.total,
     });
   }
   if (user.role === "tutor" && user.instructorId) {
@@ -550,12 +553,21 @@ export function confirmedPaidForEmail(email: string) {
     .reduce((sum, p) => sum + p.amount, 0);
 }
 
-export function syncLearnerBalance(email: string, feeDue?: number) {
+export function syncLearnerBalance(email: string, feeDue?: number, feeTrackId?: string) {
   const e = email.trim().toLowerCase();
   const paid = confirmedPaidForEmail(e);
   const user = getAllUsers().find((u) => u.email.toLowerCase() === e);
-  const track = feeTracks.find((t) => t.id === user?.feeTrackId);
-  applyLearnerFeeTotals(e, paid, feeDue && feeDue > 0 ? feeDue : track?.total);
+  const latestPay = getPayments().find(
+    (p) => p.learnerEmail.toLowerCase() === e && p.status === "confirmed"
+  );
+  const trackId = feeTrackId || user?.feeTrackId || latestPay?.feeTrackId;
+  const track = feeTracks.find((t) => t.id === trackId);
+  applyLearnerFeeTotals(
+    e,
+    paid,
+    feeDue && feeDue > 0 ? feeDue : track?.total,
+    trackId
+  );
   return paid;
 }
 
@@ -586,15 +598,30 @@ export function recordManualFee(input: {
   feeTrackId?: string;
   classOptionId?: string;
   feeDue?: number;
+  intake?: string;
 }) {
   const email = input.learnerEmail.trim().toLowerCase();
+  const trackId = input.feeTrackId ?? "4-month";
+  const track = feeTracks.find((t) => t.id === trackId);
+  const feeDue = input.feeDue && input.feeDue > 0 ? input.feeDue : track?.total;
+  const admissionId = resolveStudentAdmissionId({ email });
+  upsertLearnerFromPayment({
+    id: admissionId,
+    name: input.learnerName.trim(),
+    email,
+    phone: input.phone ?? "",
+    course: track?.name ?? "Professional Interior Design Programme",
+    feeTrackId: trackId,
+    feeDue,
+    intake: input.intake,
+  });
   if (input.amount > 0) {
     pushPayment({
       id: `PAY-${Date.now().toString(36).toUpperCase()}`,
-      learnerName: input.learnerName,
+      learnerName: input.learnerName.trim(),
       learnerEmail: email,
       phone: input.phone ?? "",
-      feeTrackId: input.feeTrackId ?? "4-month",
+      feeTrackId: trackId,
       classOptionId: input.classOptionId ?? "weekday",
       amount: input.amount,
       method: "cash",
@@ -604,7 +631,7 @@ export function recordManualFee(input: {
       credentialsSent: false,
     });
   }
-  return syncLearnerBalance(email, input.feeDue);
+  return syncLearnerBalance(email, feeDue, trackId);
 }
 
 export function buildCredentialEmail(opts: {
@@ -695,6 +722,8 @@ export function confirmPaymentAndProvision(
     email: user.email,
     phone: user.phone ?? "",
     course: track?.name ?? "Professional Interior Design Programme",
+    feeTrackId: input.feeTrackId,
+    feeDue: track?.total,
     intake: input.intake?.trim() || currentOpenIntake(),
   });
 
@@ -737,10 +766,11 @@ export function confirmPaymentAndProvision(
     phone: user.phone ?? "",
     course: track?.name ?? "Professional Interior Design Programme",
     status: paidTotal >= 1_000_000 ? "active" : "paused",
+    feeTrackId: input.feeTrackId,
     paidAmount: paidTotal,
     feeDue: track?.total,
   });
-  syncLearnerBalance(user.email, track?.total);
+  syncLearnerBalance(user.email, track?.total, input.feeTrackId);
 
   const email: CredentialEmail = {
     id: `MAIL-${Date.now().toString(36).toUpperCase()}`,
@@ -771,12 +801,48 @@ export function confirmPaymentAndProvision(
         status: "active",
         paidAmount: paidTotal,
         feeDue: track?.total,
+        feeTrackId: input.feeTrackId,
       });
       void insertEmailOutbox(email);
     });
   }
 
   return { payment, user, email };
+}
+
+/**
+ * Fold old parallel enrollment rows into the learner roster + payment ledger,
+ * then clear the legacy list so billing has one source of truth.
+ */
+export function foldLegacyEnrollmentsIntoRoster() {
+  const legacy = enrollmentsStore.getAll();
+  if (!legacy.length) return 0;
+  let folded = 0;
+  for (const row of legacy) {
+    const email = (row.learnerEmail ?? "").trim().toLowerCase();
+    if (!email || !row.learnerName?.trim()) continue;
+    const track =
+      feeTracks.find((t) => t.id === row.feeTrackId) ||
+      feeTracks.find((t) => t.name === row.course) ||
+      feeTracks.find((t) => t.id === row.course);
+    const trackId = track?.id ?? row.feeTrackId ?? "4-month";
+    const alreadyPaid = confirmedPaidForEmail(email);
+    const shouldRecord =
+      row.status === "paid" &&
+      row.amount > 0 &&
+      // Avoid double-counting if a matching payment already covers this amount.
+      alreadyPaid < row.amount;
+    recordManualFee({
+      learnerName: row.learnerName.trim(),
+      learnerEmail: email,
+      amount: shouldRecord ? row.amount : 0,
+      feeTrackId: trackId,
+      feeDue: track?.total ?? row.amount,
+    });
+    folded += 1;
+  }
+  enrollmentsStore.replaceAll([]);
+  return folded;
 }
 
 export function initials(name: string): string {

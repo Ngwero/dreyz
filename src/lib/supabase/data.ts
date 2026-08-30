@@ -32,6 +32,7 @@ type LearnerRow = {
   avatar: string | null;
   paid_amount?: number | string | null;
   fee_due?: number | string | null;
+  fee_track_id?: string | null;
 };
 
 export async function fetchPayments(): Promise<PaymentRecord[]> {
@@ -98,6 +99,7 @@ export async function fetchLearners(): Promise<Learner[]> {
     status: row.status,
     paidAmount: row.paid_amount != null ? Number(row.paid_amount) : undefined,
     feeDue: row.fee_due != null ? Number(row.fee_due) : undefined,
+    feeTrackId: row.fee_track_id ?? undefined,
   }));
 }
 
@@ -116,6 +118,7 @@ export async function upsertLearner(learner: Learner) {
     avatar: learner.avatar ?? null,
     paid_amount: learner.paidAmount ?? 0,
     fee_due: learner.feeDue ?? 0,
+    fee_track_id: learner.feeTrackId ?? null,
   });
   return !error;
 }

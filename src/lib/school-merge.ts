@@ -128,6 +128,7 @@ function mapSnapshotPayment(row: Record<string, unknown>): PaymentRecord | null 
 }
 
 function mapLearner(row: Record<string, unknown>, paid: number, feeDue: number): Learner {
+  const feeTrackId = String(row.feeTrackId ?? row.fee_track_id ?? "").trim() || undefined;
   return {
     id: String(row.id),
     name: String(row.name ?? ""),
@@ -139,6 +140,7 @@ function mapLearner(row: Record<string, unknown>, paid: number, feeDue: number):
     progress: asNumber(row.progress),
     status: (row.status as Learner["status"]) || "active",
     avatar: row.avatar ? String(row.avatar) : undefined,
+    feeTrackId,
     paidAmount: paid,
     feeDue,
   };
@@ -361,13 +363,17 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
     const paid = paidByEmail.get(email) ?? asNumber(row.paidAmount ?? row.paid_amount);
     const due = feeDueFor(
       String(row.course ?? ""),
-      trackByEmail.get(email),
+      String(row.feeTrackId ?? row.fee_track_id ?? "").trim() || trackByEmail.get(email),
       asNumber(row.feeDue ?? row.fee_due)
     );
     const next = mapLearner(row, paid, due);
     const prev = learnersByEmail.get(email);
     if (!prev) {
-      learnersByEmail.set(email, next);
+      learnersByEmail.set(email, {
+        ...next,
+        feeTrackId:
+          next.feeTrackId || trackByEmail.get(email) || undefined,
+      });
       return;
     }
     const newer = (next.enrollmentDate || "") >= (prev.enrollmentDate || "");
@@ -375,6 +381,11 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
     learnersByEmail.set(email, {
       ...chosen,
       intake: chosen.intake || prev.intake || next.intake,
+      feeTrackId:
+        chosen.feeTrackId ||
+        prev.feeTrackId ||
+        next.feeTrackId ||
+        trackByEmail.get(email),
       paidAmount: paid,
       feeDue: due,
     });
@@ -506,7 +517,8 @@ export async function persistSnapshotRecords(snapshot: Record<string, unknown>) 
         progress: asNumber(row.progress),
         status: String(row.status ?? "active"),
         paid_amount: asNumber(row.paidAmount ?? row.paid_amount),
-        fee_due: asNumber(row.feeDue ?? row.fee_due) || feeDueFor(String(row.course ?? "")),
+        fee_due: asNumber(row.feeDue ?? row.fee_due) || feeDueFor(String(row.course ?? ""), String(row.feeTrackId ?? row.fee_track_id ?? "") || undefined),
+        fee_track_id: String(row.feeTrackId ?? row.fee_track_id ?? "").trim() || null,
       };
     });
   await upsertBatch(admin, "learners", learners);

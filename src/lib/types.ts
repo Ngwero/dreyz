@@ -10,6 +10,8 @@ export interface Learner {
   progress: number;
   status: "active" | "completed" | "paused";
   avatar?: string;
+  /** Fee programme id — same track used by admissions catalogue and payments. */
+  feeTrackId?: string;
   /** Amount already paid (manual enrolment or RukaPay). */
   paidAmount?: number;
   /** Programme fee due for this learner. */

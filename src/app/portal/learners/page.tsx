@@ -188,9 +188,11 @@ export default function LearnersPage() {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim(),
-        course: form.course.trim(),
+        course:
+          feeTracks.find((t) => t.id === form.feeTrackId)?.name ?? form.course.trim(),
         status: form.status,
         intake: form.intake.trim() || currentOpenIntake(),
+        feeTrackId: form.feeTrackId,
         feeDue: Number(form.feeDue) || 0,
       };
       learnersStore.upsert(next);
@@ -199,7 +201,9 @@ export default function LearnersPage() {
         learnerEmail: next.email,
         phone: next.phone,
         amount: extra,
+        feeTrackId: form.feeTrackId,
         feeDue: next.feeDue,
+        intake: next.intake,
       });
       setEditing(null);
       refresh();
@@ -207,6 +211,7 @@ export default function LearnersPage() {
       showFlash("success", `${next.name} was updated.`);
       return;
     }
+    const track = feeTracks.find((t) => t.id === form.feeTrackId);
     const firstPay = Number(form.paidAmount) || 0;
     const enrollmentDate = new Date().toISOString().slice(0, 10);
     const admissionId = resolveStudentAdmissionId({ email: form.email });
@@ -215,13 +220,14 @@ export default function LearnersPage() {
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),
-      course: form.course.trim(),
+      course: track?.name ?? form.course.trim(),
       enrollmentDate,
       intake: form.intake.trim() || resolveLearnerIntake({ enrollmentDate }),
       progress: 0,
       status: form.status,
+      feeTrackId: form.feeTrackId,
       paidAmount: firstPay,
-      feeDue: Number(form.feeDue) || 0,
+      feeDue: Number(form.feeDue) || track?.total || 0,
     };
     learnersStore.upsert(learner);
     recordManualFee({
@@ -229,7 +235,9 @@ export default function LearnersPage() {
       learnerEmail: learner.email,
       phone: learner.phone,
       amount: firstPay,
+      feeTrackId: form.feeTrackId,
       feeDue: learner.feeDue,
+      intake: learner.intake,
     });
     if (form.createLogin && canManageAccounts) {
       const live = await provisionPortalAccount({
@@ -238,6 +246,7 @@ export default function LearnersPage() {
         phone: learner.phone,
         role: "student",
         learnerId: learner.id,
+        feeTrackId: form.feeTrackId,
       });
       if (!live.ok) {
         const msg = `Learner saved. Live portal login was not created: ${live.error} Use Email live login after the network is back.`;
@@ -336,7 +345,7 @@ export default function LearnersPage() {
     );
     const fees = feesForStudent(
       learner.email,
-      account?.feeTrackId,
+      account?.feeTrackId ?? learner.feeTrackId,
       learner.paidAmount,
       learner.feeDue
     );
@@ -427,8 +436,9 @@ export default function LearnersPage() {
                     course: learner.course,
                     status: learner.status,
                     intake: resolveLearnerIntake(learner),
-                    feeTrackId:
+                    feeTrackId: learner.feeTrackId ??
                       feeTracks.find((t) => t.total === (learner.feeDue ?? 0))?.id ??
+                      feeTracks.find((t) => t.name === learner.course)?.id ??
                       "4-month",
                     createLogin: false,
                     paidAmount: learner.paidAmount ?? 0,
@@ -461,7 +471,7 @@ export default function LearnersPage() {
     <div>
       <PageHeader
         title="Learners"
-        description="Students grouped by intake — September and January cohorts across the programme."
+        description="Same student records as Admissions and Billing — one admission ID, fee programme, and payment balance everywhere."
         action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onExport}>
