@@ -35,7 +35,7 @@ import {
 } from "@/lib/academics";
 import { showFlash } from "@/lib/flash";
 import { LottiePanel } from "@/components/ui/LottieLoader";
-import { collectRecentActivity, formatActivityTime } from "@/lib/activity";
+import { collectRecentActivity, formatActivityActor, formatActivityTime } from "@/lib/activity";
 import {
   attendanceStore,
   instructorsStore,
@@ -536,7 +536,8 @@ export default function MyAccountPage() {
                 <li key={item.id} className="rounded-lg border border-border px-3 py-2">
                   <p className="text-sm font-medium text-foreground">{item.title}</p>
                   <p className="text-xs text-muted">
-                    {item.detail || formatActivityTime(item.at)} · {formatActivityTime(item.at)}
+                    User: {formatActivityActor(item)}
+                    {item.detail ? ` · ${item.detail}` : ""} · {formatActivityTime(item.at)}
                   </p>
                 </li>
               ))}

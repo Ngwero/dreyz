@@ -18,7 +18,7 @@ import {
   setSession,
 } from "@/lib/auth";
 import { requestLoginOtp, requestPasswordResetOtp } from "@/lib/auth-client";
-import { recordPortalActivity } from "@/lib/activity";
+import { recordPortalActivity, setActivityActor } from "@/lib/activity";
 import {
   supabaseGetSessionUser,
   supabaseSignIn,
@@ -92,6 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setActivityActor(user);
+  }, [user]);
+
+  useEffect(() => {
     void refresh().finally(() => setLoading(false));
     const onStore = () => {
       void refresh();
@@ -101,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (type === "logout") {
         setUser(null);
         setUsingSupabase(false);
+        setActivityActor(null);
         return;
       }
       void refresh();

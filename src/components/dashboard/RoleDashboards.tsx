@@ -38,7 +38,7 @@ import {
   ProgressRadarChart,
 } from "@/components/dashboard/SchoolCharts";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { collectRecentActivity, formatActivityTime } from "@/lib/activity";
+import { collectRecentActivity, formatActivityActor, formatActivityTime } from "@/lib/activity";
 import { getAllUsers } from "@/lib/auth";
 import { ROLE_LABELS, roleHomeEyebrow } from "@/lib/roles";
 import {
@@ -559,7 +559,10 @@ function SuperAdminDashboard() {
                     <ListRow>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
-                        <p className="truncate text-xs text-muted">{item.detail || formatActivityTime(item.at)}</p>
+                        <p className="truncate text-xs text-muted">
+                          {formatActivityActor(item)}
+                          {item.detail ? ` · ${item.detail}` : ""}
+                        </p>
                       </div>
                       <span className="shrink-0 text-[11px] text-muted">{formatActivityTime(item.at)}</span>
                     </ListRow>

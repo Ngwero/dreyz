@@ -34,10 +34,61 @@ export type ActivityItem = {
 };
 
 const LOG_KEY = "dreyz_activity_log";
+const ACTOR_KEY = "dreyz_activity_actor";
 const MAX_LOG = 500;
+
+type ActivityActor = {
+  name: string;
+  email: string;
+  role?: UserRole;
+};
 
 function isBrowser() {
   return typeof window !== "undefined";
+}
+
+/** Keep the signed-in user available for activity logging (works with live + local sessions). */
+export function setActivityActor(user: SessionUser | null) {
+  if (!isBrowser()) return;
+  if (!user?.email) {
+    localStorage.removeItem(ACTOR_KEY);
+    return;
+  }
+  const actor: ActivityActor = {
+    name: user.name || user.email,
+    email: user.email.toLowerCase(),
+    role: user.role,
+  };
+  localStorage.setItem(ACTOR_KEY, JSON.stringify(actor));
+}
+
+function readActivityActor(): ActivityActor | null {
+  if (!isBrowser()) return null;
+  try {
+    const raw = localStorage.getItem(ACTOR_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as ActivityActor;
+      if (parsed?.email) return parsed;
+    }
+  } catch {
+    /* fall through */
+  }
+  const session = getSession();
+  if (!session?.email) return null;
+  return {
+    name: session.name || session.email,
+    email: session.email.toLowerCase(),
+    role: session.role,
+  };
+}
+
+export function formatActivityActor(item: ActivityItem): string {
+  if (item.actorName) {
+    const role = item.actorRole ? ` · ${item.actorRole.replace(/_/g, " ")}` : "";
+    return `${item.actorName}${role}`;
+  }
+  if (item.actorEmail) return item.actorEmail;
+  return "Unknown user";
 }
 
 function parseWhen(value: string | undefined): number {
@@ -96,22 +147,19 @@ export function recordPortalActivity(input: {
   actorEmail?: string;
   actorRole?: UserRole;
 }) {
-  const session = isBrowser() ? getSession() : null;
-  const actorName = input.actorName ?? session?.name;
-  const actorEmail = (input.actorEmail ?? session?.email ?? "").toLowerCase() || undefined;
-  const actorRole = input.actorRole ?? session?.role;
+  const actor = readActivityActor();
+  const actorName = input.actorName ?? actor?.name;
+  const actorEmail = (input.actorEmail ?? actor?.email ?? "").toLowerCase() || undefined;
+  const actorRole = input.actorRole ?? actor?.role;
   const title = input.title.trim();
   if (!title) return;
-
-  const byline = actorName ? `by ${actorName}` : "";
-  const detailParts = [(input.detail ?? "").trim(), byline].filter(Boolean);
 
   const item: ActivityItem = {
     id: `ACT-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 99)}`,
     at: Date.now(),
     category: input.category ?? inferActivityCategory(title),
     title,
-    detail: detailParts.join(" · "),
+    detail: (input.detail ?? "").trim(),
     href: input.href,
     tone: input.tone ?? "info",
     emails: [

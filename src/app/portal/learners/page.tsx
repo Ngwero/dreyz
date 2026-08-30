@@ -41,7 +41,7 @@ import {
   purgeStudentIdentity,
   resolveStudentAdmissionId,
 } from "@/lib/learner-identity";
-import { formatActivityTime, lastActivityByLearner } from "@/lib/activity";
+import { formatActivityActor, formatActivityTime, lastActivityByLearner } from "@/lib/activity";
 
 export default function LearnersPage() {
   const { user } = useAuth();
@@ -581,7 +581,8 @@ export default function LearnersPage() {
                       <div>
                         <p className="text-sm font-medium text-foreground">{item.title}</p>
                         <p className="text-xs text-muted">
-                          {item.actorName ? `Done by ${item.actorName}` : item.detail || "Recorded action"}
+                          User: {formatActivityActor(item)}
+                          {item.detail ? ` · ${item.detail}` : ""}
                         </p>
                       </div>
                     ) : (

@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import {
   ACTIVITY_CATEGORIES,
   collectRecentActivity,
+  formatActivityActor,
   formatActivityTime,
   lastActivityByActor,
   type ActivityCategory,
@@ -121,7 +122,7 @@ export default function RecentActivityPage() {
     <div>
       <PageHeader
         title="Recent activity"
-        description="What people did in the portal — sign-ins, attendance marks, payments, edits — not a list of who is currently on the roster."
+        description="Every action shows the signed-in user who did it — name, role, and email — plus what they changed."
       />
 
       <div className="mb-4 flex flex-wrap gap-1.5">
@@ -244,14 +245,14 @@ export default function RecentActivityPage() {
                     <p className="font-medium text-foreground">{item.title}</p>
                     <Badge variant={toneBadge(item)}>{item.category}</Badge>
                   </div>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    User: {formatActivityActor(item)}
+                    {item.actorEmail ? (
+                      <span className="font-normal text-muted"> · {item.actorEmail}</span>
+                    ) : null}
+                  </p>
                   {item.detail && (
                     <p className="mt-1 text-sm leading-relaxed text-muted">{item.detail}</p>
-                  )}
-                  {item.actorName && (
-                    <p className="mt-1 text-[11px] font-medium text-muted">
-                      Done by {item.actorName}
-                      {item.actorRole ? ` · ${item.actorRole.replace("_", " ")}` : ""}
-                    </p>
                   )}
                 </div>
                 <p className="shrink-0 text-[11px] font-medium text-muted">
