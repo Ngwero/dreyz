@@ -110,22 +110,25 @@ export default function LearnersPage() {
   const confirmDelete = () => {
     if (!pendingDelete) return;
     if (!namesMatch(confirmName, pendingDelete.name)) return;
-    const result = purgeStudentIdentity({
-      learnerId: pendingDelete.id,
-      email: pendingDelete.email,
-    });
-    if (selected?.id === pendingDelete.id) setSelected(null);
-    setPendingDelete(null);
-    setConfirmName("");
-    refresh();
-    const parts = [
-      result.removedLearner ? "learner roster" : null,
-      result.removedAccount ? "portal account" : null,
-      result.removedEnrollments ? "enrolments" : null,
-    ].filter(Boolean);
-    const msg = `${pendingDelete.name} was removed from ${parts.join(", ") || "the system"}.`;
-    setNotice(msg);
-    showFlash("success", msg);
+    const target = pendingDelete;
+    void (async () => {
+      const result = await purgeStudentIdentity({
+        learnerId: target.id,
+        email: target.email,
+      });
+      if (selected?.id === target.id) setSelected(null);
+      setPendingDelete(null);
+      setConfirmName("");
+      refresh();
+      const parts = [
+        result.removedLearner ? "learner roster" : null,
+        result.removedAccount ? "portal account" : null,
+        result.removedEnrollments ? "enrolments" : null,
+      ].filter(Boolean);
+      const msg = `${target.name} was removed from ${parts.join(", ") || "the system"}.`;
+      setNotice(msg);
+      showFlash("success", msg);
+    })();
   };
 
   const activityByLearner = useMemo(() => {

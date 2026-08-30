@@ -30,6 +30,7 @@ import {
 } from "./data";
 import { normalizeCourse } from "./course-structure";
 import { currentOpenIntake, resolveLearnerIntake } from "./intakes";
+import { applyTombstones, mergeTombstones, readTombstones, isTombstoned, TOMBSTONE_KEY } from "./school-snapshot";
 
 function isBrowser() {
   return typeof window !== "undefined";
@@ -66,11 +67,14 @@ const STORE_KEYS = [
   "dreyz_email_outbox",
   "dreyz_rukapay_config",
   "dreyz_activity_log",
+  "dreyz_tombstones",
 ] as const;
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let pushInFlight = false;
 let hydrated = false;
+let cloudReady = false;
+let pendingPush = false;
 let lastAppliedFingerprint = "";
 
 function fingerprintSnapshot(data: Record<string, unknown>): string {
@@ -93,7 +97,7 @@ function collectSnapshot() {
       /* skip */
     }
   }
-  return data;
+  return applyTombstones(data);
 }
 
 function applySnapshot(data: Record<string, unknown>, opts?: { force?: boolean }) {
@@ -112,6 +116,10 @@ function applySnapshot(data: Record<string, unknown>, opts?: { force?: boolean }
 
 export function queueCloudPush() {
   if (!isBrowser()) return;
+  if (!cloudReady) {
+    pendingPush = true;
+    return;
+  }
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
     syncTimer = null;
@@ -154,7 +162,10 @@ export async function pullLiveSchoolData() {
 export async function hydrateSchoolData() {
   if (!isBrowser()) return;
   const mergeKey = "dreyz_live_merge_v5";
-  if (hydrated && localStorage.getItem(mergeKey)) return;
+  if (hydrated && localStorage.getItem(mergeKey)) {
+    cloudReady = true;
+    return;
+  }
   hydrated = true;
   try {
     const res = await fetch("/api/school-data", { cache: "no-store" });
@@ -162,9 +173,13 @@ export async function hydrateSchoolData() {
     if (res.ok && json.ok && json.data && Object.keys(json.data).length > 0) {
       applySnapshot(json.data, { force: true });
       localStorage.setItem(mergeKey, "1");
-    } else {
-      queueCloudPush();
+      cloudReady = true;
+      if (pendingPush) {
+        pendingPush = false;
+        queueCloudPush();
+      }
     }
+    // Do not push local/demo data if the live snapshot could not be loaded.
   } catch {
     /* keep local copy */
   }
@@ -185,14 +200,43 @@ function uid(prefix: string) {
 /** Generic list store: seed until first write, then localStorage is source of truth */
 function createListStore<T extends { id: string }>(key: string, seed: T[]) {
   const getAll = () => {
-    if (!isBrowser()) return seed;
-    const stored = localStorage.getItem(key);
-    if (!stored) return seed;
-    try {
-      return JSON.parse(stored) as T[];
-    } catch {
-      return seed;
+    let items: T[];
+    if (!isBrowser()) items = seed;
+    else {
+      const stored = localStorage.getItem(key);
+      if (!stored) items = seed;
+      else {
+        try {
+          items = JSON.parse(stored) as T[];
+        } catch {
+          items = seed;
+        }
+      }
     }
+    if (
+      key === "dreyz_learners" ||
+      key === "dreyz_attendance" ||
+      key === "dreyz_grades" ||
+      key === "dreyz_projects" ||
+      key === "dreyz_enrollments"
+    ) {
+      const tombs = readTombstones({
+        [TOMBSTONE_KEY]: readJson(TOMBSTONE_KEY, {
+          learnerIds: [],
+          emails: [],
+          userIds: [],
+        }),
+      });
+      items = items.filter((row) => {
+        const rec = row as T & { email?: string; learnerId?: string; learnerEmail?: string };
+        return !isTombstoned(tombs, {
+          id: rec.id,
+          email: rec.email || rec.learnerEmail,
+          learnerId: rec.learnerId,
+        });
+      });
+    }
+    return items;
   };
   const upsert = (item: T) => {
     const all = [...getAll()];
@@ -219,6 +263,25 @@ function createListStore<T extends { id: string }>(key: string, seed: T[]) {
   };
   const replaceAll = (items: T[]) => writeJson(key, items);
   return { getAll, upsert, upsertMany, remove, replaceAll, key };
+}
+
+export function recordSchoolTombstone(opts: {
+  learnerId?: string;
+  email?: string;
+  userId?: string;
+}) {
+  if (!isBrowser()) return;
+  const current = readTombstones({
+    [TOMBSTONE_KEY]: readJson(TOMBSTONE_KEY, { learnerIds: [], emails: [], userIds: [] }),
+  });
+  writeJson(
+    TOMBSTONE_KEY,
+    mergeTombstones(current, {
+      learnerIds: opts.learnerId ? [opts.learnerId] : [],
+      emails: opts.email ? [opts.email.toLowerCase()] : [],
+      userIds: opts.userId ? [opts.userId] : [],
+    })
+  );
 }
 
 export const learnersStore = createListStore("dreyz_learners", seedLearners);

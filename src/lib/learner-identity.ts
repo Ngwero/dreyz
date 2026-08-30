@@ -4,6 +4,7 @@ import {
   gradesStore,
   learnersStore,
   projectsStore,
+  recordSchoolTombstone,
 } from "./store";
 import type { Learner, PaymentRecord, PortalUser } from "./types";
 import { formatAdmissionNumber, parseAdmissionNumber } from "./admission-number";
@@ -110,12 +111,12 @@ export type PurgeStudentResult = {
  * One student identity across Accounts, Learners, Enrolments, and academics.
  * Deleting from any surface should call this so nothing is left orphaned.
  */
-export function purgeStudentIdentity(opts: {
+export async function purgeStudentIdentity(opts: {
   learnerId?: string;
   email?: string;
   /** Keep confirmed payment history for audit (default true). */
   keepPayments?: boolean;
-}): PurgeStudentResult {
+}): Promise<PurgeStudentResult> {
   const keepPayments = opts.keepPayments !== false;
   const byId = opts.learnerId
     ? learnersStore.getAll().find((l) => l.id === opts.learnerId)
@@ -127,6 +128,8 @@ export function purgeStudentIdentity(opts: {
     (email
       ? learnersStore.getAll().find((l) => l.email.toLowerCase() === email)?.id
       : undefined);
+
+  recordSchoolTombstone({ learnerId, email });
 
   const result: PurgeStudentResult = {
     learnerId,
@@ -204,13 +207,16 @@ export function purgeStudentIdentity(opts: {
   }
 
   if (isBrowser() && (learnerId || email)) {
-    void fetch("/api/learners/purge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ learnerId, email }),
-    }).catch(() => {
-      /* best-effort cloud purge */
-    });
+    try {
+      await fetch("/api/learners/purge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ learnerId, email }),
+      });
+    } catch {
+      /* local tombstone still blocks resurrection on the next sync */
+    }
+    void import("./store").then((mod) => mod.queueCloudPush());
   }
 
   return result;

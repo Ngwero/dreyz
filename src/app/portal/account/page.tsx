@@ -253,15 +253,12 @@ export default function MyAccountPage() {
       return;
     }
     try {
-      // Always push to live auth first. Local-only saves look successful, then fail at login.
+      // Always update live auth. Local-only saves look successful, then fail at login.
       const remotePw = await supabaseUpdatePassword(nextPassword);
       if (!remotePw.ok) {
-        // Live portal users must update Supabase; device-only demo can fall back to local.
-        if (usingSupabase) {
-          setMessage(remotePw.error);
-          showFlash("error", remotePw.error);
-          return;
-        }
+        setMessage(remotePw.error);
+        showFlash("error", remotePw.error);
+        return;
       }
       try {
         changePassword(profile.id, nextPassword);
@@ -386,6 +383,10 @@ export default function MyAccountPage() {
             <Button type="submit" size="sm">
               Save password
             </Button>
+            <p className="text-[11px] text-muted">
+              This updates the password you use to sign in on dreyzschool.com. If save fails, sign
+              out, use Forgot password on the login page, then sign in again.
+            </p>
             {profile.password === DEMO_PASSWORD && (
               <p className="text-[11px] text-muted">
                 Demo accounts start with password <strong>{DEMO_PASSWORD}</strong>.

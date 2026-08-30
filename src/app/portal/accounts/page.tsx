@@ -789,7 +789,7 @@ export default function AccountsPage() {
             }
             try {
               if (target.role === "student") {
-                purgeStudentIdentity({
+                await purgeStudentIdentity({
                   learnerId: target.learnerId,
                   email: target.email,
                 });

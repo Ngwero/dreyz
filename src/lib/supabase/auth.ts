@@ -103,34 +103,39 @@ export async function supabaseUpdatePassword(password: string) {
     return { ok: false as const, error: "Password must be at least 6 characters." };
   }
 
-  // Prefer admin API via access token so the live auth password always updates,
-  // even when the client session is flaky after OTP login.
+  try {
+    await supabase.auth.refreshSession();
+  } catch {
+    /* still try with the current session */
+  }
+
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
-  if (accessToken) {
-    try {
-      const res = await fetch("/api/auth/password/change", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ password: next }),
-      });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
-      if (res.ok && json.ok) {
-        return { ok: true as const };
-      }
-      // Fall through to client updateUser if the API is unavailable.
-      if (res.status === 401) {
-        return {
-          ok: false as const,
-          error: json.error ?? "Your session expired. Sign in again, then change your password.",
-        };
-      }
-    } catch {
-      // Fall through.
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  try {
+    const res = await fetch("/api/auth/password/change", {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: JSON.stringify({ password: next }),
+    });
+    const json = (await res.json()) as { ok?: boolean; error?: string };
+    if (res.ok && json.ok) {
+      return { ok: true as const };
     }
+    if (res.status === 401) {
+      return {
+        ok: false as const,
+        error: json.error ?? "Your session expired. Sign in again, then change your password.",
+      };
+    }
+    if (json.error && res.status !== 404 && res.status < 500) {
+      return { ok: false as const, error: json.error };
+    }
+  } catch {
+    /* Fall through to client updateUser */
   }
 
   const { error } = await supabase.auth.updateUser({ password: next });

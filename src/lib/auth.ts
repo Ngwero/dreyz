@@ -14,6 +14,7 @@ import {
 } from "./store";
 import { resolveStudentAdmissionId } from "./learner-identity";
 import { currentOpenIntake } from "./intakes";
+import { readTombstones } from "./school-snapshot";
 
 export const SESSION_COOKIE = "dreyz_session";
 export const USERS_KEY = "dreyz_users";
@@ -126,9 +127,25 @@ function writeJson(key: string, value: unknown) {
 
 export function getAllUsers(): PortalUser[] {
   const extras = readJson<PortalUser[]>(USERS_KEY, []);
+  const tombs =
+    typeof window === "undefined"
+      ? { learnerIds: [] as string[], emails: [] as string[], userIds: [] as string[] }
+      : readTombstones({
+          dreyz_tombstones: readJson("dreyz_tombstones", {
+            learnerIds: [],
+            emails: [],
+            userIds: [],
+          }),
+        });
   const byId = new Map<string, PortalUser>();
-  for (const u of SEED_USERS) byId.set(u.id, u);
+  for (const u of SEED_USERS) {
+    if (tombs.emails.includes(u.email.toLowerCase()) || tombs.userIds.includes(u.id)) continue;
+    if (u.learnerId && tombs.learnerIds.includes(u.learnerId)) continue;
+    byId.set(u.id, u);
+  }
   for (const u of extras) {
+    if (tombs.emails.includes(u.email.toLowerCase()) || tombs.userIds.includes(u.id)) continue;
+    if (u.learnerId && tombs.learnerIds.includes(u.learnerId)) continue;
     const duplicate = [...byId.values()].find(
       (x) => x.id !== u.id && x.email.toLowerCase() === u.email.toLowerCase()
     );

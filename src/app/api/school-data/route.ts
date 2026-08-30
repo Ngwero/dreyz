@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mergeLiveSchoolData, persistSnapshotRecords } from "@/lib/school-merge";
+import { combineSchoolSnapshots, mergeLiveSchoolData, persistSnapshotRecords } from "@/lib/school-merge";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +17,6 @@ export async function GET() {
     }
     const snapshot = (data?.data ?? {}) as Record<string, unknown>;
     const merged = await mergeLiveSchoolData(snapshot);
-    const before = JSON.stringify(snapshot);
-    const after = JSON.stringify(merged);
-    if (before !== after) {
-      await admin.from("school_settings").upsert({
-        id: "default",
-        data: merged,
-        updated_at: new Date().toISOString(),
-      });
-    }
     return NextResponse.json({ ok: true, data: merged });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -41,20 +32,13 @@ export async function POST(request: Request) {
     }
     const admin = createAdminClient();
 
-    // Deep-merge with the existing cloud snapshot so a thin device
-    // (missing keys) cannot wipe school-wide lists for everyone else.
     const { data: existingRow } = await admin
       .from("school_settings")
       .select("data")
       .eq("id", "default")
       .maybeSingle();
     const existing = (existingRow?.data ?? {}) as Record<string, unknown>;
-    const incoming = body.data;
-    const combined: Record<string, unknown> = { ...existing };
-    for (const [key, value] of Object.entries(incoming)) {
-      if (value === undefined) continue;
-      combined[key] = value;
-    }
+    const combined = combineSchoolSnapshots(existing, body.data);
 
     await persistSnapshotRecords(combined);
     const merged = await mergeLiveSchoolData(combined);

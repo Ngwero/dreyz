@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mergeLiveSchoolData, persistSnapshotRecords } from "@/lib/school-merge";
+import {
+  applyTombstones,
+  mergeTombstones,
+  readTombstones,
+  TOMBSTONE_KEY,
+} from "@/lib/school-snapshot";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Hard-delete a student identity across Supabase tables + deactivate auth.
+ * Hard-delete a student identity across Supabase tables + auth.
  * Body: { learnerId?: string; email?: string }
  */
 export async function POST(request: Request) {
@@ -28,13 +35,32 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
 
     if (!learnerId && email) {
-      const { data } = await admin
-        .from("learners")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
+      const { data } = await admin.from("learners").select("id").eq("email", email).maybeSingle();
       learnerId = data?.id ? String(data.id) : undefined;
     }
+
+    const { data: settingsRow } = await admin
+      .from("school_settings")
+      .select("data")
+      .eq("id", "default")
+      .maybeSingle();
+    const existing = (settingsRow?.data ?? {}) as Record<string, unknown>;
+    const tombs = mergeTombstones(readTombstones(existing), {
+      learnerIds: learnerId ? [learnerId] : [],
+      emails: email ? [email] : [],
+    });
+    const combined = applyTombstones({
+      ...existing,
+      [TOMBSTONE_KEY]: tombs,
+    });
+
+    await persistSnapshotRecords(combined);
+    const merged = await mergeLiveSchoolData(combined);
+    await admin.from("school_settings").upsert({
+      id: "default",
+      data: merged,
+      updated_at: new Date().toISOString(),
+    });
 
     if (learnerId) {
       await Promise.all([
@@ -47,37 +73,37 @@ export async function POST(request: Request) {
 
     if (email) {
       await admin.from("enrollments").delete().eq("learner_email", email);
-      // Keep payment history for audit — mark profiles inactive and ban auth login
-      const { data: profiles } = await admin
-        .from("profiles")
-        .select("id, learner_id")
-        .eq("email", email)
-        .eq("role", "student");
+      await admin.from("learners").delete().eq("email", email);
+    }
 
-      for (const profile of profiles ?? []) {
-        await admin
-          .from("profiles")
-          .update({ status: "inactive", learner_id: null })
-          .eq("id", profile.id);
+    const profileIds = new Set<string>();
+    if (email) {
+      const { data } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("role", "student")
+        .eq("email", email);
+      for (const row of data ?? []) if (row?.id) profileIds.add(String(row.id));
+    }
+    if (learnerId) {
+      const { data } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("role", "student")
+        .eq("learner_id", learnerId);
+      for (const row of data ?? []) if (row?.id) profileIds.add(String(row.id));
+    }
+
+    for (const id of profileIds) {
+      await admin.from("profiles").delete().eq("id", id);
+      try {
+        await admin.auth.admin.deleteUser(id);
+      } catch {
         try {
-          await admin.auth.admin.updateUserById(profile.id, {
-            ban_duration: "876000h",
-          });
+          await admin.auth.admin.updateUserById(id, { ban_duration: "876000h" });
         } catch {
           /* best-effort */
         }
-      }
-    } else if (learnerId) {
-      const { data: profiles } = await admin
-        .from("profiles")
-        .select("id")
-        .eq("learner_id", learnerId)
-        .eq("role", "student");
-      for (const profile of profiles ?? []) {
-        await admin
-          .from("profiles")
-          .update({ status: "inactive", learner_id: null })
-          .eq("id", profile.id);
       }
     }
 

@@ -1,6 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { feeTracks } from "@/lib/data";
 import { normalizeCourse } from "@/lib/course-structure";
+import {
+  applyTombstones,
+  combineSchoolSnapshots,
+  isTombstoned,
+  readTombstones,
+} from "@/lib/school-snapshot";
 import type {
   Assessment,
   AttendanceRecord,
@@ -16,6 +22,8 @@ import type {
   Resource,
   ScheduleItem,
 } from "@/lib/types";
+
+export { combineSchoolSnapshots } from "@/lib/school-snapshot";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -145,6 +153,11 @@ function mapAttendance(row: Record<string, unknown>): AttendanceRecord | null {
     course: String(row.course ?? ""),
     date: String(row.date ?? ""),
     status: (row.status as AttendanceRecord["status"]) || "present",
+    recordedAt: row.recordedAt
+      ? String(row.recordedAt)
+      : row.recorded_at
+        ? String(row.recorded_at)
+        : undefined,
   };
 }
 
@@ -338,10 +351,13 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
     }
   }
 
+  const tombs = readTombstones(snapshot);
+
   const learnersByEmail = new Map<string, Learner>();
   const take = (row: Record<string, unknown>) => {
     const email = String(row.email ?? "").trim().toLowerCase();
     if (!email || !row.id) return;
+    if (isTombstoned(tombs, { id: String(row.id), email })) return;
     const paid = paidByEmail.get(email) ?? asNumber(row.paidAmount ?? row.paid_amount);
     const due = feeDueFor(
       String(row.course ?? ""),
@@ -368,17 +384,6 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
   for (const row of (dbLearners ?? []) as Record<string, unknown>[]) take(row);
 
   const learners = [...learnersByEmail.values()].sort((a, b) => a.name.localeCompare(b.name));
-
-  for (const learner of learners) {
-    await admin
-      .from("learners")
-      .update({
-        paid_amount: learner.paidAmount ?? 0,
-        fee_due: learner.feeDue ?? 0,
-        intake: learner.intake ?? null,
-      })
-      .eq("id", learner.id);
-  }
 
   const coursesById = new Map<string, Course>();
   const takeCourse = (row: Record<string, unknown>) => {
@@ -421,7 +426,7 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
     return mergeById(fromSnap, fromDb, true);
   };
 
-  return {
+  return applyTombstones({
     ...snapshot,
     dreyz_learners: learners,
     dreyz_payments: payments,
@@ -462,12 +467,29 @@ export async function mergeLiveSchoolData(snapshot: Record<string, unknown>) {
       dbResources as Record<string, unknown>[],
       mapResource
     ),
-  };
+  });
+}
+
+async function persistTombstoneDeletes(admin: Admin, snapshot: Record<string, unknown>) {
+  const tombs = readTombstones(snapshot);
+  for (const id of tombs.learnerIds) {
+    await Promise.all([
+      admin.from("attendance").delete().eq("learner_id", id),
+      admin.from("grades").delete().eq("learner_id", id),
+      admin.from("projects").delete().eq("learner_id", id),
+      admin.from("learners").delete().eq("id", id),
+    ]);
+  }
+  for (const email of tombs.emails) {
+    await admin.from("enrollments").delete().eq("learner_email", email);
+    await admin.from("learners").delete().eq("email", email);
+  }
 }
 
 /** Persist every portal list into relational Supabase tables. */
 export async function persistSnapshotRecords(snapshot: Record<string, unknown>) {
   const admin = createAdminClient();
+  await persistTombstoneDeletes(admin, snapshot);
 
   const learners = snapshotList(snapshot, "dreyz_learners")
     .filter((row) => row.id && String(row.email ?? "").trim())
