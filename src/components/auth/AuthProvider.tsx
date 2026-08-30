@@ -18,6 +18,7 @@ import {
   setSession,
 } from "@/lib/auth";
 import { requestLoginOtp, requestPasswordResetOtp } from "@/lib/auth-client";
+import { recordPortalActivity } from "@/lib/activity";
 import {
   supabaseGetSessionUser,
   supabaseSignIn,
@@ -163,6 +164,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(remote.session);
         setUser(remote.session);
         setUsingSupabase(true);
+        recordPortalActivity({
+          title: `${remote.session.name} signed in`,
+          detail: `${remote.session.email} · OTP`,
+          category: "login",
+          tone: "success",
+          href: "/portal/accounts",
+          emails: [remote.session.email],
+          learnerIds: remote.session.learnerId ? [remote.session.learnerId] : [],
+          actorName: remote.session.name,
+          actorEmail: remote.session.email,
+          actorRole: remote.session.role,
+        });
         return { ok: true };
       } catch {
         return { ok: false, error: "Could not verify code." };

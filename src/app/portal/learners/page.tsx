@@ -580,12 +580,12 @@ export default function LearnersPage() {
                     {item ? (
                       <div>
                         <p className="text-sm font-medium text-foreground">{item.title}</p>
-                        {item.detail ? (
-                          <p className="text-xs text-muted">{item.detail}</p>
-                        ) : null}
+                        <p className="text-xs text-muted">
+                          {item.actorName ? `Done by ${item.actorName}` : item.detail || "Recorded action"}
+                        </p>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted">No activity yet</p>
+                      <p className="text-sm text-muted">No recorded actions yet</p>
                     )}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted">

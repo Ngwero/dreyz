@@ -220,7 +220,13 @@ export default function AttendancePage() {
       ? `Saved attendance for ${learner.name} on ${form.date}.`
       : `Saved attendance for ${learner.name} on ${form.date}. Stored for the record (outside the ${ATTENDANCE_AWARD_MONTHS}-month progress window ${from}–${to}).`;
     setBulkNotice(msg);
-    showFlash("success", msg);
+    showFlash("success", msg, {
+      category: "attendance",
+      href: "/portal/attendance",
+      learnerIds: [learner.id],
+      emails: [learner.email],
+      detail: `${course} · ${form.date} · ${form.status}`,
+    });
   };
 
   const setStatus = (record: AttendanceRecord, status: Mark) => {
@@ -277,7 +283,13 @@ export default function AttendancePage() {
         : ` All count toward progress.`
     }`;
     setBulkNotice(msg);
-    showFlash("success", msg);
+    showFlash("success", msg, {
+      category: "attendance",
+      href: "/portal/attendance",
+      learnerIds: bulkRoster.map((l) => l.id),
+      emails: bulkRoster.map((l) => l.email),
+      detail: `${selectedCourse} · ${periodDates[0] ?? ""}${periodDates.length > 1 ? ` → ${periodDates[periodDates.length - 1]}` : ""}`,
+    });
   };
 
   const resetAttendance = (scope: "all" | "period") => {

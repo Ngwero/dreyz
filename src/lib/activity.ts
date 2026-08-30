@@ -1,17 +1,7 @@
-import type { SessionUser } from "@/lib/types";
-import { getAllUsers, getEmailOutbox, getPayments } from "@/lib/auth";
+import type { SessionUser, UserRole } from "@/lib/types";
+import { getEmailOutbox, getPayments, getSession } from "@/lib/auth";
 import { formatUGX } from "@/lib/utils";
-import {
-  assessmentsStore,
-  attendanceStore,
-  enrollmentsStore,
-  gradesStore,
-  learnersStore,
-  noticesStore,
-  projectsStore,
-  queueCloudPush,
-  scheduleStore,
-} from "@/lib/store";
+import { queueCloudPush } from "@/lib/store";
 
 export type ActivityCategory =
   | "email"
@@ -37,10 +27,14 @@ export type ActivityItem = {
   tone: ActivityTone;
   emails: string[];
   learnerIds: string[];
+  /** Who performed the action (staff or student signed in). */
+  actorName?: string;
+  actorEmail?: string;
+  actorRole?: UserRole;
 };
 
 const LOG_KEY = "dreyz_activity_log";
-const MAX_LOG = 250;
+const MAX_LOG = 500;
 
 function isBrowser() {
   return typeof window !== "undefined";
@@ -75,7 +69,21 @@ function writeLog(items: ActivityItem[]) {
   queueCloudPush();
 }
 
-/** Record a portal action (emails, saves, errors) so Recent activity stays current. */
+export function inferActivityCategory(text: string): ActivityCategory {
+  const t = text.toLowerCase();
+  if (/class roll|attendance|marked present|marked late|marked absent/.test(t)) return "attendance";
+  if (/payment|rukapay|billing|fee/.test(t)) return "payment";
+  if (/email|login emailed|welcome to dreyz/.test(t)) return "email";
+  if (/learner|admission|roster|enrolled|enrol/.test(t)) return "learner";
+  if (/mark|score|assessment|exam|quiz|test/.test(t)) return "assessment";
+  if (/project|portfolio/.test(t)) return "project";
+  if (/notice/.test(t)) return "notice";
+  if (/schedule|session|workshop/.test(t)) return "schedule";
+  if (/signed in|sign in|password/.test(t)) return "login";
+  return "portal";
+}
+
+/** Record a real portal action so Recent activity shows what people did, not current roster state. */
 export function recordPortalActivity(input: {
   title: string;
   detail?: string;
@@ -84,29 +92,51 @@ export function recordPortalActivity(input: {
   href?: string;
   emails?: string[];
   learnerIds?: string[];
+  actorName?: string;
+  actorEmail?: string;
+  actorRole?: UserRole;
 }) {
+  const session = isBrowser() ? getSession() : null;
+  const actorName = input.actorName ?? session?.name;
+  const actorEmail = (input.actorEmail ?? session?.email ?? "").toLowerCase() || undefined;
+  const actorRole = input.actorRole ?? session?.role;
+  const title = input.title.trim();
+  if (!title) return;
+
+  const byline = actorName ? `by ${actorName}` : "";
+  const detailParts = [(input.detail ?? "").trim(), byline].filter(Boolean);
+
   const item: ActivityItem = {
     id: `ACT-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 99)}`,
     at: Date.now(),
-    category: input.category ?? "portal",
-    title: input.title.trim(),
-    detail: (input.detail ?? "").trim(),
+    category: input.category ?? inferActivityCategory(title),
+    title,
+    detail: detailParts.join(" · "),
     href: input.href,
     tone: input.tone ?? "info",
-    emails: (input.emails ?? []).map((e) => e.toLowerCase()),
+    emails: [
+      ...(input.emails ?? []).map((e) => e.toLowerCase()),
+      ...(actorEmail ? [actorEmail] : []),
+    ],
     learnerIds: input.learnerIds ?? [],
+    actorName,
+    actorEmail,
+    actorRole,
   };
-  if (!item.title) return;
   writeLog([item, ...readLog()].slice(0, MAX_LOG));
 }
 
-function collectSchoolActivity(): ActivityItem[] {
+/**
+ * True event streams only (emails sent, payments taken).
+ * Does NOT invent activity from whoever is currently on the roster / roll.
+ */
+function collectEventLedger(): ActivityItem[] {
   const items: ActivityItem[] = [];
 
   for (const mail of getEmailOutbox()) {
     items.push({
       id: `mail-${mail.id}`,
-      at: parseWhen(mail.sentAt) || Date.now(),
+      at: parseWhen(mail.sentAt) || 0,
       category: "email",
       title: mail.subject || "Login email sent",
       detail: `Sent to ${mail.to}`,
@@ -131,134 +161,7 @@ function collectSchoolActivity(): ActivityItem[] {
     });
   }
 
-  for (const row of enrollmentsStore.getAll()) {
-    items.push({
-      id: `enr-${row.id}`,
-      at: parseWhen(row.date),
-      category: "payment",
-      title: `Billing ${row.status} · ${formatUGX(row.amount)}`,
-      detail: `${row.learnerName} · ${row.course}`,
-      href: "/portal/enrollments",
-      tone: row.status === "paid" ? "success" : row.status === "refunded" ? "error" : "info",
-      emails: row.learnerEmail ? [row.learnerEmail.toLowerCase()] : [],
-      learnerIds: [],
-    });
-  }
-
-  for (const learner of learnersStore.getAll()) {
-    items.push({
-      id: `lrn-${learner.id}`,
-      at: parseWhen(learner.enrollmentDate),
-      category: "learner",
-      title: `${learner.name} enrolled`,
-      detail: `${learner.course} · ${learner.status}`,
-      href: "/portal/learners",
-      tone: "info",
-      emails: [learner.email.toLowerCase()],
-      learnerIds: [learner.id],
-    });
-  }
-
-  for (const rec of attendanceStore.getAll()) {
-    items.push({
-      id: `att-${rec.id}`,
-      at: parseWhen(rec.recordedAt) || parseWhen(rec.date),
-      category: "attendance",
-      title: `${rec.learnerName} marked ${rec.status}`,
-      detail: rec.course,
-      href: "/portal/attendance",
-      tone: rec.status === "absent" ? "error" : rec.status === "late" ? "info" : "success",
-      emails: [],
-      learnerIds: [rec.learnerId],
-    });
-  }
-
-  for (const grade of gradesStore.getAll()) {
-    items.push({
-      id: `grd-${grade.id}`,
-      at: parseWhen(grade.recordedAt) || parseWhen(grade.date),
-      category: "assessment",
-      title: `${grade.learnerName} scored ${grade.score}/${grade.maxScore} on ${grade.title}`,
-      detail: `${grade.course} · ${grade.type}`,
-      href: "/portal/assessments",
-      tone: "success",
-      emails: [],
-      learnerIds: [grade.learnerId],
-    });
-  }
-
-  for (const assessment of assessmentsStore.getAll()) {
-    items.push({
-      id: `asm-${assessment.id}`,
-      at: parseWhen(assessment.date),
-      category: "assessment",
-      title: `${assessment.title} scheduled`,
-      detail: `${assessment.course} · ${assessment.type}`,
-      href: "/portal/assessments",
-      tone: "info",
-      emails: [],
-      learnerIds: [],
-    });
-  }
-
-  for (const project of projectsStore.getAll()) {
-    items.push({
-      id: `prj-${project.id}`,
-      at: 0,
-      category: "project",
-      title: `${project.learnerName} · ${project.title}`,
-      detail: `${project.status} · ${project.course}`,
-      href: "/portal/projects",
-      tone: project.status === "featured" ? "success" : "info",
-      emails: [],
-      learnerIds: [project.learnerId],
-    });
-  }
-
-  for (const notice of noticesStore.getAll()) {
-    items.push({
-      id: `ntc-${notice.id}`,
-      at: parseWhen(notice.date),
-      category: "notice",
-      title: notice.title,
-      detail: notice.content.slice(0, 140),
-      href: "/portal/notices",
-      tone: notice.priority === "high" ? "error" : "info",
-      emails: [],
-      learnerIds: [],
-    });
-  }
-
-  for (const session of scheduleStore.getAll()) {
-    items.push({
-      id: `sch-${session.id}`,
-      at: parseWhen(session.date),
-      category: "schedule",
-      title: session.title,
-      detail: `${session.course} · ${session.time} · ${session.instructor}`,
-      href: "/portal/schedule",
-      tone: "info",
-      emails: [],
-      learnerIds: [],
-    });
-  }
-
-  for (const user of getAllUsers()) {
-    if (!user.lastLoginAt) continue;
-    items.push({
-      id: `login-${user.id}-${user.lastLoginAt}`,
-      at: parseWhen(user.lastLoginAt),
-      category: "login",
-      title: `${user.name} signed in`,
-      detail: user.email,
-      href: "/portal/accounts",
-      tone: "success",
-      emails: [user.email.toLowerCase()],
-      learnerIds: user.learnerId ? [user.learnerId] : [],
-    });
-  }
-
-  return items;
+  return items.filter((item) => item.at > 0);
 }
 
 function visibleForRole(item: ActivityItem, user: SessionUser): boolean {
@@ -267,21 +170,23 @@ function visibleForRole(item: ActivityItem, user: SessionUser): boolean {
     return ["email", "payment", "learner", "notice", "login", "portal"].includes(item.category);
   }
   if (user.role === "tutor") {
-    return ["attendance", "assessment", "project", "schedule", "notice", "learner", "portal"].includes(
+    return ["attendance", "assessment", "project", "schedule", "notice", "learner", "portal", "login"].includes(
       item.category
     );
   }
   const email = user.email.toLowerCase();
   const own =
     item.emails.includes(email) ||
+    item.actorEmail === email ||
     (!!user.learnerId && item.learnerIds.includes(user.learnerId)) ||
     item.title.toLowerCase().includes(user.name.toLowerCase());
   if (item.category === "notice" || item.category === "schedule") return true;
   return own;
 }
 
+/** Action log of what people did in the portal (not a dump of current school records). */
 export function collectRecentActivity(user: SessionUser): ActivityItem[] {
-  const merged = [...readLog(), ...collectSchoolActivity()];
+  const merged = [...readLog(), ...collectEventLedger()];
   const seen = new Set<string>();
   const unique: ActivityItem[] = [];
   for (const item of merged) {
@@ -294,7 +199,7 @@ export function collectRecentActivity(user: SessionUser): ActivityItem[] {
     .sort((a, b) => (b.at || 0) - (a.at || 0));
 }
 
-/** Latest activity item per learner (attendance, marks, login, payments, etc.). */
+/** Latest recorded action that involved each learner. */
 export function lastActivityByLearner(
   learners: { id: string; email: string; name: string }[],
   user: SessionUser
@@ -319,7 +224,6 @@ export function lastActivityByLearner(
       const id = emailToId.get(email.toLowerCase());
       if (id) matched.add(id);
     }
-    // Titles like "Jane marked present" / "Jane enrolled"
     for (const [name, id] of nameToId) {
       if (name.length > 2 && item.title.toLowerCase().includes(name)) matched.add(id);
     }
@@ -329,6 +233,18 @@ export function lastActivityByLearner(
     }
   }
   return byId;
+}
+
+/** Latest recorded action each portal user (actor) performed. */
+export function lastActivityByActor(user: SessionUser): Map<string, ActivityItem> {
+  const byEmail = new Map<string, ActivityItem>();
+  for (const item of collectRecentActivity(user)) {
+    const key = (item.actorEmail || "").toLowerCase();
+    if (!key) continue;
+    const prev = byEmail.get(key);
+    if (!prev || (item.at || 0) > (prev.at || 0)) byEmail.set(key, item);
+  }
+  return byEmail;
 }
 
 export function formatActivityTime(at: number): string {
