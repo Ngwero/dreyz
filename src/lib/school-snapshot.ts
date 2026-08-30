@@ -27,7 +27,7 @@ export type SchoolTombstones = {
   userIds: string[];
 };
 
-const DEMO_LEARNER_IDS = new Set([
+export const DEMO_LEARNER_IDS = [
   "DRY001",
   "DRY002",
   "DRY003",
@@ -36,7 +36,20 @@ const DEMO_LEARNER_IDS = new Set([
   "DRY006",
   "DRY007",
   "DRY008",
-]);
+] as const;
+
+export const DEMO_LEARNER_EMAILS = [
+  "amara.o@email.com",
+  "j.mitchell@email.com",
+  "priya.s@email.com",
+  "d.chen@email.com",
+  "fatima.a@email.com",
+  "lucas.b@email.com",
+  "grace.n@email.com",
+  "marco.r@email.com",
+] as const;
+
+const DEMO_LEARNER_ID_SET = new Set<string>(DEMO_LEARNER_IDS);
 
 function asIdList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -107,7 +120,7 @@ function looksLikeDemoLearners(rows: unknown) {
   return rows.every((row) => {
     const id =
       row && typeof row === "object" && "id" in row ? String((row as { id: unknown }).id) : "";
-    return DEMO_LEARNER_IDS.has(id);
+    return DEMO_LEARNER_ID_SET.has(id);
   });
 }
 

@@ -17,13 +17,10 @@ import type {
 } from "./types";
 import {
   assessments as seedAssessments,
-  attendance as seedAttendance,
   courses as seedCourses,
   instructors as seedInstructors,
-  learners as seedLearners,
   modules as seedModules,
   notices as seedNotices,
-  projects as seedProjects,
   resources as seedResources,
   schedule as seedSchedule,
   schoolInfo as seedSchoolInfo,
@@ -284,8 +281,8 @@ export function recordSchoolTombstone(opts: {
   );
 }
 
-export const learnersStore = createListStore("dreyz_learners", seedLearners);
-export const attendanceStore = createListStore("dreyz_attendance", seedAttendance);
+export const learnersStore = createListStore<Learner>("dreyz_learners", []);
+export const attendanceStore = createListStore<AttendanceRecord>("dreyz_attendance", []);
 export const noticesStore = createListStore("dreyz_notices", seedNotices);
 export const scheduleStore = createListStore("dreyz_schedule", seedSchedule);
 export const coursesStore = createListStore(
@@ -295,7 +292,7 @@ export const coursesStore = createListStore(
 export const modulesStore = createListStore("dreyz_modules", seedModules);
 export const instructorsStore = createListStore("dreyz_instructors", seedInstructors);
 export const assessmentsStore = createListStore("dreyz_assessments", seedAssessments);
-export const projectsStore = createListStore("dreyz_projects", seedProjects);
+export const projectsStore = createListStore<Project>("dreyz_projects", []);
 export const resourcesStore = createListStore("dreyz_resources", seedResources);
 export const gradesStore = createListStore<Grade>("dreyz_grades", []);
 export const enrollmentsStore = createListStore<Enrollment>("dreyz_enrollments", []);
