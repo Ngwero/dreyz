@@ -1,15 +1,29 @@
 import { NextResponse } from "next/server";
-import { rukaGatewayFetch, type RukaPayEnvironment } from "@/lib/rukapay-server";
+import {
+  rukaGatewayFetch,
+  resolveRukaPayApiKey,
+  resolveRukaPayEnvironment,
+} from "@/lib/rukapay-server";
+import { requireFinance } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   try {
+    const gated = await requireFinance();
+    if (!gated.ok) return gated.response;
+
     const { searchParams } = new URL(request.url);
-    const apiKey = searchParams.get("apiKey") ?? process.env.RUKAPAY_API_KEY;
-    const environment = (searchParams.get("environment") ?? "development") as RukaPayEnvironment;
+    const apiKey = resolveRukaPayApiKey();
+    const environment = resolveRukaPayEnvironment(
+      searchParams.get("environment")
+    );
 
     if (!apiKey) {
       return NextResponse.json(
-        { success: false, message: "Missing API key", transactions: [] },
+        {
+          success: false,
+          message: "RukaPay is not configured on the server (RUKAPAY_API_KEY).",
+          transactions: [],
+        },
         { status: 401 }
       );
     }

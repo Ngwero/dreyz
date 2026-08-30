@@ -222,8 +222,8 @@ export default function SettingsPage() {
               </code>
             </p>
             <p className="text-xs text-muted">
-              Auth, profiles, payments, and learners sync to Postgres. Demo logins
-              use password <code>dreyz2026</code>.
+              Use live Supabase logins in production. Demo seed passwords are disabled
+              unless <code>NEXT_PUBLIC_ALLOW_DEMO_AUTH=true</code>.
             </p>
             <a
               href="/api/supabase/health"
@@ -236,73 +236,123 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        {user?.role === "super_admin" && (
+          <Card title="Backup & cleanup">
+            <div className="space-y-3 text-sm">
+              <p className="text-muted">
+                Download a JSON snapshot of roster, payments, attendance, and related
+                portal data from this browser (after live hydrate).
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const keys = [
+                    "dreyz_learners",
+                    "dreyz_payments",
+                    "dreyz_attendance",
+                    "dreyz_grades",
+                    "dreyz_courses",
+                    "dreyz_projects",
+                    "dreyz_notices",
+                    "dreyz_users",
+                    "dreyz_tombstones",
+                    "dreyz_school_settings",
+                  ];
+                  const data: Record<string, unknown> = {
+                    exportedAt: new Date().toISOString(),
+                  };
+                  for (const key of keys) {
+                    try {
+                      const raw = localStorage.getItem(key);
+                      data[key] = raw ? JSON.parse(raw) : null;
+                    } catch {
+                      data[key] = null;
+                    }
+                  }
+                  const blob = new Blob([JSON.stringify(data, null, 2)], {
+                    type: "application/json",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `dreyz-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  showFlash("success", "Backup downloaded.");
+                }}
+              >
+                Download backup JSON
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const res = await fetch("/api/learners/purge-demo", { method: "POST" });
+                  const json = (await res.json()) as { ok?: boolean; error?: string; message?: string };
+                  if (!res.ok || !json.ok) {
+                    showFlash("error", json.error ?? "Could not purge demo learners.");
+                    return;
+                  }
+                  showFlash("success", json.message ?? "Demo learners purged.");
+                  window.location.reload();
+                }}
+              >
+                Purge demo learners (DRY001–008)
+              </Button>
+            </div>
+          </Card>
+        )}
+
         <AppearanceCard />
 
+        {(user?.role === "super_admin" || user?.role === "accountant") && (
         <Card title="RukaPay — Mobile Money Collections (MTN & Airtel)">
           {rukaConfig && (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (user?.role !== "super_admin") {
+                  showFlash("error", "Only Super Admin can change RukaPay settings.");
+                  return;
+                }
                 saveRukaPayConfig(rukaConfig);
                 persist(
-                  { ...settings, rukaPayConnected: rukaConfig.enabled && !!rukaConfig.apiKey },
-                  rukaConfig.enabled ? "RukaPay connected." : "RukaPay disabled."
+                  { ...settings, rukaPayConnected: rukaConfig.enabled },
+                  rukaConfig.enabled ? "RukaPay enabled." : "RukaPay disabled."
                 );
               }}
               className="space-y-4"
             >
               <p className="text-sm text-muted">
-                Get your API key from the{" "}
-                <a
-                  href="https://dev.partners.rukapay.co.ug/dashboard/api-keys"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-accent underline"
-                >
-                  RukaPay partner dashboard
-                </a>
-                . Sandbox docs:{" "}
-                <a
-                  href="https://dev.partners.rukapay.co.ug/dashboard/documentation"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-accent underline"
-                >
-                  documentation
-                </a>
-                . Collect fees via MTN Mobile Money &amp; Airtel Money in UGX.
+                Set <code>RUKAPAY_API_KEY</code> on the server (.env.local / host). The key never
+                leaves the server. Enable collections here and set the webhook URL for RukaPay
+                callbacks.
               </p>
               {rukaConfig.environment === "development" && (
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200">
-                  <strong>Sandbox active.</strong> Base URL:{" "}
-                  <code>https://dev-api.rukapay.net/api/v1/gateway</code>
-                  <br />
-                  Endpoints: <code>validate-beneficiary-sandbox</code>,{" "}
-                  <code>process-transfer-sandbox</code> — no real money processed.
+                  <strong>Sandbox mode.</strong> Server uses{" "}
+                  <code>dev-api.rukapay.net</code> when{" "}
+                  <code>RUKAPAY_ENVIRONMENT=development</code>.
                 </div>
               )}
               <label className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   checked={rukaConfig.enabled}
+                  disabled={user?.role !== "super_admin"}
                   onChange={(e) => setRukaConfig({ ...rukaConfig, enabled: e.target.checked })}
                   className="rounded border-border"
                 />
                 <span className="text-sm font-medium text-foreground">Enable RukaPay collections</span>
               </label>
               <div>
-                <label className="text-sm font-medium text-foreground">API Key</label>
-                <input
-                  value={rukaConfig.apiKey}
-                  onChange={(e) => setRukaConfig({ ...rukaConfig, apiKey: e.target.value })}
-                  placeholder="Your x-api-key"
-                  className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Environment</label>
+                <label className="text-sm font-medium text-foreground">Environment (UI hint)</label>
                 <select
                   value={rukaConfig.environment}
+                  disabled={user?.role !== "super_admin"}
                   onChange={(e) => setRukaConfig({ ...rukaConfig, environment: e.target.value as "development" | "production" })}
                   className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                 >
@@ -310,9 +360,7 @@ export default function SettingsPage() {
                   <option value="production">Production (Live)</option>
                 </select>
                 <p className="mt-1 text-[10px] text-muted">
-                  {rukaConfig.environment === "development"
-                    ? "Sandbox: uses dev-api.rukapay.net — no real money processed"
-                    : "Live: uses api.rukapay.net — real transactions"}
+                  Prefer <code>RUKAPAY_ENVIRONMENT</code> on the server for the real gateway.
                 </p>
               </div>
               <div>
@@ -327,14 +375,19 @@ export default function SettingsPage() {
                   Required for PARTNER_COLLECT_MNO transactions. RukaPay sends payment status to this URL.
                 </p>
               </div>
-              <Button type="submit" size="sm">
-                {rukaConfig.enabled ? "Save & Connect" : "Save"}
+              <Button type="submit" size="sm" disabled={user?.role !== "super_admin"}>
+                Save
               </Button>
             </form>
           )}
         </Card>
+        )}
 
+        {user?.role === "super_admin" && (
         <Card title="Other Integrations">
+          <p className="mb-3 text-xs text-muted">
+            These toggles are placeholders only — they do not connect external services yet.
+          </p>
           <div className="space-y-3">
             {(
               [
@@ -352,7 +405,7 @@ export default function SettingsPage() {
                   <div>
                     <span className="text-sm font-medium">{name}</span>
                     <p className="text-xs text-muted">
-                      {connected ? "Connected" : "Not connected"}
+                      {connected ? "Marked on" : "Marked off"} (not wired)
                     </p>
                   </div>
                   <Button
@@ -361,17 +414,18 @@ export default function SettingsPage() {
                     onClick={() =>
                       persist(
                         { ...settings, [key]: !connected },
-                        connected ? `${name} disconnected.` : `${name} connected.`
+                        `${name} preference updated.`
                       )
                     }
                   >
-                    {connected ? "Disconnect" : "Connect"}
+                    {connected ? "Turn off" : "Turn on"}
                   </Button>
                 </div>
               );
             })}
           </div>
         </Card>
+        )}
       </div>
     </div>
   );

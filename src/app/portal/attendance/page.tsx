@@ -32,7 +32,9 @@ import {
   attendanceCountsForAward,
   attendanceSummary,
   awardedAttendance,
+  classCountForCourseTitle,
 } from "@/lib/academics";
+import { normalizeCourse } from "@/lib/course-structure";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { resolveLearnerIntake } from "@/lib/intakes";
 
@@ -52,8 +54,15 @@ export default function AttendancePage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const courseOptions = useMemo(() => {
+    // Prefer real catalogue courses (with classCount) so attendance ties to course targets.
+    const catalog = courses
+      .map(normalizeCourse)
+      .filter((c) => c.status === "active" && c.title)
+      .map((c) => c.title);
+    if (catalog.length) {
+      return [...new Set(catalog)].sort((a, b) => a.localeCompare(b));
+    }
     const set = new Set<string>(allCourseTitles());
-    for (const c of courses) if (c.title) set.add(c.title);
     for (const l of learners) if (l.course) set.add(l.course);
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [courses, learners]);
@@ -68,6 +77,7 @@ export default function AttendancePage() {
 
   const canMark = user?.role === "super_admin" || user?.role === "tutor";
   const selectedCourse = course || courseOptions[0] || "Professional Interior Design Programme";
+  const courseClassCount = classCountForCourseTitle(selectedCourse, courses);
 
   const roster = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -217,7 +227,7 @@ export default function AttendancePage() {
     <div>
       <PageHeader
         title="Attendance"
-        description={`Mark Present, Late, or Absent for one class day. Present and Late in the first ${ATTENDANCE_AWARD_MONTHS} months count toward progress.`}
+        description={`Pick a course, then mark Present / Late / Absent. Class progress uses that course’s class count from Courses (Super Admin). First ${ATTENDANCE_AWARD_MONTHS} months from enrolment count toward %.`}
         action={
           <Button variant="outline" size="sm" onClick={onExport}>
             <Download size={14} /> Export
@@ -253,7 +263,7 @@ export default function AttendancePage() {
       {canMark && (
         <Card
           className="mb-8"
-          title="Mark today’s class"
+          title="Mark class"
           action={
             <span className="inline-flex items-center gap-1.5 text-xs text-muted">
               <Users size={13} /> {roster.length} on roll
@@ -275,7 +285,7 @@ export default function AttendancePage() {
               />
             </label>
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted sm:col-span-2">
-              Course / class
+              Course
               <select
                 className={`${fieldClass} mt-1.5`}
                 value={selectedCourse}
@@ -284,11 +294,15 @@ export default function AttendancePage() {
                   setMarks({});
                 }}
               >
-                {courseOptions.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
+                {courseOptions.map((c) => {
+                  const n = classCountForCourseTitle(c, courses);
+                  return (
+                    <option key={c} value={c}>
+                      {c}
+                      {n > 0 ? ` (${n} classes)` : ""}
+                    </option>
+                  );
+                })}
               </select>
             </label>
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted sm:col-span-2 lg:col-span-1">
@@ -304,6 +318,21 @@ export default function AttendancePage() {
             </label>
           </div>
 
+          <p className="mb-4 rounded-xl border border-border bg-surface/60 px-3 py-2 text-sm text-muted">
+            {courseClassCount > 0 ? (
+              <>
+                <span className="font-medium text-foreground">{selectedCourse}</span> needs{" "}
+                <span className="font-semibold text-foreground">{courseClassCount}</span> class
+                {courseClassCount === 1 ? "" : "es"} for progress. Marks saved here count only for
+                this course.
+              </>
+            ) : (
+              <>
+                No class count set for this course yet. Super Admin can set it under Courses — until
+                then marks still save but won’t move the class progress bar.
+              </>
+            )}
+          </p>
           {!search.trim() && (
             <IntakeFilterTabs
               learners={learners}

@@ -24,7 +24,18 @@ export const EMAIL_OUTBOX_KEY = "dreyz_email_outbox";
 
 export const DEMO_PASSWORD = "dreyz2026";
 
-/** Seed accounts — use these on the login screen */
+/** Demo seed logins are off in production unless explicitly enabled. */
+export function allowDemoAuth() {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_ALLOW_DEMO_AUTH === "true") {
+    return true;
+  }
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "production") {
+    return false;
+  }
+  return process.env.NEXT_PUBLIC_ALLOW_DEMO_AUTH !== "false";
+}
+
+/** Seed accounts — use these on the login screen when demo auth is allowed */
 export const SEED_USERS: PortalUser[] = [
   {
     id: "USR-SA-001",
@@ -139,10 +150,12 @@ export function getAllUsers(): PortalUser[] {
           }),
         });
   const byId = new Map<string, PortalUser>();
-  for (const u of SEED_USERS) {
-    if (tombs.emails.includes(u.email.toLowerCase()) || tombs.userIds.includes(u.id)) continue;
-    if (u.learnerId && tombs.learnerIds.includes(u.learnerId)) continue;
-    byId.set(u.id, u);
+  if (allowDemoAuth()) {
+    for (const u of SEED_USERS) {
+      if (tombs.emails.includes(u.email.toLowerCase()) || tombs.userIds.includes(u.id)) continue;
+      if (u.learnerId && tombs.learnerIds.includes(u.learnerId)) continue;
+      byId.set(u.id, u);
+    }
   }
   for (const u of extras) {
     if (tombs.emails.includes(u.email.toLowerCase()) || tombs.userIds.includes(u.id)) continue;

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail, welcomeAccountHtml } from "@/lib/mail";
 import { portalLoginUrl } from "@/lib/portal-url";
 import { classOptions, feeTracks, schoolInfo } from "@/lib/data";
 import { resolveAdmissionIdServer } from "@/lib/admission-server";
 import { currentOpenIntake } from "@/lib/intakes";
+import { requireFinance } from "@/lib/api-auth";
 
 const ROLES = ["super_admin", "accountant", "tutor", "student"] as const;
 type Role = (typeof ROLES)[number];
@@ -27,6 +27,9 @@ function generatePassword(length = 10) {
 
 export async function POST(request: Request) {
   try {
+    const gated = await requireFinance();
+    if (!gated.ok) return gated.response;
+
     const body = await request.json();
     const name = String(body.name ?? "").trim();
     const email = String(body.email ?? "")
@@ -50,8 +53,14 @@ export async function POST(request: Request) {
     if (!ROLES.includes(role)) {
       return NextResponse.json({ ok: false, error: "Invalid role." }, { status: 400 });
     }
+    if (role === "super_admin" && gated.role !== "super_admin") {
+      return NextResponse.json(
+        { ok: false, error: "Only Super Admin can create Super Admin accounts." },
+        { status: 403 }
+      );
+    }
 
-    const admin = createAdminClient();
+    const admin = gated.admin;
 
     const { data: existingProfile } = await admin
       .from("profiles")

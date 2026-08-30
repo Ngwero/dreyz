@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { mergeLiveSchoolData, persistSnapshotRecords } from "@/lib/school-merge";
 import {
   applyTombstones,
@@ -9,6 +8,7 @@ import {
   readTombstones,
   TOMBSTONE_KEY,
 } from "@/lib/school-snapshot";
+import { requireSuperAdmin } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,9 @@ export const dynamic = "force-dynamic";
  */
 export async function POST() {
   try {
-    const admin = createAdminClient();
+    const gated = await requireSuperAdmin();
+    if (!gated.ok) return gated.response;
+    const admin = gated.admin;
     const { data: settingsRow } = await admin
       .from("school_settings")
       .select("data")

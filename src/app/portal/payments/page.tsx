@@ -212,6 +212,10 @@ export default function PaymentsPage() {
       narration: `Dreyz fees — ${selectedTrack?.name ?? form.feeTrackId}`,
       partnerReference: partnerRef,
       callbackUrl,
+      learnerName: form.learnerName,
+      learnerEmail: form.learnerEmail,
+      feeTrackId: form.feeTrackId,
+      classOptionId: form.classOptionId,
     });
 
     if (res.success && res.transaction) {

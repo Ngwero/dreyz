@@ -64,13 +64,19 @@ function Meter({
 export function LearnerProfile({
   learner,
   onClose,
+  viewerRole,
 }: {
   learner: Learner | null;
   onClose: () => void;
+  /** When set, fee totals are hidden from tutors. */
+  viewerRole?: string;
 }) {
   const tick = useLiveTick();
   void tick;
   if (!learner) return null;
+
+  const showFees =
+    viewerRole !== "tutor" && viewerRole !== "student";
 
   const account = getAllUsers().find(
     (u) =>
@@ -132,6 +138,7 @@ export function LearnerProfile({
           </div>
         </div>
 
+        {showFees && (
         <section className="rounded-2xl border border-border p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
             Fees
@@ -158,6 +165,7 @@ export function LearnerProfile({
             </>
           )}
         </section>
+        )}
 
         <section className="rounded-2xl border border-border bg-surface/60 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
@@ -187,7 +195,7 @@ export function LearnerProfile({
             </div>
             <div className="space-y-2.5">
               <Meter
-                label="Classes attended"
+                label="Classes attended (by course)"
                 done={progress.classes.done}
                 required={progress.classes.required}
               />

@@ -669,7 +669,11 @@ export default function LearnersPage() {
         </div>
       )}
 
-      <LearnerProfile learner={selected} onClose={() => setSelected(null)} />
+      <LearnerProfile
+        learner={selected}
+        onClose={() => setSelected(null)}
+        viewerRole={user?.role}
+      />
 
       <Modal
         open={open}

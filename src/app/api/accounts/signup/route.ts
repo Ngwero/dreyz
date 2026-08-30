@@ -63,9 +63,6 @@ export async function POST(request: Request) {
     const intake =
       String(body.intake ?? "").trim() || currentOpenIntake();
 
-    const paymentAmount = Number(body.paymentAmount ?? 0) || 0;
-    const paymentKind = String(body.paymentKind ?? "registration").trim() || "registration";
-
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
@@ -107,7 +104,9 @@ export async function POST(request: Request) {
     const track = feeTracks.find((t) => t.id === feeTrackId);
     const klass = classOptions.find((c) => c.id === classOptionId);
 
-    const learnerActive = paymentAmount >= 1_000_000;
+    // Declared amounts are NOT confirmed payments — staff/RukaPay must confirm.
+    const declaredAmount = Number(body.paymentAmount ?? 0) || 0;
+    const paymentKind = String(body.paymentKind ?? "registration").trim() || "registration";
 
     await admin.from("learners").upsert(
       {
@@ -119,14 +118,15 @@ export async function POST(request: Request) {
         enrollment_date: new Date().toISOString().slice(0, 10),
         intake,
         progress: 0,
-        status: learnerActive ? "active" : "paused",
-        paid_amount: paymentAmount,
+        status: "paused",
+        paid_amount: 0,
         fee_due: track?.total ?? 3_350_000,
+        fee_track_id: feeTrackId,
       },
       { onConflict: "id" }
     );
 
-    if (paymentAmount > 0) {
+    if (declaredAmount > 0) {
       await admin.from("payments").insert({
         id: `PAY${Date.now().toString(36).toUpperCase()}`,
         learner_name: name,
@@ -134,11 +134,11 @@ export async function POST(request: Request) {
         phone,
         fee_track_id: feeTrackId,
         class_option_id: classOptionId,
-        amount: paymentAmount,
+        amount: declaredAmount,
         method: "mobile_money",
-        reference: `${paymentKind}-${Date.now()}`,
+        reference: `DECLARED-${paymentKind}-${Date.now()}`,
         date: new Date().toISOString().slice(0, 10),
-        status: "confirmed",
+        status: "pending",
         credentials_sent: true,
         student_user_id: userId,
       });
@@ -194,20 +194,20 @@ export async function POST(request: Request) {
       await sendMail({
         to: adminRow.email,
         subject: `New student signup: ${name}`,
-        text: `${name} (${email}) registered for ${track?.name ?? "Interior Design"}. Declared payment: UGX ${paymentAmount.toLocaleString()} (${paymentKind}).`,
+        text: `${name} (${email}) registered for ${track?.name ?? "Interior Design"}. Declared payment (pending confirmation): UGX ${declaredAmount.toLocaleString()} (${paymentKind}).`,
         html: enrollmentAlertHtml({
           studentName: name,
           email,
           phone: phone ?? undefined,
           programme: track?.name,
-          amount: paymentAmount || undefined,
+          amount: declaredAmount || undefined,
         }),
       }).catch(() => undefined);
     }
 
     return NextResponse.json({
       ok: true,
-      message: `Welcome to Dreyz Interior — confirmation sent to ${email}`,
+      message: `Welcome to Dreyz Interior — confirmation sent to ${email}. Fee payment stays pending until staff or RukaPay confirms it.`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

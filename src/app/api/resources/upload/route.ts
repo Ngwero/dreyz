@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaff } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    const gated = await requireStaff();
+    if (!gated.ok) return gated.response;
+
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) {
@@ -19,7 +22,7 @@ export async function POST(request: Request) {
     const path = `handouts/${Date.now()}-${safeName}`;
 
     try {
-      const admin = createAdminClient();
+      const admin = gated.admin;
       await admin.storage.createBucket("resources", { public: true }).catch(() => undefined);
       const { error } = await admin.storage.from("resources").upload(path, bytes, {
         contentType: file.type || "application/octet-stream",
@@ -30,16 +33,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true, url: data.publicUrl, name: file.name });
       }
     } catch {
-      /* fall through to data URL */
+      /* fall through */
     }
 
-    const base64 = bytes.toString("base64");
-    const mime = file.type || "application/octet-stream";
-    return NextResponse.json({
-      ok: true,
-      url: `data:${mime};base64,${base64}`,
-      name: file.name,
-    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Upload to storage failed. Check Supabase storage is configured.",
+      },
+      { status: 500 }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

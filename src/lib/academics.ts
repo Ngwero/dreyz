@@ -159,6 +159,40 @@ function courseForLearner(learner: Pick<Learner, "course">, courses: Course[]) {
     );
 }
 
+function courseTitleMatches(recordCourse: string, course: Pick<Course, "id" | "title">) {
+  const a = recordCourse.trim().toLowerCase();
+  const b = course.title.trim().toLowerCase();
+  if (!a || !b) return false;
+  return (
+    a === b ||
+    a === course.id.toLowerCase() ||
+    a.includes(b) ||
+    b.includes(a)
+  );
+}
+
+function catalogueUnitsForLearner(
+  learner: Pick<Learner, "course">,
+  courses: Course[]
+): Course[] {
+  const normalized = courses.map(normalizeCourse);
+  const matched = courseForLearner(learner, normalized);
+  if (matched && !isProgrammeCourseLabel(learner.course)) {
+    return [matched];
+  }
+
+  const active = normalized.filter((c) => c.status === "active");
+  const label = learner.course.toLowerCase();
+  const includeInternship =
+    label.includes("6-month") ||
+    label.includes("internship") ||
+    !isProgrammeCourseLabel(learner.course);
+  const pool = active.filter((c) =>
+    includeInternship ? true : c.category !== "Internship"
+  );
+  return pool.length ? pool : active;
+}
+
 type ProgressTargets = {
   title: string;
   durationWeeks: number;
@@ -168,49 +202,71 @@ type ProgressTargets = {
   hasFinalExam: boolean;
 };
 
-/** Resolve Super Admin unit targets, or the full active programme when the learner holds a fee-track label. */
+/** Sum Super Admin targets from the learner’s catalogue course(s). */
 function progressTargetsForLearner(
   learner: Pick<Learner, "course">,
   courses: Course[]
 ): ProgressTargets {
-  const matched = courseForLearner(learner, courses);
-  if (
-    matched &&
-    ((matched.classCount ?? 0) > 0 ||
-      (matched.testCount ?? 0) > 0 ||
-      (matched.examCount ?? 0) > 0 ||
-      matched.hasFinalExam)
-  ) {
+  const units = catalogueUnitsForLearner(learner, courses);
+  if (!units.length) {
     return {
-      title: matched.title,
-      durationWeeks: matched.durationWeeks ?? 0,
-      classCount: matched.classCount ?? 0,
-      testCount: matched.testCount ?? 0,
-      examCount: matched.examCount ?? 0,
-      hasFinalExam: !!matched.hasFinalExam,
+      title: learner.course || "Professional Interior Design Programme",
+      durationWeeks: 0,
+      classCount: 0,
+      testCount: 0,
+      examCount: 0,
+      hasFinalExam: false,
     };
   }
-
-  const active = courses
-    .map(normalizeCourse)
-    .filter((c) => c.status === "active");
-  const label = learner.course.toLowerCase();
-  const includeInternship =
-    label.includes("6-month") ||
-    label.includes("internship") ||
-    !isProgrammeCourseLabel(learner.course);
-  const pool = active.filter((c) =>
-    includeInternship ? true : c.category !== "Internship"
-  );
-  const units = pool.length ? pool : active;
-
   return {
-    title: learner.course || "Professional Interior Design Programme",
+    title:
+      units.length === 1
+        ? units[0].title
+        : learner.course || "Professional Interior Design Programme",
     durationWeeks: units.reduce((s, c) => s + (c.durationWeeks ?? 0), 0),
     classCount: units.reduce((s, c) => s + (c.classCount ?? 0), 0),
     testCount: units.reduce((s, c) => s + (c.testCount ?? 0), 0),
     examCount: units.reduce((s, c) => s + (c.examCount ?? 0), 0),
     hasFinalExam: units.some((c) => c.hasFinalExam),
+  };
+}
+
+/**
+ * Class attendance progress depends on each course’s classCount.
+ * Only marks saved against that course title count toward its target.
+ */
+function classAttendanceProgress(
+  learner: Pick<Learner, "id" | "course" | "enrollmentDate">,
+  courses: Course[],
+  records: AttendanceRecord[]
+) {
+  const units = catalogueUnitsForLearner(learner, courses).filter(
+    (c) => (c.classCount ?? 0) > 0
+  );
+  const awarded = awardedAttendance(records, learner.enrollmentDate);
+
+  if (!units.length) {
+    const { present, late } = attendanceSummary(awarded);
+    return { done: present + late, required: 0, part: 0 };
+  }
+
+  let required = 0;
+  let done = 0;
+  let rawDone = 0;
+  for (const course of units) {
+    const need = course.classCount ?? 0;
+    const forCourse = awarded.filter((r) => courseTitleMatches(r.course, course));
+    const { present, late } = attendanceSummary(forCourse);
+    const attended = present + late;
+    required += need;
+    rawDone += attended;
+    done += Math.min(need, attended);
+  }
+
+  return {
+    done: rawDone,
+    required,
+    part: required > 0 ? Math.min(1, done / required) : 0,
   };
 }
 
@@ -225,7 +281,7 @@ export type ProgressBreakdown = {
 
 /**
  * Progress is driven by Super Admin course targets:
- * classes attended, tests, exams, and the final exam when required.
+ * classes attended (per course classCount), tests, exams, and the final exam when required.
  * Assessment parts use score quality (score/max), so mark changes move the bar.
  */
 export function learnerProgressBreakdown(
@@ -233,17 +289,14 @@ export function learnerProgressBreakdown(
   courses = coursesStore.getAll()
 ): ProgressBreakdown {
   const targets = progressTargetsForLearner(learner, courses);
-  const classRequired = targets.classCount;
   const testRequired = targets.testCount;
   const examRequired = targets.examCount;
   const finalRequired = targets.hasFinalExam ? 1 : 0;
 
-  const attendance = awardedAttendance(
-    attendanceStore.getAll().filter((r) => r.learnerId === learner.id),
-    learner.enrollmentDate
-  );
-  const { present, late } = attendanceSummary(attendance);
-  const classesDone = present + late;
+  const attendanceRecords = attendanceStore
+    .getAll()
+    .filter((r) => r.learnerId === learner.id);
+  const classes = classAttendanceProgress(learner, courses, attendanceRecords);
 
   const grades = gradesStore.getAll().filter((g) => g.learnerId === learner.id);
   const tests = assessmentProgress(grades, isTestType, testRequired);
@@ -256,7 +309,7 @@ export function learnerProgressBreakdown(
       : 0;
 
   const parts: number[] = [];
-  if (classRequired > 0) parts.push(Math.min(1, classesDone / classRequired));
+  if (classes.required > 0) parts.push(classes.part);
   if (testRequired > 0) parts.push(tests.part);
   if (examRequired > 0) parts.push(exams.part);
   if (finalRequired > 0) parts.push(finalPart);
@@ -269,7 +322,7 @@ export function learnerProgressBreakdown(
   return {
     percent,
     durationWeeks: targets.durationWeeks,
-    classes: { done: classesDone, required: classRequired },
+    classes: { done: classes.done, required: classes.required },
     tests: { done: tests.done, required: testRequired },
     exams: { done: exams.done, required: examRequired },
     final: { done: finalDone, required: finalRequired },
@@ -280,6 +333,25 @@ export function computeLearnerProgress(
   learner: Pick<Learner, "id" | "progress" | "course" | "enrollmentDate">
 ): number {
   return learnerProgressBreakdown(learner).percent;
+}
+
+/** Class sessions Super Admin set for a catalogue course title (0 if unknown). */
+export function classCountForCourseTitle(
+  title: string,
+  courses = coursesStore.getAll()
+): number {
+  const needle = title.trim().toLowerCase();
+  if (!needle) return 0;
+  const match = courses
+    .map(normalizeCourse)
+    .find(
+      (c) =>
+        c.title.toLowerCase() === needle ||
+        c.id.toLowerCase() === needle ||
+        needle.includes(c.title.toLowerCase()) ||
+        c.title.toLowerCase().includes(needle)
+    );
+  return match?.classCount ?? 0;
 }
 
 /** Persist live % onto the learner roster so exports and cloud sync stay in sync with attendance/marks. */

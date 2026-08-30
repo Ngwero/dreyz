@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail } from "@/lib/mail";
 import { generatePassword } from "@/lib/auth";
+import { requireFinance } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    const gated = await requireFinance();
+    if (!gated.ok) return gated.response;
+
     const body = (await request.json()) as {
       id?: string;
       name?: string;
@@ -25,7 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Missing account id." }, { status: 400 });
     }
 
-    const admin = createAdminClient();
+    const admin = gated.admin;
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.name) patch.name = body.name.trim();
     if (body.email) patch.email = body.email.trim().toLowerCase();

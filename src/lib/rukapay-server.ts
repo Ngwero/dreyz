@@ -1,9 +1,24 @@
 /**
- * Server-side RukaPay Gateway client.
- * Docs: https://dev.partners.rukapay.co.ug/dashboard/documentation
+ * Server-side RukaPay helpers — API key never leaves the server.
  */
 
 export type RukaPayEnvironment = "development" | "production";
+
+export function resolveRukaPayApiKey(bodyKey?: unknown): string {
+  const fromEnv = String(process.env.RUKAPAY_API_KEY ?? "").trim();
+  if (fromEnv) return fromEnv;
+  // Ignore any client-supplied key in production.
+  if (process.env.NODE_ENV === "production") return "";
+  // Dev-only fallback if someone still passes a key locally without env set.
+  return String(bodyKey ?? "").trim();
+}
+
+export function resolveRukaPayEnvironment(bodyEnv?: unknown): RukaPayEnvironment {
+  const fromEnv = String(process.env.RUKAPAY_ENVIRONMENT ?? "").trim();
+  if (fromEnv === "production" || fromEnv === "development") return fromEnv;
+  if (bodyEnv === "production" || bodyEnv === "development") return bodyEnv;
+  return "development";
+}
 
 export function gatewayBaseUrl(environment: RukaPayEnvironment): string {
   return environment === "production"
@@ -11,7 +26,6 @@ export function gatewayBaseUrl(environment: RukaPayEnvironment): string {
     : "https://dev-api.rukapay.net/api/v1/gateway";
 }
 
-/** Sandbox endpoints only work in the development environment. */
 export function transferPath(environment: RukaPayEnvironment): string {
   return environment === "development"
     ? "/process-transfer-sandbox"

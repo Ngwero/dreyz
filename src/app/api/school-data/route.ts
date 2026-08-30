@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { combineSchoolSnapshots, mergeLiveSchoolData, persistSnapshotRecords } from "@/lib/school-merge";
+import { requireSignedIn, requireStaff } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
+/** Any signed-in portal user may read the live school snapshot. */
 export async function GET() {
   try {
-    const admin = createAdminClient();
+    const gated = await requireSignedIn();
+    if (!gated.ok) return gated.response;
+
+    const admin = gated.admin;
     const { data, error } = await admin
       .from("school_settings")
       .select("data")
@@ -24,13 +29,17 @@ export async function GET() {
   }
 }
 
+/** Only staff may push/overwrite the school snapshot. */
 export async function POST(request: Request) {
   try {
+    const gated = await requireStaff();
+    if (!gated.ok) return gated.response;
+
     const body = (await request.json()) as { data?: Record<string, unknown> };
     if (!body.data || typeof body.data !== "object") {
       return NextResponse.json({ ok: false, error: "Missing data" }, { status: 400 });
     }
-    const admin = createAdminClient();
+    const admin = gated.admin;
 
     const { data: existingRow } = await admin
       .from("school_settings")

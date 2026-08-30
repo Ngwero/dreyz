@@ -28,7 +28,7 @@ export const SANDBOX_TEST_NUMBERS = [
 const RUKA_CONFIG_KEY = "dreyz_rukapay_config";
 
 const DEFAULT_CONFIG: RukaPayConfig = {
-  apiKey: "4Gb1NlaqAlGTOuwH31ImAD4GTG6m2gbeVHa4RF8Y18cY",
+  apiKey: "",
   environment: "development",
   webhookUrl: "",
   enabled: true,
@@ -51,14 +51,17 @@ export function getRukaPayConfig(): RukaPayConfig {
 
 export function saveRukaPayConfig(config: RukaPayConfig) {
   if (!isBrowser()) return;
-  localStorage.setItem(RUKA_CONFIG_KEY, JSON.stringify(config));
+  // Never persist an API key in localStorage / school snapshot.
+  const safe = { ...config, apiKey: "" };
+  localStorage.setItem(RUKA_CONFIG_KEY, JSON.stringify(safe));
   window.dispatchEvent(new CustomEvent("dreyz-store", { detail: { key: RUKA_CONFIG_KEY } }));
   void import("@/lib/store").then((mod) => mod.queueCloudPush());
 }
 
 export function isRukaPayReady(): boolean {
   const c = getRukaPayConfig();
-  return c.enabled && !!c.apiKey;
+  // API key lives on the server (RUKAPAY_API_KEY). Client only toggles enabled.
+  return c.enabled;
 }
 
 export function isSandboxMode(): boolean {
@@ -67,7 +70,7 @@ export function isSandboxMode(): boolean {
 
 function configPayload() {
   const c = getRukaPayConfig();
-  return { apiKey: c.apiKey, environment: c.environment };
+  return { environment: c.environment };
 }
 
 function defaultCallbackUrl(): string {
@@ -101,8 +104,8 @@ export async function validateBeneficiary(
   provider: "MTN" | "AIRTEL"
 ): Promise<ValidateResult> {
   const config = getRukaPayConfig();
-  if (!config.enabled || !config.apiKey) {
-    return { success: false, message: "RukaPay not configured." };
+  if (!config.enabled) {
+    return { success: false, message: "RukaPay is disabled in Settings." };
   }
 
   try {
@@ -134,6 +137,10 @@ export type CollectInput = {
   narration?: string;
   partnerReference: string;
   callbackUrl?: string;
+  learnerName?: string;
+  learnerEmail?: string;
+  feeTrackId?: string;
+  classOptionId?: string;
 };
 
 export type RukaTransaction = {
@@ -177,10 +184,10 @@ export type CollectResponse = {
  */
 export async function collectFromMNO(input: CollectInput): Promise<CollectResponse> {
   const config = getRukaPayConfig();
-  if (!config.enabled || !config.apiKey) {
+  if (!config.enabled) {
     return {
       success: false,
-      message: "RukaPay is not configured. Add your API key in Settings → RukaPay.",
+      message: "RukaPay is disabled in Settings.",
     };
   }
 
@@ -201,6 +208,10 @@ export async function collectFromMNO(input: CollectInput): Promise<CollectRespon
         narration: input.narration ?? "Dreyz Interior Design School — fee payment",
         partnerReference: input.partnerReference,
         callbackUrl,
+        learnerName: input.learnerName,
+        learnerEmail: input.learnerEmail,
+        feeTrackId: input.feeTrackId,
+        classOptionId: input.classOptionId,
       }),
     });
     const data = (await res.json()) as CollectResponse & { statusCode?: number; error?: string };
@@ -230,13 +241,12 @@ export type TransactionsResponse = {
 
 export async function getTransactions(): Promise<TransactionsResponse> {
   const config = getRukaPayConfig();
-  if (!config.enabled || !config.apiKey) {
-    return { success: false, message: "Not configured", transactions: [] };
+  if (!config.enabled) {
+    return { success: false, message: "RukaPay disabled", transactions: [] };
   }
 
   try {
     const params = new URLSearchParams({
-      apiKey: config.apiKey,
       environment: config.environment,
     });
     const res = await fetch(`/api/rukapay/transactions?${params}`);

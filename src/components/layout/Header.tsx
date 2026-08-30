@@ -27,19 +27,43 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     const q = query.trim().toLowerCase();
     if (q.length < 2) return [] as Hit[];
     const out: Hit[] = [];
-    for (const l of learnersStore.getAll()) {
-      if (
-        l.name.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q) ||
-        l.id.toLowerCase().includes(q)
-      ) {
-        out.push({
-          label: l.name,
-          href: "/portal/learners",
-          meta: `Learner · ${l.id}`,
-        });
+    const isStaff =
+      user?.role === "super_admin" ||
+      user?.role === "accountant" ||
+      user?.role === "tutor";
+    const isFinance = user?.role === "super_admin" || user?.role === "accountant";
+
+    if (isStaff) {
+      for (const l of learnersStore.getAll()) {
+        if (
+          l.name.toLowerCase().includes(q) ||
+          l.email.toLowerCase().includes(q) ||
+          l.id.toLowerCase().includes(q)
+        ) {
+          out.push({
+            label: l.name,
+            href: "/portal/learners",
+            meta: `Learner · ${l.id}`,
+          });
+        }
+      }
+    } else if (user?.learnerId || user?.email) {
+      for (const l of learnersStore.getAll()) {
+        if (
+          l.id === user.learnerId ||
+          l.email.toLowerCase() === user.email.toLowerCase()
+        ) {
+          if (l.name.toLowerCase().includes(q) || l.id.toLowerCase().includes(q)) {
+            out.push({
+              label: l.name,
+              href: "/portal/account",
+              meta: `My profile · ${l.id}`,
+            });
+          }
+        }
       }
     }
+
     for (const c of coursesStore.getAll()) {
       if (c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)) {
         out.push({
@@ -58,19 +82,28 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         });
       }
     }
-    for (const p of projectsStore.getAll()) {
-      if (p.title.toLowerCase().includes(q) || p.learnerName.toLowerCase().includes(q)) {
-        out.push({
-          label: p.title,
-          href: "/portal/projects",
-          meta: `Project · ${p.learnerName}`,
-        });
+    if (isStaff) {
+      for (const p of projectsStore.getAll()) {
+        if (p.title.toLowerCase().includes(q) || p.learnerName.toLowerCase().includes(q)) {
+          out.push({
+            label: p.title,
+            href: "/portal/projects",
+            meta: `Project · ${p.learnerName}`,
+          });
+        }
+      }
+    } else if (user?.learnerId) {
+      for (const p of projectsStore.getAll()) {
+        if (p.learnerId === user.learnerId && p.title.toLowerCase().includes(q)) {
+          out.push({
+            label: p.title,
+            href: "/portal/projects",
+            meta: "My project",
+          });
+        }
       }
     }
-    if (
-      user?.role === "super_admin" ||
-      user?.role === "accountant"
-    ) {
+    if (isFinance) {
       for (const u of getAllUsers()) {
         if (
           u.name.toLowerCase().includes(q) ||
@@ -80,7 +113,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           out.push({
             label: u.name,
             href: "/portal/accounts",
-            meta: `Account · ${ROLE_LABELS[u.role]}`,
+            meta: `Account · ${ROLE_LABELS[u.role] ?? u.role}`,
           });
         }
       }
