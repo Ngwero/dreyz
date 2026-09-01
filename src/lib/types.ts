@@ -121,6 +121,9 @@ export interface Grade {
   date: string;
   /** When the mark was saved (ISO) — used for live recent activity. */
   recordedAt?: string;
+  /** Optional student submission file. */
+  fileUrl?: string;
+  fileName?: string;
 }
 
 export interface Notice {
@@ -141,6 +144,9 @@ export interface Project {
   score: number;
   status: "submitted" | "reviewed" | "featured";
   thumbnail?: string;
+  /** Uploaded studio file URL (Storage or data URL). */
+  fileUrl?: string;
+  fileName?: string;
 }
 
 export interface Enrollment {
@@ -154,6 +160,35 @@ export interface Enrollment {
   feeTrackId?: string;
   classOptionId?: string;
   credentialsSent?: boolean;
+}
+
+/** Public / portal admissions application (no payment required here). */
+export interface AdmissionApplication {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  feeTrackId: string;
+  classOptionId: string;
+  intake: string;
+  /** Soft-copy photo / ID document URL. */
+  idPhotoUrl?: string;
+  notes?: string;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface CertificateRecord {
+  id: string;
+  learnerId: string;
+  learnerName: string;
+  email: string;
+  programme: string;
+  progressPercent: number;
+  issuedAt: string;
+  issuedBy: string;
 }
 
 export type UserRole = "super_admin" | "accountant" | "tutor" | "student";

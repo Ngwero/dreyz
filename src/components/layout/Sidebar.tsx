@@ -25,6 +25,7 @@ import {
   Wallet,
   UserRound,
   X,
+  Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/theme/BrandLogo";
@@ -85,6 +86,7 @@ function navForRole(role: UserRole): NavSection[] {
             ],
           },
           { label: "Portfolio", href: `${P}/projects`, icon: <Palette size={17} /> },
+          { label: "Certificates", href: `${P}/certificates`, icon: <Award size={17} /> },
         ],
       },
       {
@@ -131,6 +133,7 @@ function navForRole(role: UserRole): NavSection[] {
           { label: "Payments", href: `${P}/payments`, icon: <Wallet size={17} /> },
           { label: "Enrollments", href: `${P}/enrollments`, icon: <CreditCard size={17} /> },
           { label: "Admissions fees", href: `${P}/admissions`, icon: <ClipboardList size={17} /> },
+          { label: "Certificates", href: `${P}/certificates`, icon: <Award size={17} /> },
           { label: "Learners", href: `${P}/learners`, icon: <Users size={17} /> },
           { label: "Resources", href: `${P}/resources`, icon: <FolderOpen size={17} /> },
         ],
@@ -157,6 +160,7 @@ function navForRole(role: UserRole): NavSection[] {
           { label: "Attendance", href: `${P}/attendance`, icon: <ClipboardCheck size={17} /> },
           { label: "Assessments", href: `${P}/assessments`, icon: <FileText size={17} /> },
           { label: "Projects", href: `${P}/projects`, icon: <Palette size={17} /> },
+          { label: "Certificates", href: `${P}/certificates`, icon: <Award size={17} /> },
           { label: "Learners", href: `${P}/learners`, icon: <Users size={17} /> },
         ],
       },
@@ -182,8 +186,9 @@ function navForRole(role: UserRole): NavSection[] {
         { label: "Schedule", href: `${P}/schedule`, icon: <Calendar size={17} /> },
         { label: "Attendance", href: `${P}/attendance`, icon: <ClipboardCheck size={17} /> },
         { label: "Assessments", href: `${P}/assessments`, icon: <FileText size={17} /> },
-        { label: "My projects", href: `${P}/projects`, icon: <Palette size={17} /> },
-        { label: "Resources", href: `${P}/resources`, icon: <FolderOpen size={17} /> },
+          { label: "My projects", href: `${P}/projects`, icon: <Palette size={17} /> },
+          { label: "Certificates", href: `${P}/certificates`, icon: <Award size={17} /> },
+          { label: "Resources", href: `${P}/resources`, icon: <FolderOpen size={17} /> },
       ],
     },
     {

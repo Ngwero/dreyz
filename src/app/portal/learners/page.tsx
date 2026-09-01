@@ -28,7 +28,7 @@ import { computeLearnerProgress, feesForStudent } from "@/lib/academics";
 import { LearnerProfile } from "@/components/portal/LearnerProfile";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { formatUGX, cn } from "@/lib/utils";
-import { feeTracks } from "@/lib/data";
+import { getFeeTracks } from "@/lib/fee-catalog";
 import {
   INTAKE_OPTIONS,
   compareIntakeLabels,
@@ -45,6 +45,7 @@ import { formatActivityActor, formatActivityTime, lastActivityByLearner } from "
 
 export default function LearnersPage() {
   const { user } = useAuth();
+  const feeTracks = getFeeTracks();
   const tick = useLiveTick();
   const [learners, refresh] = useStoreList(learnersStore.getAll, learnersStore.key);
   const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);

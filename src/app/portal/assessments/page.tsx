@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Modal, Field, fieldClass, ConfirmDialog } from "@/components/ui/Modal";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, Paperclip, Pencil } from "lucide-react";
 import {
   assessmentsStore,
   coursesStore,
@@ -28,8 +28,26 @@ import { getAllUsers } from "@/lib/auth";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { resolveLearnerIntake } from "@/lib/intakes";
 import { syncLearnerProgress } from "@/lib/academics";
+import { tutorAssignedCourseTitles, courseAllowedForTutor } from "@/lib/tutor-scope";
+import type { Grade } from "@/lib/types";
+import { uploadFileWithFallback } from "@/lib/client-file-upload";
 
 type MarkStudent = { id: string; name: string; course: string; intake: string };
+
+async function uploadStudioFile(file: File): Promise<{ url: string; name: string } | null> {
+  const result = await uploadFileWithFallback(file, "/api/studio/upload");
+  if (!result.ok) {
+    showFlash("error", result.error);
+    return null;
+  }
+  if (result.embedded) {
+    showFlash(
+      "success",
+      "File saved on this device only — configure Supabase Storage for shared uploads."
+    );
+  }
+  return { url: result.url, name: result.name };
+}
 
 export default function AssessmentsPage() {
   const { user } = useAuth();
@@ -39,12 +57,16 @@ export default function AssessmentsPage() {
   const [courses] = useStoreList(coursesStore.getAll, coursesStore.key);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Assessment | null>(null);
   const [marking, setMarking] = useState<Assessment | null>(null);
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [markQuery, setMarkQuery] = useState("");
   const [courseOnly, setCourseOnly] = useState(false);
   const [intakeFilter, setIntakeFilter] = useState<string>("all");
   const [pendingDelete, setPendingDelete] = useState<Assessment | null>(null);
+  const [submitTarget, setSubmitTarget] = useState<Assessment | null>(null);
+  const [submitFile, setSubmitFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     title: "",
     course: "",
@@ -55,16 +77,25 @@ export default function AssessmentsPage() {
 
   const canCreate = user?.role === "super_admin";
   const canMark = user?.role === "super_admin" || user?.role === "tutor";
+  const tutorCourses = useMemo(() => tutorAssignedCourseTitles(user), [user]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return assessments;
-    return assessments.filter(
-      (a) =>
+    return assessments.filter((a) => {
+      if (!courseAllowedForTutor(a.course, tutorCourses)) return false;
+      if (!q) return true;
+      return (
         a.title.toLowerCase().includes(q) ||
         a.course.toLowerCase().includes(q) ||
         a.type.includes(q)
-    );
-  }, [assessments, query]);
+      );
+    });
+  }, [assessments, query, tutorCourses]);
+
+  const courseOptions = useMemo(() => {
+    if (tutorCourses === null) return courses;
+    return courses.filter((c) => courseAllowedForTutor(c.title, tutorCourses));
+  }, [courses, tutorCourses]);
 
   const onCreate = (e: FormEvent) => {
     e.preventDefault();
@@ -79,13 +110,124 @@ export default function AssessmentsPage() {
     });
     refresh();
     setOpen(false);
+    resetForm();
     showFlash("success", `${form.title.trim()} was created.`);
+  };
+
+  const resetForm = () => {
+    setForm({
+      title: "",
+      course: "",
+      type: "test",
+      date: new Date().toISOString().slice(0, 10),
+      maxScore: 100,
+    });
+    setEditing(null);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setOpen(true);
+  };
+
+  const openEdit = (assessment: Assessment) => {
+    setEditing(assessment);
+    setForm({
+      title: assessment.title,
+      course: assessment.course,
+      type: assessment.type,
+      date: assessment.date,
+      maxScore: assessment.maxScore,
+    });
+    setOpen(true);
+  };
+
+  const onSave = (e: FormEvent) => {
+    e.preventDefault();
+    if (editing) {
+      const updated: Assessment = {
+        ...editing,
+        title: form.title.trim(),
+        course: form.course.trim(),
+        type: form.type,
+        date: form.date,
+        maxScore: Number(form.maxScore) || 100,
+      };
+      assessmentsStore.upsert(updated);
+      const related = grades.filter((g) => g.assessmentId === editing.id);
+      if (related.length) {
+        gradesStore.upsertMany(
+          related.map((g) => ({
+            ...g,
+            title: updated.title,
+            course: updated.course,
+            type: updated.type,
+            maxScore: updated.maxScore,
+          }))
+        );
+        refreshGrades();
+      }
+      if (marking?.id === editing.id) setMarking(updated);
+      refresh();
+      setOpen(false);
+      resetForm();
+      showFlash("success", `${updated.title} was updated.`);
+      return;
+    }
+    onCreate(e);
   };
 
   const bumpSubmission = (a: Assessment) => {
     if (!canCreate && user?.role !== "student") return;
-    assessmentsStore.upsert({ ...a, submissions: a.submissions + 1 });
+    setSubmitTarget(a);
+    setSubmitFile(null);
+  };
+
+  const confirmStudentSubmit = async () => {
+    if (!submitTarget || !user?.learnerId) return;
+    setSubmitting(true);
+    let fileUrl: string | undefined;
+    let fileName: string | undefined;
+    if (submitFile) {
+      const uploaded = await uploadStudioFile(submitFile);
+      if (!uploaded) {
+        setSubmitting(false);
+        return;
+      }
+      fileUrl = uploaded.url;
+      fileName = uploaded.name;
+    }
+    const existing = grades.find(
+      (g) => g.assessmentId === submitTarget.id && g.learnerId === user.learnerId
+    );
+    const row: Grade = {
+      id: existing?.id ?? uid("GRD"),
+      assessmentId: submitTarget.id,
+      learnerId: user.learnerId,
+      learnerName: user.name,
+      title: submitTarget.title,
+      course: submitTarget.course,
+      type: submitTarget.type,
+      score: existing?.score ?? 0,
+      maxScore: submitTarget.maxScore,
+      date: new Date().toISOString().slice(0, 10),
+      recordedAt: new Date().toISOString(),
+      fileUrl: fileUrl ?? existing?.fileUrl,
+      fileName: fileName ?? existing?.fileName,
+    };
+    gradesStore.upsert(row);
+    if (!existing) {
+      assessmentsStore.upsert({
+        ...submitTarget,
+        submissions: submitTarget.submissions + 1,
+      });
+    }
     refresh();
+    refreshGrades();
+    setSubmitting(false);
+    setSubmitTarget(null);
+    setSubmitFile(null);
+    showFlash("success", fileName ? `Submitted with ${fileName}.` : "Submission recorded.");
   };
 
   const markStudents = useMemo(() => {
@@ -192,6 +334,8 @@ export default function AssessmentsPage() {
           maxScore: marking.maxScore,
           date: new Date().toISOString().slice(0, 10),
           recordedAt: new Date().toISOString(),
+          fileUrl: existing?.fileUrl,
+          fileName: existing?.fileName,
         };
       })
       .filter((row) => row !== null);
@@ -214,7 +358,7 @@ export default function AssessmentsPage() {
         description="Tests, exams, and the final exam. Marks and scores here update each learner’s progress bar (score quality counts, not only presence of a mark)."
         action={
           canCreate ? (
-            <Button size="sm" onClick={() => setOpen(true)}>
+            <Button size="sm" onClick={openCreate}>
               <Plus size={14} /> Create Assessment
             </Button>
           ) : undefined
@@ -287,13 +431,22 @@ export default function AssessmentsPage() {
                   </Button>
                 )}
                 {canCreate && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPendingDelete(assessment)}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEdit(assessment)}
+                    >
+                      <Pencil size={14} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPendingDelete(assessment)}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </>
                 )}
               </div>
             </TableCell>
@@ -367,18 +520,40 @@ export default function AssessmentsPage() {
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
                       Course
                     </th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+                      File
+                    </th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
                       Mark / {marking.maxScore}
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {markingRoster.map((student) => (
+                  {markingRoster.map((student) => {
+                    const submission = grades.find(
+                      (g) => g.assessmentId === marking.id && g.learnerId === student.id
+                    );
+                    return (
                     <tr key={student.id} className="hover:bg-surface/70">
                       <td className="px-4 py-3 font-medium text-foreground">{student.name}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted">{student.id}</td>
                       <td className="px-4 py-3 text-xs text-muted">{student.intake || "—"}</td>
                       <td className="px-4 py-3 text-muted">{student.course || "—"}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {submission?.fileUrl ? (
+                          <a
+                            href={submission.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-accent underline"
+                          >
+                            <Paperclip size={12} />
+                            {submission.fileName ?? "File"}
+                          </a>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <input
                           type="number"
@@ -393,7 +568,8 @@ export default function AssessmentsPage() {
                         />
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -409,8 +585,55 @@ export default function AssessmentsPage() {
         </Card>
       )}
 
-      <Modal open={open} title="Create assessment" onClose={() => setOpen(false)}>
-        <form onSubmit={onCreate} className="space-y-3">
+      <Modal
+        open={!!submitTarget}
+        title={submitTarget ? `Submit · ${submitTarget.title}` : "Submit"}
+        onClose={() => {
+          if (submitting) return;
+          setSubmitTarget(null);
+          setSubmitFile(null);
+        }}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted">
+            Optionally attach a soft-copy file (PDF, image, or studio export). Staff will see it
+            when entering marks.
+          </p>
+          <Field label="Attachment (optional)">
+            <input
+              type="file"
+              className={fieldClass}
+              onChange={(e) => setSubmitFile(e.target.files?.[0] ?? null)}
+            />
+          </Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => {
+                setSubmitTarget(null);
+                setSubmitFile(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" disabled={submitting} onClick={() => void confirmStudentSubmit()}>
+              {submitting ? "Uploading…" : "Confirm submit"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={open}
+        title={editing ? "Edit assessment" : "Create assessment"}
+        onClose={() => {
+          setOpen(false);
+          resetForm();
+        }}
+      >
+        <form onSubmit={onSave} className="space-y-3">
           <Field label="Title">
             <input required className={fieldClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </Field>
@@ -422,7 +645,7 @@ export default function AssessmentsPage() {
               onChange={(e) => setForm({ ...form, course: e.target.value })}
             >
               <option value="">Select course</option>
-              {courses.map((c) => (
+              {courseOptions.map((c) => (
                 <option key={c.id} value={c.title}>
                   {c.title}
                 </option>
@@ -447,8 +670,8 @@ export default function AssessmentsPage() {
             <input type="date" className={fieldClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit">Create</Button>
+            <Button type="button" variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
+            <Button type="submit">{editing ? "Save changes" : "Create"}</Button>
           </div>
         </form>
       </Modal>

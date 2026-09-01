@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { fieldClass, ConfirmDialog } from "@/components/ui/Modal";
-import { Check, Clock, Download, Users, X } from "lucide-react";
+import { Check, Clock, Download, Printer, Users, X } from "lucide-react";
 import {
   attendanceStore,
   learnersStore,
@@ -37,6 +37,9 @@ import {
 import { normalizeCourse } from "@/lib/course-structure";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { resolveLearnerIntake } from "@/lib/intakes";
+import { resolveLearnerRecord, studentAttendanceRecords } from "@/lib/learner-identity";
+import { tutorAssignedCourseTitles, courseAllowedForTutor } from "@/lib/tutor-scope";
+import { schoolInfo } from "@/lib/data";
 
 type Mark = AttendanceRecord["status"];
 
@@ -59,13 +62,18 @@ export default function AttendancePage() {
       .map(normalizeCourse)
       .filter((c) => c.status === "active" && c.title)
       .map((c) => c.title);
+    let list: string[];
     if (catalog.length) {
-      return [...new Set(catalog)].sort((a, b) => a.localeCompare(b));
+      list = [...new Set(catalog)].sort((a, b) => a.localeCompare(b));
+    } else {
+      const set = new Set<string>(allCourseTitles());
+      for (const l of learners) if (l.course) set.add(l.course);
+      list = Array.from(set).sort((a, b) => a.localeCompare(b));
     }
-    const set = new Set<string>(allCourseTitles());
-    for (const l of learners) if (l.course) set.add(l.course);
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [courses, learners]);
+    const allowed = tutorAssignedCourseTitles(user);
+    if (allowed === null) return list;
+    return list.filter((title) => courseAllowedForTutor(title, allowed));
+  }, [courses, learners, user]);
 
   const [date, setDate] = useState(today);
   const [course, setCourse] = useState("");
@@ -142,11 +150,15 @@ export default function AttendancePage() {
   }, [roster, marks, records, date, selectedCourse]);
 
   const scopedHistory = useMemo(() => {
-    if (user?.role === "student" && user.learnerId) {
-      return records.filter((r) => r.learnerId === user.learnerId);
+    if (user?.role === "student") {
+      return studentAttendanceRecords(records, learners, {
+        email: user.email,
+        learnerId: user.learnerId,
+        name: user.name,
+      });
     }
     return records;
-  }, [records, user]);
+  }, [records, user, learners]);
 
   const history = useMemo(() => {
     const q = historyQuery.trim().toLowerCase();
@@ -168,16 +180,21 @@ export default function AttendancePage() {
   );
 
   const awarded = useMemo(() => {
-    if (user?.role === "student" && user.learnerId) {
+    if (user?.role === "student") {
+      const learner = resolveLearnerRecord(learners, {
+        email: user.email,
+        learnerId: user.learnerId,
+        name: user.name,
+      });
       return awardedAttendance(
         scopedHistory,
-        learnerById.get(user.learnerId)?.enrollmentDate
+        learner?.enrollmentDate
       );
     }
     return scopedHistory.filter((r) =>
       attendanceCountsForAward(r.date, learnerById.get(r.learnerId)?.enrollmentDate)
     );
-  }, [scopedHistory, user, learnerById]);
+  }, [scopedHistory, user, learners, learnerById]);
 
   const summary = attendanceSummary(awarded);
 
@@ -223,15 +240,52 @@ export default function AttendancePage() {
     ]);
   };
 
+  const onPrintRoll = () => {
+    const w = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+    if (!w) return;
+    const rows = roster
+      .map(
+        (l) =>
+          `<tr><td>${l.name}</td><td>${l.id}</td><td>${markFor(l)}</td><td></td></tr>`
+      )
+      .join("");
+    w.document.write(`<!doctype html><html><head><title>Attendance roll — ${selectedCourse}</title>
+      <style>
+        body{font-family:system-ui,sans-serif;padding:32px;color:#0f172a}
+        h1{color:#082878;font-size:20px;margin:0 0 4px}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;font-size:13px}
+        th{background:#f1f5f9}
+        .muted{color:#64748b;font-size:13px}
+      </style></head><body>
+      <h1>${schoolInfo.name}</h1>
+      <p class="muted">Class roll · ${selectedCourse} · ${date}${intakeFilter !== "all" ? ` · ${intakeFilter}` : ""}</p>
+      <table>
+        <thead><tr><th>Learner</th><th>ID</th><th>Status</th><th>Signature</th></tr></thead>
+        <tbody>${rows || "<tr><td colspan=4>No learners on roll</td></tr>"}</tbody>
+      </table>
+      <p class="muted" style="margin-top:16px">Present ${counts.present} · Late ${counts.late} · Absent ${counts.absent}</p>
+      <script>window.print()</script>
+      </body></html>`);
+    w.document.close();
+  };
+
   return (
     <div>
       <PageHeader
         title="Attendance"
         description={`Pick a course, then mark Present / Late / Absent. Class progress uses that course’s class count from Courses (Super Admin). First ${ATTENDANCE_AWARD_MONTHS} months from enrolment count toward %.`}
         action={
-          <Button variant="outline" size="sm" onClick={onExport}>
-            <Download size={14} /> Export
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {canMark && (
+              <Button variant="outline" size="sm" onClick={onPrintRoll}>
+                <Printer size={14} /> Print roll
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={onExport}>
+              <Download size={14} /> Export
+            </Button>
+          </div>
         }
       />
 

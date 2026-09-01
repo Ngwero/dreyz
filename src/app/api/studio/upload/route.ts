@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireStaff } from "@/lib/api-auth";
+import { requireSignedIn } from "@/lib/api-auth";
 import { uploadToResourcesBucket } from "@/lib/storage-upload";
 
 export const runtime = "nodejs";
 
+/** Studio uploads for projects / assessment submissions — any signed-in user. */
 export async function POST(request: Request) {
   try {
-    const gated = await requireStaff();
+    const gated = await requireSignedIn();
     if (!gated.ok) return gated.response;
 
     const form = await request.formData();
@@ -19,12 +20,13 @@ export async function POST(request: Request) {
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());
+    const folder = gated.role === "student" ? "submissions" : "studio";
     const result = await uploadToResourcesBucket(
       gated.admin,
       bytes,
       file.name,
       file.type || "application/octet-stream",
-      "handouts"
+      `${folder}/${gated.userId}`
     );
 
     if (!result.ok) {

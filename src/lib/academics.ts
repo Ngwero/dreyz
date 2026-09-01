@@ -1,4 +1,4 @@
-import { feeTracks } from "./data";
+import { getFeeTracks } from "./fee-catalog";
 import { getPayments } from "./auth";
 import { attendanceStore, coursesStore, gradesStore, learnersStore } from "./store";
 import { normalizeCourse } from "./course-structure";
@@ -20,6 +20,7 @@ export function feesForStudent(
   learnerPaid?: number,
   learnerDue?: number
 ): FeeSnapshot {
+  const feeTracks = getFeeTracks();
   const track = feeTracks.find((t) => t.id === feeTrackId);
   const total = learnerDue && learnerDue > 0 ? learnerDue : track?.total ?? feeTracks[0]?.total ?? 3_350_000;
   const fromPayments = getPayments()
@@ -142,7 +143,7 @@ function isProgrammeCourseLabel(name: string) {
   ) {
     return true;
   }
-  return feeTracks.some(
+  return getFeeTracks().some(
     (t) => t.id.toLowerCase() === n || t.name.toLowerCase() === n
   );
 }

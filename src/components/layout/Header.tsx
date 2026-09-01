@@ -12,12 +12,19 @@ import {
   coursesStore,
   noticesStore,
   projectsStore,
+  useLiveTick,
 } from "@/lib/store";
+import {
+  markAllNoticesRead,
+  markNoticeRead,
+  unreadNoticeCount,
+} from "@/lib/notice-reads";
 
 type Hit = { label: string; href: string; meta: string };
 
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user } = useAuth();
+  const tick = useLiveTick();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
@@ -119,9 +126,12 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       }
     }
     return out.slice(0, 8);
-  }, [query, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick refreshes after store hydrate
+  }, [query, user, tick]);
 
-  const notices = noticesStore.getAll().slice(0, 4);
+  const allNotices = noticesStore.getAll();
+  const notices = allNotices.slice(0, 4);
+  const unread = unreadNoticeCount(allNotices.map((n) => n.id));
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border/70 bg-card/75 px-3 backdrop-blur-xl sm:h-[60px] sm:gap-3 sm:px-5 lg:px-7">
@@ -207,27 +217,58 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             className="relative rounded-lg p-2 text-muted transition hover:bg-surface-hover hover:text-foreground"
           >
             <Bell size={18} />
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+            {unread > 0 && (
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
           </button>
           {bellOpen && (
             <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
               <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
                 <p className="text-sm font-semibold">Notices</p>
-                <button type="button" onClick={() => setBellOpen(false)} className="text-muted">
-                  <X size={14} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {unread > 0 && (
+                    <button
+                      type="button"
+                      className="text-[11px] font-semibold text-accent"
+                      onClick={() => markAllNoticesRead(allNotices.map((n) => n.id))}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setBellOpen(false)} className="text-muted">
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
               <ul className="max-h-72 overflow-y-auto">
-                {notices.map((n) => (
-                  <li key={n.id} className="border-b border-border px-4 py-3 last:border-0">
-                    <p className="text-sm font-medium">{n.title}</p>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.content}</p>
-                  </li>
-                ))}
+                {notices.length === 0 ? (
+                  <li className="px-4 py-3 text-sm text-muted">No notices yet</li>
+                ) : (
+                  notices.map((n) => (
+                    <li key={n.id} className="border-b border-border last:border-0">
+                      <Link
+                        href="/portal/notices"
+                        onClick={() => {
+                          markNoticeRead(n.id);
+                          setBellOpen(false);
+                        }}
+                        className="block px-4 py-3 transition hover:bg-surface"
+                      >
+                        <p className="text-sm font-medium">{n.title}</p>
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.content}</p>
+                      </Link>
+                    </li>
+                  ))
+                )}
               </ul>
               <Link
                 href="/portal/notices"
-                onClick={() => setBellOpen(false)}
+                onClick={() => {
+                  markAllNoticesRead(allNotices.map((n) => n.id));
+                  setBellOpen(false);
+                }}
                 className="block border-t border-border px-4 py-2.5 text-center text-xs font-semibold text-accent"
               >
                 View all notices

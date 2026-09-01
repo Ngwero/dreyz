@@ -63,6 +63,7 @@ import {
   schoolFeeTotals,
   feesForStudent,
 } from "@/lib/academics";
+import { studentAttendanceRecords } from "@/lib/learner-identity";
 
 function DashHero({
   eyebrow,
@@ -772,10 +773,11 @@ function StudentDashboard({
   const resources = resourcesStore.getAll();
   const learner =
     learners.find((l) => l.id === learnerId) ??
-    learners.find((l) => l.email.toLowerCase() === email.toLowerCase());
+    learners.find((l) => l.email.toLowerCase() === email.toLowerCase()) ??
+    learners.find((l) => l.name.trim().toLowerCase() === name.trim().toLowerCase());
   const myProjects = projects.filter((p) => p.learnerId === learner?.id);
   const myAttendance = awardedAttendance(
-    attendance.filter((a) => a.learnerId === learner?.id),
+    studentAttendanceRecords(attendance, learners, { email, learnerId, name }),
     learner?.enrollmentDate
   );
   const breakdown = learner ? learnerProgressBreakdown(learner) : null;

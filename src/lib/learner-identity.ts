@@ -6,7 +6,7 @@ import {
   projectsStore,
   recordSchoolTombstone,
 } from "./store";
-import type { Learner, PaymentRecord, PortalUser } from "./types";
+import type { AttendanceRecord, Learner, PaymentRecord, PortalUser } from "./types";
 import { formatAdmissionNumber, parseAdmissionNumber } from "./admission-number";
 
 export { formatAdmissionNumber, parseAdmissionNumber } from "./admission-number";
@@ -74,6 +74,43 @@ export function findExistingStudentIdentity(email: string): {
     learner,
     userId: user?.id,
   };
+}
+
+/** Match a portal user to their roster row (ID, then email, then name). */
+export function resolveLearnerRecord(
+  learners: Learner[],
+  input: { email: string; learnerId?: string; name?: string }
+): Learner | undefined {
+  const email = input.email.trim().toLowerCase();
+  if (input.learnerId) {
+    const byId = learners.find((l) => l.id === input.learnerId);
+    if (byId) return byId;
+  }
+  const byEmail = learners.find((l) => l.email.toLowerCase() === email);
+  if (byEmail) return byEmail;
+  const name = input.name?.trim().toLowerCase();
+  if (name) {
+    return learners.find((l) => l.name.trim().toLowerCase() === name);
+  }
+  return undefined;
+}
+
+/** Attendance rows belonging to one student — works even when roster link is incomplete. */
+export function studentAttendanceRecords(
+  records: AttendanceRecord[],
+  learners: Learner[],
+  input: { email: string; learnerId?: string; name?: string }
+): AttendanceRecord[] {
+  const learner = resolveLearnerRecord(learners, input);
+  const ids = new Set<string>();
+  if (learner?.id) ids.add(learner.id);
+  if (input.learnerId) ids.add(input.learnerId);
+  const name = (learner?.name ?? input.name ?? "").trim().toLowerCase();
+  return records.filter((r) => {
+    if (ids.has(r.learnerId)) return true;
+    if (name && r.learnerName.trim().toLowerCase() === name) return true;
+    return false;
+  });
 }
 
 /**

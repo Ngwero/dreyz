@@ -23,13 +23,14 @@ import {
 import type { Learner } from "@/lib/types";
 import { exportCsv, learnersStore, useStoreList } from "@/lib/store";
 import { feesForStudent, schoolFeeTotals } from "@/lib/academics";
-import { feeTracks } from "@/lib/data";
+import { getFeeTracks } from "@/lib/fee-catalog";
 import { resolveStudentAdmissionId } from "@/lib/learner-identity";
 import { currentOpenIntake, resolveLearnerIntake } from "@/lib/intakes";
 import Link from "next/link";
 
 export default function EnrollmentsPage() {
   const { user } = useAuth();
+  const feeTracks = getFeeTracks();
   const [learners, refreshLearners] = useStoreList(
     learnersStore.getAll,
     learnersStore.key
@@ -68,6 +69,8 @@ export default function EnrollmentsPage() {
         )
       : learners;
 
+  const isStudent = user?.role === "student";
+
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = roleFiltered.map((learner) => {
@@ -96,9 +99,12 @@ export default function EnrollmentsPage() {
         learner.id.toLowerCase().includes(q) ||
         trackName.toLowerCase().includes(q)
     );
-  }, [roleFiltered, query]);
+  }, [roleFiltered, query, feeTracks]);
 
-  const totals = schoolFeeTotals(learners);
+  const totals = useMemo(
+    () => schoolFeeTotals(isStudent ? roleFiltered : learners),
+    [isStudent, roleFiltered, learners]
+  );
   const pending = rows.filter((r) => r.fees.balance > 0).length;
 
   const onExport = () => {
@@ -227,27 +233,25 @@ export default function EnrollmentsPage() {
                 <Download size={14} /> Export
               </Button>
             </div>
-          ) : (
-            <Button variant="outline" size="sm" onClick={onExport}>
-              <Download size={14} /> Export
-            </Button>
-          )
+          ) : undefined
         }
       />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
-          <p className="text-sm text-muted">Fees expected</p>
+          <p className="text-sm text-muted">{isStudent ? "Your programme fee" : "Fees expected"}</p>
           <p className="mt-1 text-2xl font-bold">{formatUGX(totals.expected)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-muted">Amount paid</p>
+          <p className="text-sm text-muted">{isStudent ? "Your payments" : "Amount paid"}</p>
           <p className="mt-1 text-2xl font-bold text-emerald-600">{formatUGX(totals.paid)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-muted">Balance due</p>
+          <p className="text-sm text-muted">{isStudent ? "Your balance" : "Balance due"}</p>
           <p className="mt-1 text-2xl font-bold text-amber-600">{formatUGX(totals.balance)}</p>
-          <p className="mt-1 text-xs text-muted">{pending} with balance remaining</p>
+          {!isStudent && (
+            <p className="mt-1 text-xs text-muted">{pending} with balance remaining</p>
+          )}
         </Card>
       </div>
 

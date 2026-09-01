@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { schoolInfo, publicFeeTracks, classOptions, programme, stats, admissionRequirements } from "@/lib/data";
+import { schoolInfo, classOptions, programme, stats, admissionRequirements } from "@/lib/data";
+import { publicFeeTracksLive } from "@/lib/fee-catalog";
 import { formatUGX, formatNumber } from "@/lib/utils";
 import { Reveal, RevealWords, useScrollProgress } from "./scroll";
 import { NeutraHeader, brand } from "./NeutraHeader";
@@ -61,6 +62,7 @@ function SectionBadge({
 
 export function LandingPage() {
   const progress = useScrollProgress();
+  const publicFeeTracks = useMemo(() => publicFeeTracksLive(), []);
 
   useEffect(() => {
     document.documentElement.classList.add("landing-smooth");
@@ -388,7 +390,7 @@ export function LandingPage() {
                 </Reveal>
                 <Reveal delay={0.25}>
                   <Link
-                    href="/login"
+                    href="/apply"
                     className="landing-btn-lime mt-8 inline-flex items-center gap-2 rounded-full px-6 py-3 text-[13px] font-semibold text-[#082878] transition hover:scale-[1.02]"
                   >
                     Claim your seat
@@ -455,7 +457,7 @@ export function LandingPage() {
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
-                href="/login"
+                href="/apply"
                 className="landing-btn-blue inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[13px] font-semibold text-white transition hover:scale-[1.02]"
               >
                 Apply now — {schoolInfo.intake} intake

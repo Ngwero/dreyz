@@ -17,6 +17,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/settings",
     "/notices",
     "/resources",
+    "/certificates",
   ],
   tutor: [
     "/",
@@ -30,6 +31,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/resources",
     "/notices",
     "/account",
+    "/certificates",
   ],
   student: [
     "/",
@@ -41,6 +43,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/notices",
     "/account",
     "/enrollments",
+    "/certificates",
   ],
 };
 
@@ -54,6 +57,7 @@ export const PAGE_FEATURES = [
   { id: "attendance", label: "Attendance", group: "Academics" },
   { id: "assessments", label: "Assessments", group: "Academics" },
   { id: "projects", label: "Projects & portfolio", group: "Academics" },
+  { id: "certificates", label: "Certificates & transcripts", group: "Academics" },
   { id: "learners", label: "Learners", group: "People" },
   { id: "enrollments", label: "Enrollments & billing", group: "People" },
   { id: "instructors", label: "Tutors", group: "People" },

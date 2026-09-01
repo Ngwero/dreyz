@@ -29,4 +29,14 @@ Copy `.env.example` to `.env.local` (or your host env) and fill:
 
 ## Backups
 
-Super Admin → Settings → **Download backup JSON** (browser snapshot after hydrate). Also keep Supabase backups enabled on the project.
+Super Admin → Settings → **Download backup JSON** / restore from JSON (browser snapshot after hydrate). Also keep Supabase backups enabled on the project.
+
+## Storage (resource uploads)
+
+Resource and studio uploads use the Supabase **`resources`** bucket. Apply `supabase/migrations/009_storage_resources.sql` in the SQL editor (or via CLI). Ensure `SUPABASE_SERVICE_ROLE_KEY` is set on the server.
+
+If cloud upload fails, files under 8 MB are saved locally in the browser as a fallback until storage is configured.
+
+## Migrations
+
+Apply SQL under `supabase/migrations/` in order. Migration `008_applications_certs_rls.sql` adds admissions applications + certificates tables and tightens student RLS.

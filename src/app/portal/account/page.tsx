@@ -23,8 +23,10 @@ import { createClient } from "@/lib/supabase/client";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrength";
 import { isPasswordAcceptable } from "@/lib/password-strength";
 import { ROLE_LABELS, canAccessRoute } from "@/lib/roles";
-import { classOptions, feeTracks, programme, schoolInfo } from "@/lib/data";
+import { classOptions, programme, schoolInfo } from "@/lib/data";
+import { getFeeTracks } from "@/lib/fee-catalog";
 import { resolveLearnerIntake } from "@/lib/intakes";
+import { resolveLearnerRecord, studentAttendanceRecords } from "@/lib/learner-identity";
 import { formatUGX } from "@/lib/utils";
 import {
   attendanceSummary,
@@ -133,6 +135,7 @@ export default function MyAccountPage() {
   }
 
   const learners = learnersStore.getAll();
+  void tick;
   const instructors = instructorsStore.getAll();
   const notices = noticesStore.getAll();
   const sessions = scheduleStore.getAll();
@@ -141,35 +144,49 @@ export default function MyAccountPage() {
   const projects = projectsStore.getAll();
   const attendance = attendanceStore.getAll();
 
-  const learner = profile.learnerId
-    ? learners.find((l) => l.id === profile.learnerId)
-    : learners.find((l) => l.email.toLowerCase() === profile.email.toLowerCase());
+  const learner = resolveLearnerRecord(learners, {
+    email: profile.email,
+    learnerId: profile.learnerId ?? user.learnerId,
+    name: profile.name,
+  });
   const instructor = profile.instructorId
     ? instructors.find((i) => i.id === profile.instructorId)
     : instructors.find((i) => i.email.toLowerCase() === profile.email.toLowerCase());
+    const feeTracks = getFeeTracks();
   const track = feeTracks.find((t) => t.id === profile.feeTrackId);
   const klass = classOptions.find((c) => c.id === profile.classOptionId);
+  const isStudent = profile.role === "student";
   const personalFees = feesForStudent(
     profile.email,
-    profile.feeTrackId,
+    profile.feeTrackId ?? learner?.feeTrackId,
     learner?.paidAmount,
     learner?.feeDue
   );
   const schoolFees = schoolFeeTotals(learners);
-  const feeDue = learner ? personalFees.total : schoolFees.expected;
-  const feePaid = learner ? personalFees.paid : schoolFees.paid;
-  const feeBalance = learner ? personalFees.balance : schoolFees.balance;
+  const feeDue = isStudent || learner ? personalFees.total : schoolFees.expected;
+  const feePaid = isStudent || learner ? personalFees.paid : schoolFees.paid;
+  const feeBalance = isStudent || learner ? personalFees.balance : schoolFees.balance;
   const liveProgress = learner ? computeLearnerProgress(learner) : 0;
   const myPayments = payments.filter(
     (p) => p.learnerEmail.toLowerCase() === profile.email.toLowerCase()
   );
-  const myAttendanceAll = attendance
-    .filter((a) => a.learnerId === learner?.id)
+  const myAttendanceAll = studentAttendanceRecords(attendance, learners, {
+    email: profile.email,
+    learnerId: learner?.id ?? profile.learnerId ?? user.learnerId,
+    name: profile.name,
+  })
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date));
   const myAttendance = awardedAttendance(myAttendanceAll, learner?.enrollmentDate);
   const myAttSummary = attendanceSummary(myAttendance);
-  const myProjects = projects.filter((p) => p.learnerId === learner?.id);
+  const myProjects = projects.filter(
+    (p) =>
+      p.learnerId === learner?.id ||
+      (isStudent &&
+        learner &&
+        p.learnerName.trim().toLowerCase() === learner.name.trim().toLowerCase())
+  );
+  const showPersonalAttendance = isStudent || !!learner;
   const { present } = attendanceSummary(attendance);
   const upcoming = [...sessions].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   const activity = collectRecentActivity(user).slice(0, 8);
@@ -313,18 +330,18 @@ export default function MyAccountPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Progress" value={learner ? `${liveProgress}%` : "—"} hint="Course completion" icon={TrendingUp} tone="accent" />
-        <StatCard label="Paid" value={formatUGX(feePaid)} hint={learner ? "Your fees" : "School collected"} icon={Wallet} tone="lime" />
+        <StatCard label="Paid" value={formatUGX(feePaid)} hint={isStudent || learner ? "Your fees" : "School collected"} icon={Wallet} tone="lime" />
         <StatCard
           label="Attendance"
-          value={String(learner ? myAttendance.length : present)}
-          hint={learner ? "Your awarded marks" : "Present marks in school"}
+          value={String(showPersonalAttendance ? myAttendance.length : present)}
+          hint={showPersonalAttendance ? "Your awarded marks" : "Present marks in school"}
           icon={ClipboardCheck}
           tone="warm"
         />
         <StatCard
           label="Projects"
-          value={String(learner ? myProjects.length : projects.length)}
-          hint={learner ? "Your submissions" : "School portfolio"}
+          value={String(showPersonalAttendance ? myProjects.length : projects.length)}
+          hint={showPersonalAttendance ? "Your submissions" : "School portfolio"}
           icon={FolderKanban}
         />
       </div>
@@ -438,17 +455,19 @@ export default function MyAccountPage() {
             <Row
               label="Access"
               value={
-                learner
+                isStudent || learner
                   ? personalFees.isLearner
                     ? "Active (threshold met)"
                     : "Pending — UGX 1,000,000 to activate"
                   : "Staff portal access"
               }
             />
-            <Row label="Payments on file" value={String(learner ? myPayments.length : payments.length)} />
+            <Row label="Payments on file" value={String(isStudent || learner ? myPayments.length : payments.length)} />
           </dl>
           <p className="mt-3 text-xs text-muted">
-            {learner ? "These are your personal fee totals." : "These are school-wide fee totals for staff accounts."}
+            {isStudent || learner
+              ? "These are your personal fee totals."
+              : "These are school-wide fee totals for staff accounts."}
           </p>
         </Card>
 
@@ -456,11 +475,11 @@ export default function MyAccountPage() {
           title="Attendance"
           action={
             <Link href="/portal/attendance" className="text-xs font-semibold text-accent">
-              Open
+              Full history
             </Link>
           }
         >
-          {learner ? (
+          {showPersonalAttendance ? (
             <>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-xl bg-surface px-2 py-3">
@@ -483,15 +502,20 @@ export default function MyAccountPage() {
                 </div>
               </div>
               {myAttendanceAll.length === 0 ? (
-                <p className="mt-3 text-sm text-muted">No attendance marked yet.</p>
+                <p className="mt-3 text-sm text-muted">
+                  No attendance marked yet. Marks appear here after tutors save class rolls.
+                </p>
               ) : (
                 <ul className="mt-3 space-y-2">
-                  {myAttendanceAll.slice(0, 6).map((r) => (
+                  {myAttendanceAll.slice(0, 8).map((r) => (
                     <li
                       key={r.id}
                       className="flex items-center justify-between gap-2 text-sm"
                     >
-                      <span className="text-muted">{r.date}</span>
+                      <span className="min-w-0 truncate text-muted">
+                        {r.date}
+                        {r.course ? ` · ${r.course}` : ""}
+                      </span>
                       <Badge
                         variant={
                           r.status === "present"
@@ -526,13 +550,13 @@ export default function MyAccountPage() {
             </Link>
           }
         >
-          {(learner ? myPayments : payments.slice(0, 6)).length === 0 ? (
+          {(isStudent || learner ? myPayments : payments.slice(0, 6)).length === 0 ? (
             <p className="text-sm text-muted">
               No payments on file yet. Contact {schoolInfo.email} if a payment is missing.
             </p>
           ) : (
             <ul className="space-y-2">
-              {(learner ? myPayments : payments.slice(0, 6)).map((p) => (
+              {(isStudent || learner ? myPayments : payments.slice(0, 6)).map((p) => (
                 <li
                   key={p.id}
                   className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm"
@@ -540,7 +564,7 @@ export default function MyAccountPage() {
                   <div>
                     <p className="font-medium">{formatUGX(p.amount)}</p>
                     <p className="text-xs text-muted">
-                      {p.learnerName} · {p.date} · {p.method.replace("_", " ")}
+                      {isStudent || learner ? `${p.date} · ${p.method.replace("_", " ")}` : `${p.learnerName} · ${p.date} · ${p.method.replace("_", " ")}`}
                     </p>
                   </div>
                   <Badge variant={p.status === "confirmed" ? "success" : p.status === "failed" ? "danger" : "warning"}>

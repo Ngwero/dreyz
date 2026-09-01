@@ -14,6 +14,8 @@ import type {
   Project,
   Resource,
   ScheduleItem,
+  AdmissionApplication,
+  CertificateRecord,
 } from "./types";
 import {
   assessments as seedAssessments,
@@ -57,6 +59,9 @@ const STORE_KEYS = [
   "dreyz_resources",
   "dreyz_grades",
   "dreyz_enrollments",
+  "dreyz_applications",
+  "dreyz_certificates",
+  "dreyz_fee_tracks",
   "dreyz_settings",
   "dreyz_users",
   "dreyz_payments",
@@ -296,6 +301,14 @@ export const projectsStore = createListStore<Project>("dreyz_projects", []);
 export const resourcesStore = createListStore("dreyz_resources", seedResources);
 export const gradesStore = createListStore<Grade>("dreyz_grades", []);
 export const enrollmentsStore = createListStore<Enrollment>("dreyz_enrollments", []);
+export const applicationsStore = createListStore<AdmissionApplication>(
+  "dreyz_applications",
+  []
+);
+export const certificatesStore = createListStore<CertificateRecord>(
+  "dreyz_certificates",
+  []
+);
 
 export type SchoolSettings = {
   name: string;

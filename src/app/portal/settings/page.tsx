@@ -15,16 +15,47 @@ import {
   saveRukaPayConfig,
 } from "@/lib/rukapay";
 import type { RukaPayConfig } from "@/lib/rukapay";
+import { getFeeTracks, saveFeeTracks } from "@/lib/fee-catalog";
+import type { FeeTrack } from "@/lib/types";
+import { feeTracks as seedFeeTracks } from "@/lib/data";
+
+const BACKUP_KEYS = [
+  "dreyz_learners",
+  "dreyz_payments",
+  "dreyz_attendance",
+  "dreyz_grades",
+  "dreyz_courses",
+  "dreyz_projects",
+  "dreyz_notices",
+  "dreyz_users",
+  "dreyz_tombstones",
+  "dreyz_settings",
+  "dreyz_applications",
+  "dreyz_certificates",
+  "dreyz_fee_tracks",
+  "dreyz_assessments",
+  "dreyz_instructors",
+  "dreyz_resources",
+];
+
+const MIGRATION_CHECKLIST = [
+  "001–007 — core tables, profiles, payments, intakes",
+  "008_applications_certs_rls.sql — applications, certificates, tighter student RLS",
+  "009_storage_resources.sql — public resources bucket for handouts/uploads",
+];
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
   const [rukaConfig, setRukaConfig] = useState<RukaPayConfig | null>(null);
   const [saved, setSaved] = useState("");
+  const [tracks, setTracks] = useState<FeeTrack[]>([]);
+  const [health, setHealth] = useState<{ ok?: boolean; error?: string } | null>(null);
 
   useEffect(() => {
     setSettings(getSettings());
     setRukaConfig(getRukaPayConfig());
+    setTracks(getFeeTracks());
   }, []);
 
   if (!settings) {
@@ -210,7 +241,7 @@ export default function SettingsPage() {
         </Card>
 
         <Card title="Supabase database">
-          <div className="space-y-2 text-sm">
+          <div className="space-y-3 text-sm">
             <p className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
               Connected to Supabase
@@ -225,45 +256,166 @@ export default function SettingsPage() {
               Use live Supabase logins in production. Demo seed passwords are disabled
               unless <code>NEXT_PUBLIC_ALLOW_DEMO_AUTH=true</code>.
             </p>
-            <a
-              href="/api/supabase/health"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-xs font-medium text-accent underline"
-            >
-              Check health endpoint
-            </a>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/supabase/health", { cache: "no-store" });
+                    const json = (await res.json()) as { ok?: boolean; error?: string };
+                    setHealth(json);
+                    if (res.ok && json.ok) showFlash("success", "Supabase health OK.");
+                    else showFlash("error", json.error ?? "Health check failed.");
+                  } catch {
+                    setHealth({ ok: false, error: "Network error" });
+                    showFlash("error", "Could not reach health endpoint.");
+                  }
+                }}
+              >
+                Run health check
+              </Button>
+              <a
+                href="/api/supabase/health"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-xs font-medium text-accent underline"
+              >
+                Open JSON
+              </a>
+            </div>
+            {health && (
+              <p className="text-xs text-muted">
+                Last check: {health.ok ? "OK" : health.error ?? "failed"}
+              </p>
+            )}
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">
+                Migrations to apply
+              </p>
+              <ul className="list-inside list-disc space-y-1 text-xs text-muted">
+                {MIGRATION_CHECKLIST.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
           </div>
         </Card>
+
+        {user?.role === "super_admin" && (
+          <Card title="Fee catalogue">
+            <p className="mb-3 text-sm text-muted">
+              Edit published programme fees used by admissions, enrollments, and the public
+              apply form. Legacy tracks stay available for existing learners but are hidden
+              from marketing.
+            </p>
+            <div className="space-y-4">
+              {tracks.map((track, idx) => (
+                <div key={track.id} className="rounded-xl border border-border p-3 space-y-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="text-xs font-medium">
+                      Name
+                      <input
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                        value={track.name}
+                        onChange={(e) => {
+                          const next = [...tracks];
+                          next[idx] = { ...track, name: e.target.value };
+                          setTracks(next);
+                        }}
+                      />
+                    </label>
+                    <label className="text-xs font-medium">
+                      Total (UGX)
+                      <input
+                        type="number"
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                        value={track.total}
+                        onChange={(e) => {
+                          const next = [...tracks];
+                          next[idx] = { ...track, total: Number(e.target.value) || 0 };
+                          setTracks(next);
+                        }}
+                      />
+                    </label>
+                    <label className="text-xs font-medium">
+                      Duration (months)
+                      <input
+                        type="number"
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                        value={track.durationMonths}
+                        onChange={(e) => {
+                          const next = [...tracks];
+                          next[idx] = {
+                            ...track,
+                            durationMonths: Number(e.target.value) || 1,
+                          };
+                          setTracks(next);
+                        }}
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-medium pt-6">
+                      <input
+                        type="checkbox"
+                        checked={!!track.legacy}
+                        onChange={(e) => {
+                          const next = [...tracks];
+                          next[idx] = { ...track, legacy: e.target.checked };
+                          setTracks(next);
+                        }}
+                      />
+                      Legacy (hide from public)
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-muted">Id: {track.id}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  saveFeeTracks(tracks);
+                  showFlash("success", "Fee catalogue saved.");
+                }}
+              >
+                Save fee catalogue
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setTracks(seedFeeTracks);
+                  saveFeeTracks(seedFeeTracks);
+                  showFlash("success", "Fee catalogue reset to defaults.");
+                }}
+              >
+                Reset to defaults
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {user?.role === "super_admin" && (
           <Card title="Backup & cleanup">
             <div className="space-y-3 text-sm">
               <p className="text-muted">
-                Download a JSON snapshot of roster, payments, attendance, and related
-                portal data from this browser (after live hydrate).
+                Download or restore a JSON snapshot of roster, payments, attendance,
+                applications, certificates, and related portal data from this browser
+                (after live hydrate).
               </p>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const keys = [
-                    "dreyz_learners",
-                    "dreyz_payments",
-                    "dreyz_attendance",
-                    "dreyz_grades",
-                    "dreyz_courses",
-                    "dreyz_projects",
-                    "dreyz_notices",
-                    "dreyz_users",
-                    "dreyz_tombstones",
-                    "dreyz_school_settings",
-                  ];
                   const data: Record<string, unknown> = {
                     exportedAt: new Date().toISOString(),
                   };
-                  for (const key of keys) {
+                  for (const key of BACKUP_KEYS) {
                     try {
                       const raw = localStorage.getItem(key);
                       data[key] = raw ? JSON.parse(raw) : null;
@@ -285,6 +437,46 @@ export default function SettingsPage() {
               >
                 Download backup JSON
               </Button>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">
+                  Restore from backup JSON
+                </span>
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="block w-full text-xs"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    try {
+                      const text = await file.text();
+                      const parsed = JSON.parse(text) as Record<string, unknown>;
+                      let restored = 0;
+                      for (const key of BACKUP_KEYS) {
+                        if (!(key in parsed)) continue;
+                        const value = parsed[key];
+                        if (value == null) {
+                          localStorage.removeItem(key);
+                        } else {
+                          localStorage.setItem(key, JSON.stringify(value));
+                        }
+                        restored += 1;
+                      }
+                      window.dispatchEvent(
+                        new CustomEvent("dreyz-store", { detail: { key: "*" } })
+                      );
+                      setTracks(getFeeTracks());
+                      showFlash(
+                        "success",
+                        `Restored ${restored} store key${restored === 1 ? "" : "s"}. Reload if lists look stale.`
+                      );
+                    } catch {
+                      showFlash("error", "Could not read that backup file.");
+                    }
+                  }}
+                />
+              </label>
               <Button
                 type="button"
                 size="sm"

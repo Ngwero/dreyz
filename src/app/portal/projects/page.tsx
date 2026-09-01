@@ -11,12 +11,29 @@ import {
 } from "@/components/ui/PageElements";
 import { Badge } from "@/components/ui/Badge";
 import { Modal, Field, fieldClass } from "@/components/ui/Modal";
-import { Star, Plus, Pencil } from "lucide-react";
+import { Star, Plus, Pencil, Paperclip } from "lucide-react";
 import { projectsStore, learnersStore, coursesStore, useStoreList, uid, type Project } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { showFlash } from "@/lib/flash";
 import { IntakeFilterTabs } from "@/components/portal/IntakeFilterTabs";
 import { resolveLearnerIntake } from "@/lib/intakes";
+import { tutorAssignedCourseTitles, courseAllowedForTutor } from "@/lib/tutor-scope";
+import { uploadFileWithFallback } from "@/lib/client-file-upload";
+
+async function uploadStudioFile(file: File): Promise<{ url: string; name: string } | null> {
+  const result = await uploadFileWithFallback(file, "/api/studio/upload");
+  if (!result.ok) {
+    showFlash("error", result.error);
+    return null;
+  }
+  if (result.embedded) {
+    showFlash(
+      "success",
+      "File saved on this device only — configure Supabase Storage for shared uploads."
+    );
+  }
+  return { url: result.url, name: result.name };
+}
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -28,6 +45,8 @@ export default function ProjectsPage() {
   const [viewId, setViewId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     title: "",
     course: "",
@@ -37,14 +56,18 @@ export default function ProjectsPage() {
   });
 
   const canReview = user?.role === "super_admin";
-  const canSubmit = user?.role === "student" || canReview;
+  const canSubmit = user?.role === "student" || canReview || user?.role === "tutor";
+  const tutorCourses = useMemo(() => tutorAssignedCourseTitles(user), [user]);
 
   const scoped = useMemo(() => {
     if (user?.role === "student" && user.learnerId) {
       return projects.filter((p) => p.learnerId === user.learnerId);
     }
+    if (tutorCourses !== null) {
+      return projects.filter((p) => courseAllowedForTutor(p.course, tutorCourses));
+    }
     return projects;
-  }, [projects, user]);
+  }, [projects, user, tutorCourses]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,6 +92,11 @@ export default function ProjectsPage() {
     return learners.filter((l) => resolveLearnerIntake(l) === intakeFilter);
   }, [learners, intakeFilter]);
 
+  const courseOptions = useMemo(() => {
+    if (tutorCourses === null) return courses;
+    return courses.filter((c) => courseAllowedForTutor(c.title, tutorCourses));
+  }, [courses, tutorCourses]);
+
   const viewing = projects.find((p) => p.id === viewId) ?? null;
 
   const setStatus = (project: Project, status: Project["status"]) => {
@@ -85,13 +113,23 @@ export default function ProjectsPage() {
     showFlash("success", `Score saved for ${project.title}.`);
   };
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const learner = learners.find((l) => l.id === form.learnerId);
     const learnerId = learner?.id ?? user?.learnerId ?? editing?.learnerId;
     if (!learnerId) {
       showFlash("error", "Select a learner with a valid admission number.");
       return;
+    }
+    let fileUrl = editing?.fileUrl;
+    let fileName = editing?.fileName;
+    if (file) {
+      setUploading(true);
+      const uploaded = await uploadStudioFile(file);
+      setUploading(false);
+      if (!uploaded) return;
+      fileUrl = uploaded.url;
+      fileName = uploaded.name;
     }
     projectsStore.upsert({
       id: editing?.id ?? uid("PRJ"),
@@ -101,10 +139,13 @@ export default function ProjectsPage() {
       learnerName: learner?.name ?? user?.name ?? editing?.learnerName ?? "Learner",
       score: canReview ? Number(form.score) || 0 : editing?.score ?? 0,
       status: canReview ? form.status : editing?.status ?? "submitted",
+      fileUrl,
+      fileName,
     });
     refresh();
     setOpen(false);
     setEditing(null);
+    setFile(null);
     showFlash("success", editing ? `${form.title.trim()} was updated.` : `${form.title.trim()} was saved.`);
   };
 
@@ -112,7 +153,7 @@ export default function ProjectsPage() {
     <div>
       <PageHeader
         title="Student Portfolio Projects"
-        description="Review and score projects by intake. Students see their own submissions on the portal."
+        description="Upload studio files with each project. Students see their own submissions; tutors only see assigned courses."
         action={
           canSubmit ? (
             <Button size="sm" onClick={() => setOpen(true)}>
@@ -161,7 +202,12 @@ export default function ProjectsPage() {
               <h3 className="font-semibold text-foreground">{project.title}</h3>
               <p className="mt-1 text-sm text-muted">{project.learnerName}</p>
               <p className="text-xs text-muted">{project.course}</p>
-                <div className="mt-3 flex items-center justify-between gap-2">
+              {project.fileName && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-accent">
+                  <Paperclip size={12} /> {project.fileName}
+                </p>
+              )}
+              <div className="mt-3 flex items-center justify-between gap-2">
                 <Badge
                   variant={
                     project.status === "featured"
@@ -187,6 +233,7 @@ export default function ProjectsPage() {
                           score: project.score,
                           status: project.status,
                         });
+                        setFile(null);
                         setOpen(true);
                       }}
                     >
@@ -210,6 +257,7 @@ export default function ProjectsPage() {
             { key: "title", label: "Project" },
             { key: "learner", label: "Learner" },
             { key: "course", label: "Course" },
+            { key: "file", label: "File" },
             { key: "score", label: "Score" },
             { key: "status", label: "Status" },
           ]}
@@ -219,6 +267,15 @@ export default function ProjectsPage() {
               <TableCell className="font-medium">{project.title}</TableCell>
               <TableCell>{project.learnerName}</TableCell>
               <TableCell className="max-w-[180px] truncate">{project.course}</TableCell>
+              <TableCell className="text-xs text-muted">
+                {project.fileUrl ? (
+                  <a href={project.fileUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+                    {project.fileName ?? "Open"}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </TableCell>
               <TableCell className="font-semibold">{project.score}%</TableCell>
               <TableCell>
                 <Badge
@@ -245,6 +302,16 @@ export default function ProjectsPage() {
               {viewing.learnerName} · {viewing.course}
             </p>
             <p className="text-3xl font-bold">{viewing.score}%</p>
+            {viewing.fileUrl && (
+              <a
+                href={viewing.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-accent underline"
+              >
+                <Paperclip size={14} /> {viewing.fileName ?? "Download file"}
+              </a>
+            )}
             {canReview && (
               <>
                 <Field label="Score">
@@ -274,7 +341,7 @@ export default function ProjectsPage() {
         )}
       </Modal>
 
-      <Modal open={open} title={editing ? "Edit project" : "Submit project"} onClose={() => { setOpen(false); setEditing(null); }}>
+      <Modal open={open} title={editing ? "Edit project" : "Submit project"} onClose={() => { setOpen(false); setEditing(null); setFile(null); }}>
         <form onSubmit={onSubmit} className="space-y-3">
           <Field label="Title">
             <input required className={fieldClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -282,12 +349,22 @@ export default function ProjectsPage() {
           <Field label="Course">
             <select required className={fieldClass} value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })}>
               <option value="">Select course</option>
-              {courses.map((c) => (
+              {courseOptions.map((c) => (
                 <option key={c.id} value={c.title}>{c.title}</option>
               ))}
             </select>
           </Field>
-          {canReview && (
+          <Field label="Studio file">
+            <input
+              type="file"
+              className={fieldClass}
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            {editing?.fileName && !file && (
+              <p className="mt-1 text-xs text-muted">Current: {editing.fileName}</p>
+            )}
+          </Field>
+          {(canReview || user?.role === "tutor") && user?.role !== "student" && (
             <>
               <Field label="Learner">
                 <select className={fieldClass} value={form.learnerId} onChange={(e) => setForm({ ...form, learnerId: e.target.value })}>
@@ -299,21 +376,25 @@ export default function ProjectsPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Score">
-                <input type="number" min={0} max={100} className={fieldClass} value={form.score} onChange={(e) => setForm({ ...form, score: Number(e.target.value) })} />
-              </Field>
-              <Field label="Status">
-                <select className={fieldClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Project["status"] })}>
-                  <option value="submitted">submitted</option>
-                  <option value="reviewed">reviewed</option>
-                  <option value="featured">featured</option>
-                </select>
-              </Field>
+              {canReview && (
+                <>
+                  <Field label="Score">
+                    <input type="number" min={0} max={100} className={fieldClass} value={form.score} onChange={(e) => setForm({ ...form, score: Number(e.target.value) })} />
+                  </Field>
+                  <Field label="Status">
+                    <select className={fieldClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Project["status"] })}>
+                      <option value="submitted">submitted</option>
+                      <option value="reviewed">reviewed</option>
+                      <option value="featured">featured</option>
+                    </select>
+                  </Field>
+                </>
+              )}
             </>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditing(null); }}>Cancel</Button>
-            <Button type="submit">{editing ? "Save" : "Submit"}</Button>
+            <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditing(null); setFile(null); }}>Cancel</Button>
+            <Button type="submit" disabled={uploading}>{uploading ? "Uploading…" : editing ? "Save" : "Submit"}</Button>
           </div>
         </form>
       </Modal>

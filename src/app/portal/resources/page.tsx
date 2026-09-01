@@ -10,6 +10,7 @@ import { resourcesStore, useStoreList, uid, type Resource } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { showFlash } from "@/lib/flash";
 import { LottieLoader } from "@/components/ui/LottieLoader";
+import { uploadFileWithFallback } from "@/lib/client-file-upload";
 
 const typeIcons = {
   PDF: FileText,
@@ -66,12 +67,9 @@ export default function ResourcesPage() {
 
     setUploading(true);
     try {
-      const data = new FormData();
-      data.append("file", form.file);
-      const res = await fetch("/api/resources/upload", { method: "POST", body: data });
-      const json = (await res.json()) as { ok?: boolean; url?: string; error?: string };
-      if (!res.ok || !json.ok || !json.url) {
-        showFlash("error", json.error ?? "Could not upload the file.");
+      const result = await uploadFileWithFallback(form.file, "/api/resources/upload");
+      if (!result.ok) {
+        showFlash("error", result.error);
         return;
       }
 
@@ -82,14 +80,21 @@ export default function ResourcesPage() {
         type: form.type,
         files: 1,
         downloads: 0,
-        fileUrl: json.url,
+        fileUrl: result.url,
         paid: form.paid,
         price: form.paid ? Number(form.price) || 0 : 0,
       });
       refresh();
       setForm(emptyForm);
       if (fileRef.current) fileRef.current.value = "";
-      showFlash("success", `${form.title.trim()} was uploaded for learners to download.`);
+      if (result.embedded) {
+        showFlash(
+          "success",
+          `${form.title.trim()} saved on this device. For team-wide downloads, sign in with Supabase and run migration 009_storage_resources.sql.`
+        );
+      } else {
+        showFlash("success", `${form.title.trim()} was uploaded for learners to download.`);
+      }
     } catch {
       showFlash("error", "Network error while uploading the file.");
     } finally {

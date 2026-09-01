@@ -9,6 +9,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { noticesStore, useStoreList, uid, type Notice } from "@/lib/store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { showFlash } from "@/lib/flash";
+import { markAllNoticesRead } from "@/lib/notice-reads";
 
 export default function NoticesPage() {
   const { user } = useAuth();
@@ -39,6 +40,10 @@ export default function NoticesPage() {
       }
     })();
   }, [refresh]);
+
+  useEffect(() => {
+    if (notices.length) markAllNoticesRead(notices.map((n) => n.id));
+  }, [notices]);
 
   const onPost = async (e: FormEvent) => {
     e.preventDefault();

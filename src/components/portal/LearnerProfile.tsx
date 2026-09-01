@@ -4,7 +4,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { CourseDonutChart } from "@/components/dashboard/CourseDonutChart";
 import { formatUGX } from "@/lib/utils";
-import { classOptions, feeTracks } from "@/lib/data";
+import { classOptions } from "@/lib/data";
+import { getFeeTracks } from "@/lib/fee-catalog";
 import { getAllUsers } from "@/lib/auth";
 import {
   attendanceStore,
@@ -84,6 +85,7 @@ export function LearnerProfile({
       u.email.toLowerCase() === learner.email.toLowerCase()
   );
   const fees = feesForStudent(learner.email, account?.feeTrackId, learner.paidAmount, learner.feeDue);
+    const feeTracks = getFeeTracks();
   const track = feeTracks.find((t) => t.id === account?.feeTrackId) ?? feeTracks[0];
   const klass = classOptions.find((c) => c.id === account?.classOptionId);
   const progress = learnerProgressBreakdown(learner);
